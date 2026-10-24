@@ -1,0 +1,1276 @@
+{
+  "id": "G01",
+  "slug": "geometric-understanding",
+  "name": "On Geometric Understanding and Learned Priors in Feed-forward 3D Reconstruction Models",
+  "version": "2512.11508v2",
+  "pdf": "research/sources/2512.11508v2.pdf",
+  "url": "https://arxiv.org/pdf/2512.11508v2",
+  "sha256": "ac2e1e2bbdf57af34b6c924f84b90245de08dfd98eda34c113aef8460f33fce4",
+  "pages": 24,
+  "figures": [
+    {
+      "id": "S4.F1",
+      "text": "VGGT Depth Anything 3 DUSt3R Synthetic Real data Figure 1 : Probing internal representations for fundamental matrix approximation. We successfully recover the fundamental matrix from all three models on both synthetic and real-world datasets. However, the emergence trends differ across models: models with camera-tokens ( VGGT and DA3 ) exhibit a similar pattern, with clear change in the middle layers and strong performance in the final layers. DUSt3R shows strong performance already in the early layers, with slight degradation towards the final layers.",
+      "images": []
+    },
+    {
+      "id": "S4.F2",
+      "text": "VGGT Depth Anything 3 DUSt3R F (1 → \\to 2) R (2 → \\to 1) Figure 2 : Correspondence matching per attention head. We compare correspondence matching performance using the QK attention space for forward (view 1 → \\xrightarrow{} view 2) and reverse (view 2 → \\xrightarrow{} view 1) directions. Strong matching performance is established in the layers, which immediately precede the transition observed in fig. 1 . Middle layers are active for both VGGT and DA3 , whereas DUSt3R exhibits correspondence matching already in the first block and asymmetrically active heads in different directions, stemming from its asymmetric decoders.",
+      "images": [
+        {
+          "src": "2512.11508v2/forward_matching_heatmap.png",
+          "id": "S4.F2.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:146/78;",
+          "width": "146",
+          "height": "78",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x1.png",
+          "id": "S4.F2.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:146/78;",
+          "width": "146",
+          "height": "78",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x2.png",
+          "id": "S4.F2.g3",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:146/78;",
+          "width": "146",
+          "height": "78",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/reverse_matching_heatmap.png",
+          "id": "S4.F2.g4",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:146/78;",
+          "width": "146",
+          "height": "78",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x3.png",
+          "id": "S4.F2.g5",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:146/78;",
+          "width": "146",
+          "height": "78",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x4.png",
+          "id": "S4.F2.g6",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:146/78;",
+          "width": "146",
+          "height": "78",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F3",
+      "text": "VGGT Depth Anything 3 DUSt3R* Whole heads Image map Block Patch Figure 3 : Performance degradation under attention interventions on 4 localities. Disrupting random early or late layers has minimal impact on performance, whereas intervention on high correspondence-matching-layers cause significant degradation. The degradation is consistent across all models and at all levels of locality. *For DUSt3R , we report results only for valid cases for Image map and Whole heads, since 72% of cases result in invalid predictions.",
+      "images": []
+    },
+    {
+      "id": "S5.F4",
+      "text": "Figure 4 : Occlusion experiment. (Left) We occlude image two from a pair with white patches and report the correspondence matching ability in all layers only for the masked patches. The occluded model shows lower matching performance yet remains above zero. (Center) We measure the changes in the Sampson error for clean and occluded image pairs where VGGT has a minimal degradation in performance, but others are significantly affected. (Right) We show the average number of heads with correspondence matching on occluded patches for the clean and occluded models.",
+      "images": [
+        {
+          "src": "2512.11508v2/input_image_final.png",
+          "id": "S5.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/138;",
+          "width": "476",
+          "height": "138",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5.fig1",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/dtu_rect_012_3_r5000.png",
+          "id": "A1.F5.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:476/357;",
+          "width": "476",
+          "height": "357",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5.fig2",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/eth_DSC_0575.JPG",
+          "id": "A1.F5.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:476/317;",
+          "width": "476",
+          "height": "317",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5.fig3",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/mipnerf_DSCF0660.JPG",
+          "id": "A1.F5.g3",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:476/318;",
+          "width": "476",
+          "height": "318",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5.fig4",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/spair3.png",
+          "id": "A1.F5.g4",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:476/181;",
+          "width": "476",
+          "height": "181",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5.fig5",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/dtu_rect_058_max.png",
+          "id": "A1.F5.g5",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:476/357;",
+          "width": "476",
+          "height": "357",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5.fig6",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/eth_DSC_0576.JPG",
+          "id": "A1.F5.g6",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:476/317;",
+          "width": "476",
+          "height": "317",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5.fig7",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/mipnerfDSCF0885.JPG",
+          "id": "A1.F5.g7",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:476/318;",
+          "width": "476",
+          "height": "318",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5.fig8",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/spair4.png",
+          "id": "A1.F5.g8",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:476/172;",
+          "width": "476",
+          "height": "172",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig1",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/bed1.png",
+          "id": "A1.F6.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig2",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/bed2.png",
+          "id": "A1.F6.g2",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig3",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/flowers1.png",
+          "id": "A1.F6.g3",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig4",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/flowers2.png",
+          "id": "A1.F6.g4",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig5",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/car1.png",
+          "id": "A1.F6.g5",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig6",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/car2.png",
+          "id": "A1.F6.g6",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig7",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/triplet_image_0000.png",
+          "id": "A1.F6.g7",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig8",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/triplet_image_0001.png",
+          "id": "A1.F6.g8",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig9",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/triplet_image_0002.png",
+          "id": "A1.F6.g9",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig10",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/triplet_l_image_0000.png",
+          "id": "A1.F6.g10",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig11",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/triplet_l_image_0001.png",
+          "id": "A1.F6.g11",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6.fig12",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/triplet_l_image_0002.png",
+          "id": "A1.F6.g12",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A2.F7",
+      "text": "VGGT Depth Anything 3 DUSt3R MipNeRF Figure 7 : Probing internal representations for fundamental matrix approximation. We successfully recover the fundamental matrix from all three models, also on the MipNeRF360 dataset, but with higher error values. However, the emergence trends remain the same as for other datasets.",
+      "images": []
+    },
+    {
+      "id": "A2.F8",
+      "text": "VGGT Depth Anything 3 DUSt3R Synthetic Real data Figure 8 : Probing internal representations for fundamental matrix approximation. We successfully recover the fundamental matrix from all three models on both synthetic and real-world datasets when using a linear probe. We report the same trends as for the MLP probe, but with higher errors.",
+      "images": []
+    },
+    {
+      "id": "A2.F9",
+      "text": "VGGT Depth Anything 3 DUSt3R Synthetic Real data Figure 9 : Probing internal representations for fundamental matrix approximation. We successfully recover the fundamental matrix from all three models on both synthetic and real-world datasets with an MLP probe trained only for 1 epoch. We report the same trends, but the error values are significantly higher.",
+      "images": []
+    },
+    {
+      "id": "A2.F10",
+      "text": "VGGT Depth Anything 3 DUSt3R Synthetic Figure 10 : Rank ratio. Ratio of smallest and largest singular values across layers on different data splits for the probing experiment from fig. 1 . A good fundamental matrix should have a significant difference between the largest and smallest singular values.",
+      "images": []
+    },
+    {
+      "id": "A2.F11.fig1",
+      "text": "",
+      "images": []
+    },
+    {
+      "id": "A2.F11.fig2",
+      "text": "",
+      "images": []
+    },
+    {
+      "id": "A3.F12",
+      "text": "VGGT Depth Anything 3 DUSt3R ETH3D F (1 → \\to 2) R (2 → \\to 1) VGGT Depth Anything 3 DUSt3R DTU F (1 → \\to 2) R (2 → \\to 1) VGGT Depth Anything 3 DUSt3R MipNeRF F (1 → \\to 2) R (2 → \\to 1) Figure 12 : Correspondence matching per attention head for real-world datasets. We compare correspondence matching performance using the QK attention space for forward (view 1 → \\xrightarrow{} view 2) and reverse (view 2 → \\xrightarrow{} view 1) directions. Strong matching performance is observed in the layers immediately preceding the transition in the probing experiment. We observe the same trends as for our ShapeNet dataset.",
+      "images": [
+        {
+          "src": "2512.11508v2/eth_forward_matching_heatmap.png",
+          "id": "A3.F12.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x5.png",
+          "id": "A3.F12.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x6.png",
+          "id": "A3.F12.g3",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/eth_reverse_matching_heatmap.png",
+          "id": "A3.F12.g4",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x7.png",
+          "id": "A3.F12.g5",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x8.png",
+          "id": "A3.F12.g6",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/dtu_forward_matching_heatmap.png",
+          "id": "A3.F12.g7",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x9.png",
+          "id": "A3.F12.g8",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x10.png",
+          "id": "A3.F12.g9",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/dtu_reverse_matching_heatmap.png",
+          "id": "A3.F12.g10",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x11.png",
+          "id": "A3.F12.g11",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x12.png",
+          "id": "A3.F12.g12",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/mip_forward_matching_heatmap.png",
+          "id": "A3.F12.g13",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x13.png",
+          "id": "A3.F12.g14",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x14.png",
+          "id": "A3.F12.g15",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/mip_reverse_matching_heatmap.png",
+          "id": "A3.F12.g16",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x15.png",
+          "id": "A3.F12.g17",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x16.png",
+          "id": "A3.F12.g18",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A3.F13",
+      "text": "VGGT Depth Anything 3 DUSt3R Synthetic ETH3D DTU Figure 13 : Correspondence matching through feature similarity. We compare correspondence matching performance using the feature similarity for forward (left in pair) and reverse (right in pair) directions. We observe that models retain geometric correspondence similarity in their features, and this similarity becomes stronger after the matching ability in the QK attention space emerges.",
+      "images": [
+        {
+          "src": "2512.11508v2/forward_matching_heatmap_distance.png",
+          "id": "A3.F13.g1",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/reverse_matching_heatmap_distance.png",
+          "id": "A3.F13.g2",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x17.png",
+          "id": "A3.F13.g3",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x18.png",
+          "id": "A3.F13.g4",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x19.png",
+          "id": "A3.F13.g5",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/114;",
+          "width": "58",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x20.png",
+          "id": "A3.F13.g6",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/114;",
+          "width": "58",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/eth_forward_matching_heatmap_distance.png",
+          "id": "A3.F13.g7",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/eth_reverse_matching_heatmap_distance.png",
+          "id": "A3.F13.g8",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x21.png",
+          "id": "A3.F13.g9",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x22.png",
+          "id": "A3.F13.g10",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x23.png",
+          "id": "A3.F13.g11",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/114;",
+          "width": "58",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x24.png",
+          "id": "A3.F13.g12",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/114;",
+          "width": "58",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/dtu_forward_matching_heatmap_distance.png",
+          "id": "A3.F13.g13",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/dtu_reverse_matching_heatmap_distance.png",
+          "id": "A3.F13.g14",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x25.png",
+          "id": "A3.F13.g15",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x26.png",
+          "id": "A3.F13.g16",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x27.png",
+          "id": "A3.F13.g17",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/114;",
+          "width": "58",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x28.png",
+          "id": "A3.F13.g18",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/114;",
+          "width": "58",
+          "height": "114",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A3.F14",
+      "text": "VGGT Depth Anything 3 DUSt3R Figure 14 : Semantic correspondence matching through feature similarity. We compare semantic correspondence matching performance using the feature similarity for forward (left in pair) and reverse (right in pair) directions from SPair71k dataset. We observe different trends for different model families.",
+      "images": [
+        {
+          "src": "2512.11508v2/x29.png",
+          "id": "A3.F14.g1",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x30.png",
+          "id": "A3.F14.g2",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x31.png",
+          "id": "A3.F14.g3",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x32.png",
+          "id": "A3.F14.g4",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/113;",
+          "width": "58",
+          "height": "113",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x33.png",
+          "id": "A3.F14.g5",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/114;",
+          "width": "58",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x34.png",
+          "id": "A3.F14.g6",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:58/114;",
+          "width": "58",
+          "height": "114",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A3.F15",
+      "text": "DA3 Small DA3 Large DA3 Giant Synthetic F (1 → \\to 2) R (2 → \\to 1) ETH3D F (1 → \\to 2) R (2 → \\to 1) DTU F (1 → \\to 2) R (2 → \\to 1) Figure 15 : Correspondence matching for different DA3 ’s model sizes. We compare correspondence matching performance using the QK attention space for forward (view 1 → \\xrightarrow{} view 2) and reverse (view 2 → \\xrightarrow{} view 1) directions for the giant, large, and small versions of the model. We observe that the middle layers exhibit strong correspondence-matching activity across all three sizes, with slightly decreased activity towards the end.",
+      "images": [
+        {
+          "src": "2512.11508v2/x35.png",
+          "id": "A3.F15.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x36.png",
+          "id": "A3.F15.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x37.png",
+          "id": "A3.F15.g3",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/63;",
+          "width": "134",
+          "height": "63",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x38.png",
+          "id": "A3.F15.g4",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x39.png",
+          "id": "A3.F15.g5",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x40.png",
+          "id": "A3.F15.g6",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/63;",
+          "width": "134",
+          "height": "63",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x41.png",
+          "id": "A3.F15.g7",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x5.png",
+          "id": "A3.F15.g8",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x42.png",
+          "id": "A3.F15.g9",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/63;",
+          "width": "134",
+          "height": "63",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x43.png",
+          "id": "A3.F15.g10",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x7.png",
+          "id": "A3.F15.g11",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x44.png",
+          "id": "A3.F15.g12",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/63;",
+          "width": "134",
+          "height": "63",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x45.png",
+          "id": "A3.F15.g13",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x9.png",
+          "id": "A3.F15.g14",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x46.png",
+          "id": "A3.F15.g15",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/63;",
+          "width": "134",
+          "height": "63",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x47.png",
+          "id": "A3.F15.g16",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x11.png",
+          "id": "A3.F15.g17",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/72;",
+          "width": "134",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.11508v2/x48.png",
+          "id": "A3.F15.g18",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:134/63;",
+          "width": "134",
+          "height": "63",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A3.F16",
+      "text": "VGGT Depth Anything 3 DUSt3R* Whole heads Image map Block Patch Figure 16 : Performance degradation under attention interventions on 4 localities. We show additional combinations of interventions. *For DUSt3R , we report results only for valid cases for Image map and Whole heads.",
+      "images": []
+    },
+    {
+      "id": "A5.F17.fig1",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img1_normal.png",
+          "id": "A5.F17.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.fig2",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img1_bright.png",
+          "id": "A5.F17.g2",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.fig3",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img1_dim.png",
+          "id": "A5.F17.g3",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.fig4",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img1_neon.png",
+          "id": "A5.F17.g4",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.fig5",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img1_rainbow.png",
+          "id": "A5.F17.g5",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.fig6",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img1_warm.png",
+          "id": "A5.F17.g6",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.sf1",
+      "text": "(a) Normal Normal",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img2_normal.png",
+          "id": "A5.F17.sf1.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.sf2",
+      "text": "(b) Brighter Brighter",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img2_bright.png",
+          "id": "A5.F17.sf2.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.sf3",
+      "text": "(c) Darker Darker",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img2_dim.png",
+          "id": "A5.F17.sf3.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.sf4",
+      "text": "(d) Neon Neon",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img2_neon.png",
+          "id": "A5.F17.sf4.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.sf5",
+      "text": "(e) Rainbow Rainbow",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img2_rainbow.png",
+          "id": "A5.F17.sf5.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F17.sf6",
+      "text": "(f) Warm Warm",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/img2_warm.png",
+          "id": "A5.F17.sf6.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F19.fig1",
+      "text": "Figure 18 : Light and color robustness. We compare VGGT against SuperGlue + RANSAC on large viewpoint changes. VGGT shows only slight degradation under the changes, while SuperGlue shows higher sensitivity and a larger failure rate. However, VGGT’s failure rate (Sampson error larger than 10 pixels) increases under extreme lighting changes and shadow variations.",
+      "images": [
+        {
+          "src": "2512.11508v2/new_ood.png",
+          "id": "A5.F19.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:310/154;",
+          "width": "310",
+          "height": "154",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F19.fig2",
+      "text": "Figure 19 : Ambiguous scenes with repetitions. VGGT outperforms baselines, even when only shadows disambiguate symmetric objects, but fails on completely ambiguous scenes without shadows.",
+      "images": []
+    },
+    {
+      "id": "A5.F20.fig1",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/shadow1.png",
+          "id": "A5.F20.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F20.fig2",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/shadow2.png",
+          "id": "A5.F20.g2",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F20.fig3",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/amb_im1.png",
+          "id": "A5.F20.g3",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F20.fig4",
+      "text": "",
+      "images": [
+        {
+          "src": "2512.11508v2/figures/amb_im2.png",
+          "id": "A5.F20.g4",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:476/476;",
+          "width": "476",
+          "height": "476",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F21.fig1",
+      "text": "",
+      "images": []
+    },
+    {
+      "id": "A5.F21.fig2",
+      "text": "",
+      "images": []
+    },
+    {
+      "id": "A5.F21.fig3",
+      "text": "",
+      "images": []
+    },
+    {
+      "id": "A5.F21.fig4",
+      "text": "",
+      "images": []
+    }
+  ]
+}

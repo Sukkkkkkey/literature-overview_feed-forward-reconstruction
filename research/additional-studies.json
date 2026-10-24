@@ -1,0 +1,184 @@
+[
+  {
+    "id": "H02",
+    "slug": "moge",
+    "name": "MoGe",
+    "subtitle": "Unlocking Accurate Monocular Geometry Estimation for Open-Domain Images",
+    "thesis": "先学习 affine-invariant 点图，再用投影一致性恢复相机与形状。",
+    "topics": [
+      "02"
+    ]
+  },
+  {
+    "id": "A07",
+    "slug": "pow3r",
+    "name": "Pow3R",
+    "subtitle": "Empowering Unconstrained 3D Reconstruction with Camera and Scene Priors",
+    "thesis": "将可用的相机与深度信息作为条件，让同一模型应对不同几何约束。",
+    "topics": [
+      "02",
+      "01"
+    ]
+  },
+  {
+    "id": "B02",
+    "slug": "cut3r",
+    "name": "CUT3R",
+    "subtitle": "Continuous 3D Perception Model with Persistent State",
+    "thesis": "将历史场景压入持久状态，用持续更新代替整段重算。",
+    "topics": [
+      "03",
+      "06"
+    ]
+  },
+  {
+    "id": "N07",
+    "slug": "streamvggt",
+    "name": "StreamVGGT",
+    "subtitle": "Streaming 4D Visual Geometry Transformer",
+    "thesis": "让离线多视骨干因果化，以 KV 缓存保存历史视图证据。",
+    "topics": [
+      "03",
+      "04"
+    ]
+  },
+  {
+    "id": "C02",
+    "slug": "vgg-t3",
+    "name": "VGG-T³",
+    "subtitle": "VGG-T³: Offline Feed-Forward 3D Reconstruction at Scale",
+    "thesis": "把跨视图信息写入小网络参数，再用该网络回答几何查询。",
+    "topics": [
+      "04",
+      "03"
+    ]
+  },
+  {
+    "id": "C03",
+    "slug": "zipmap",
+    "name": "ZipMap",
+    "subtitle": "ZipMap: Linear-Time Stateful 3D Reconstruction via Test-Time Training",
+    "thesis": "将场景证据压缩到可更新的权重空间，分开编码成本与查询成本。",
+    "topics": [
+      "04",
+      "03"
+    ]
+  },
+  {
+    "id": "A02",
+    "slug": "mast3r",
+    "name": "MASt3R",
+    "subtitle": "Grounding Image Matching in 3D with MASt3R",
+    "thesis": "保留点图几何，同时学习适合精确匹配的局部描述子。",
+    "topics": [
+      "05",
+      "01"
+    ]
+  },
+  {
+    "id": "E01",
+    "slug": "monst3r",
+    "name": "MonST3R",
+    "subtitle": "A Simple Approach for Estimating Geometry in the Presence of Motion",
+    "thesis": "使逐时刻点图适应动态场景，并用静态证据约束相机轨迹。",
+    "topics": [
+      "06",
+      "05"
+    ]
+  },
+  {
+    "id": "N09",
+    "slug": "d4rt",
+    "name": "D4RT",
+    "subtitle": "Efficiently Reconstructing Dynamic Scenes One D4RT at a Time",
+    "thesis": "把点的身份、目标时刻与输出参考系分离成一个统一 4D 查询。",
+    "topics": [
+      "06",
+      "01"
+    ]
+  },
+  {
+    "id": "F01",
+    "slug": "pixelsplat",
+    "name": "pixelSplat",
+    "subtitle": "3D Gaussian Splats from Image Pairs for Scalable Generalizable 3D Reconstruction",
+    "thesis": "通过概率深度与可微采样，从两视图直接预测可渲染 Gaussian。",
+    "topics": [
+      "07"
+    ]
+  },
+  {
+    "id": "F02",
+    "slug": "mvsplat",
+    "name": "MVSplat",
+    "subtitle": "Efficient 3D Gaussian Splatting from Sparse Multi-View Images",
+    "thesis": "让 cost volume 显式承担深度搜索，再预测 Gaussian 外观与形状。",
+    "topics": [
+      "07",
+      "05"
+    ]
+  },
+  {
+    "id": "N03",
+    "slug": "croco-v2",
+    "name": "CroCo v2",
+    "subtitle": "CroCo v2: Improved Cross-view Completion Pre-training for Stereo Matching and Optical Flow",
+    "thesis": "把跨视图补全扩展到真实配对、旋转位置编码和更强模型。",
+    "topics": [
+      "08"
+    ]
+  },
+  {
+    "id": "G02",
+    "slug": "nas3r",
+    "name": "NAS3R",
+    "subtitle": "From None to All: Self-Supervised 3D Reconstruction via Novel View Synthesis",
+    "thesis": "以新视图合成的闭环训练几何，检验无几何标注监督的可行边界。",
+    "topics": [
+      "08",
+      "07"
+    ]
+  },
+  {
+    "id": "G01",
+    "slug": "geometric-understanding",
+    "name": "Geometric Understanding",
+    "subtitle": "On Geometric Understanding and Learned Priors in Feed-forward 3D Reconstruction Models",
+    "thesis": "用受控输入干预区分几何对应、单图先验与融合机制的作用。",
+    "topics": [
+      "09",
+      "01"
+    ]
+  },
+  {
+    "id": "G04",
+    "slug": "geocond",
+    "name": "GeoCond",
+    "subtitle": "GeoCond: A Conditioning-Aware Reliability Adapter for Feed-Forward 3D Reconstruction",
+    "thesis": "把预测的几何布局转成可诊断位姿病态性的分数。",
+    "topics": [
+      "09",
+      "05"
+    ]
+  },
+  {
+    "id": "H07",
+    "slug": "lrm",
+    "name": "LRM",
+    "subtitle": "Large Reconstruction Model for Single Image to 3D",
+    "thesis": "以大规模多视监督学习单图到 triplane 辐射场的物体先验。",
+    "topics": [
+      "10"
+    ]
+  },
+  {
+    "id": "N12",
+    "slug": "instantmesh",
+    "name": "InstantMesh",
+    "subtitle": "Efficient 3D Mesh Generation from a Single Image with Sparse-view Large Reconstruction Models",
+    "thesis": "将生成的多视图交给稀疏视图重建器，并直接优化可提取的网格表面。",
+    "topics": [
+      "10"
+    ]
+  }
+]

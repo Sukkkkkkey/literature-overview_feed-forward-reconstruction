@@ -1,0 +1,202 @@
+{
+  "id": "F02",
+  "slug": "mvsplat",
+  "name": "MVSplat",
+  "version": "2403.14627v2",
+  "pdf": "research/sources/2403.14627v2.pdf",
+  "url": "https://arxiv.org/pdf/2403.14627v2",
+  "sha256": "d1becb5361d7d8aa6f2e47d1e9e257031120b4207834f5effca049a8df7e4bb9",
+  "pages": 23,
+  "figures": [
+    {
+      "id": "S0.F1",
+      "text": "Figure 1 : Our MVSplat outperforms pixelSplat [ 1 ] in terms of both appearance and geometry quality with 10 × 10\\times fewer parameters and more than 2 × 2\\times faster inference speed.",
+      "images": []
+    },
+    {
+      "id": "S2.F2",
+      "text": "Figure 2 : Overview of MVSplat . Given multiple posed images as input, MVSplat first extracts multi-view image features with a Transformer. Then, the per-view cost volumes using plane sweeping are constructed. The Transformer features and cost volumes are concatenated together as input to a 2D U-Net (with cross-view attention) for cost volume refinement and predicting per-view depth maps. The per-view depth maps are unprojected to 3D and combined using a simple deterministic union operation as the 3D Gaussian centers. The opacity, covariance and color Gaussian parameters are predicted jointly with the depth maps. Finally, novel views are rendered from the predicted 3D Gaussians with the rasterization operation.",
+      "images": [
+        {
+          "src": "2403.14627v2/pipeline.png",
+          "id": "S2.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/122;",
+          "width": "476",
+          "height": "122",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T1",
+      "text": "Method Time (s) Param (M) RealEstate10K [ 54 ] ACID [ 21 ] PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow pixelNeRF [ 49 ] 5.299 28.2 20.43 0.589 0.550 20.97 0.547 0.533 GPNR [ 35 ] 13.340 9.6 24.11 0.793 0.255 25.28 0.764 0.332 AttnRend [ 10 ] 1.325 125.1 24.78 0.820 0.213 26.88 0.799 0.218 MuRF [ 44 ] 0.186 5.3 26.10 0.858 0.143 28.09 0.841 0.155 pixelSplat [ 1 ] 0.104 125.4 25.89 0.858 0.142 28.14 0.839 0.150 MVSplat 0.044 12.0 26.39 0.869 0.128 28.25 0.843 0.144 Table 1 : Comparisons with the state of the art . Running time includes both encoder and render, note that 3DGS-based methods (pixelSplat and MVSplat) render dramatically faster ( ∼ 500 \\sim 500 FPS for the render). Performances are averaged over thousands of test scenes in each dataset. For each scene, the model takes two views as input and renders three novel views for evaluation. MVSplat performs the best in terms of all visual metrics and runs the fastest with a lightweight model size.",
+      "images": []
+    },
+    {
+      "id": "S4.F3",
+      "text": "[ ] [ ] Figure 3 : Comparisons with the state of the art . The first three rows are from RealEstate10K (indoor scenes), while the last one is from ACID (outdoor scenes). Models are trained with a collection of training scenes from each indicated dataset, and tested on novel scenes from the same dataset. MVSplat surpasses all other competitive models in rendering challenging regions due to the effectiveness of our cost volume-based geometry representation.",
+      "images": [
+        {
+          "src": "2403.14627v2/sota_comparisons.png",
+          "id": "S4.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/330;",
+          "width": "476",
+          "height": "330",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F4",
+      "text": "[ ] [ ] Figure 4 : Comparisons of 3D Gaussians (top) and depth maps (bottom) . We compare the reconstructed geometry quality by visualizing zoom-out views of 3D Gaussians predicted by pixelSplat and our MVSplat, along with the predicted depth maps of two reference views. Extra fine-tuning is not performed on either model. Unlike pixelSplat that contains obvious floating artifacts, our MVSplat produces much higher quality 3D Gaussians and smoother depth, demonstrating the effectiveness of our cost volume-based 3D representation.",
+      "images": [
+        {
+          "src": "2403.14627v2/point_cloud_fig.png",
+          "id": "S4.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/188;",
+          "width": "476",
+          "height": "188",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F5",
+      "text": "[ ] [ ] [ ] [ ] [ ] [ ] Figure 5 : Cross-dataset generalization . Models trained on the source dataset RealEstate10K (indoor scenes) are used to conduct zero-shot test on scenes from target datasets ACID (outdoor scenes) and DTU (object-centric scenes), without any fine-tuning. pixelSplat tends to render blurry images with obvious artifacts since feature distributions in the target datasets differ from the one in the source, while our MVSplat renders competitive outputs thanks to the feature-invariant cost volume based design.",
+      "images": [
+        {
+          "src": "2403.14627v2/re10k_generalization_fig.png",
+          "id": "S4.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/161;",
+          "width": "476",
+          "height": "161",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T2",
+      "text": "Training data Method ACID [ 21 ] DTU [ 17 ] PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow RealEstate10K [ 54 ] pixelSplat [ 1 ] 27.64 0.830 0.160 12.89 0.382 0.560 MVSplat 28.15 0.841 0.147 13.94 0.473 0.385 Table 2 : Cross-dataset generalization . Models trained on RE10K (indoor scenes) are directly used to test on scenes from ACID (outdoor scenes) and DTU (object-centric scenes), without any further fine-tuning. Our MVSplat generalizes better than pixelSplat, where the improvement is more significant when the gap between source and target datasets is larger (RE10K to DTU). It is also worth noting that our zero-shot generalization results on ACID even slightly surpass pixelSplat’s ACID trained model (PSNR: 28.14, SSIM: 0.843, LPIPS: 0.144) reported in Tab. 1 .",
+      "images": []
+    },
+    {
+      "id": "S4.F6",
+      "text": "Figure 6 : Ablations on RealEstate10K . Colored error maps obtained by calculating the differences between the rendered images and the ground truth are attached for better comparison. All models are based on the “base” model, w/o depth refinement module. “w/o cross-attn” is short for “w/o cross-view attention”. Compared to “base”, “base+refine” slightly reduces errors, “w/o cost volume” leads to the largest drop, “w/o U-Net” harms contents on the right that only exist in one input view, while “w/o cross-attn” increases the overall error intensity.",
+      "images": [
+        {
+          "src": "2403.14627v2/re10k_ablation_fig.png",
+          "id": "S4.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/173;",
+          "width": "476",
+          "height": "173",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T3",
+      "text": "Setup PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow base + refine 26.39 0.869 0.128 base 26.12 0.864 0.133 w/o cost volume 22.83 0.753 0.197 w/o cross-view attention 25.19 0.852 0.152 w/o U-Net 25.45 0.847 0.150 Table 3 : Ablations on RealEstate10K . The “base + refine” is our final model, where “refine” refers to the “depth refinement” detailed in Sec. 3.1 . All other ablations are conducted on the “base” model w/o depth refinement. The cost volume module plays an indispensable role in MVSplat. Results of all models are obtained from the final converged step (300K in our experiments), except the one “w/o cross-view attention”, which suffers from over-fitting (details are shown in the supplementary material Fig. A ), hence we report its best performance.",
+      "images": []
+    },
+    {
+      "id": "Pt0.A1.T1",
+      "text": "Setup PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow pixelSplat (w/ probability density depth) [ 1 ] 25.89 0.858 0.142 pixelSplat (w/ our MVSplat cost volume depth) 26.63 0.875 0.122 Table A : Using cost volume in pixelSplat . Our cost volume-based depth prediction approach can also be used in the pixelSplat [ 1 ] model by replacing its probability density-based depth branch and its performance can be significantly boosted, which demonstrates the general applicability of our method.",
+      "images": []
+    },
+    {
+      "id": "Pt0.A1.T2",
+      "text": "Setup Time (s) PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow MVSplat (w/ Epipolar Transformer [ 1 ] ) 0.055 26.09 0.865 0.133 MVSplat (w/ Swin Transformer) 0.038 26.12 0.864 0.133 Table B : Comparisons of the backbone Transformer . Our Swin Transformer [ 23 ] -based architecture is more efficient than the Epipolar Transformer counterpart in pixelSplat [ 1 ] since the expensive epipolar sampling process is avoided. Besides, there is no clear difference observed in their rendering qualities.",
+      "images": []
+    },
+    {
+      "id": "Pt0.A1.T3",
+      "text": "Setup Render Time (s) PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow MVSplat (1 Gaussian per pixel) 0.0015 26.39 0.869 0.128 MVSplat (3 Gaussians per pixel) 0.0023 26.54 0.872 0.127 Table C : Comparisons of Gaussians’ number per pixel . Increasing the number of Gaussians improves the performance but slows down the rendering speed.",
+      "images": []
+    },
+    {
+      "id": "Pt0.A1.T4",
+      "text": "Method PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow pixelSplat w/ DINO init (300K) [ 1 ] 25.89 0.858 0.142 MVSplat w/ UniMatch init (300K) 26.39 0.869 0.128 MVSplat w/ random init (300K) 26.01 0.863 0.133 MVSplat w/ random init (450K) 26.29 0.868 0.128 Table D : Comparisons of backbone initialization . By default we train our models for 300K iterations with the publicly available UniMatch pretrained weights as initialization. However, our model can also be trained with random initialization (“w/ random init”) and still outperforms previous state-of-the-art method pixelSplat. The random initialized model needs more training iterations (450K) to reach the performance of the UniMatch initialized model.",
+      "images": []
+    },
+    {
+      "id": "Pt0.A1.F1",
+      "text": "Figure A : Validation curves of the ablations . The setup of each model is illustrated on the top, which refers to the same one as in Tab. 3 of the main paper. The cost volume plays a fundamental role in our full model, and interestingly, the model without cross-view attention suffers from over-fitting after certain training iterations.",
+      "images": [
+        {
+          "src": "2403.14627v2/supp_val_logs.png",
+          "id": "Pt0.A1.F1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/140;",
+          "width": "476",
+          "height": "140",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "Pt0.A1.F2",
+      "text": "Figure B : Failure cases . Our MVSplat might be less effective on the non-Lambertian and reflective surfaces.",
+      "images": [
+        {
+          "src": "2403.14627v2/supp_limitation.png",
+          "id": "Pt0.A1.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/81;",
+          "width": "476",
+          "height": "81",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "Pt0.A1.F3",
+      "text": "Figure C : More comparisons with the state of the art . These are the extended visual results of Fig. 3 . Scenes of the first four rows come from the RealEstate10K, whilst scenes of the last two rows come from ACID. Our MVSplat performs the best in all cases.",
+      "images": [
+        {
+          "src": "2403.14627v2/supp_sota.png",
+          "id": "Pt0.A1.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:476/487;",
+          "width": "476",
+          "height": "487",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "Pt0.A2.F4",
+      "text": "Figure D : More comparisons of 3D Gaussians (top) and depth maps (bottom) . These are the extended visual results of Fig. 4 . Extra depth-regularized fine-tuning is not applied to either model. 3D Gaussians and depth maps predicted by our MVSplat are both of higher quality than those predicted by pixelSplat.",
+      "images": [
+        {
+          "src": "2403.14627v2/supp_point_cloud.png",
+          "id": "Pt0.A2.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/195;",
+          "width": "476",
+          "height": "195",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "Pt0.A2.F5",
+      "text": "Figure E : More comparisons of cross-dataset generalization . These are the extended visual results of Fig. 5 . By training on indoor scenes (RealEstate10K), our MVSplat generalizes much better than pixelSplat to outdoor scenes (ACID) and object-centric scenes (DTU), showing the superior of our cost volume-based architecture.",
+      "images": [
+        {
+          "src": "2403.14627v2/supp_generalization.png",
+          "id": "Pt0.A2.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:476/297;",
+          "width": "476",
+          "height": "297",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

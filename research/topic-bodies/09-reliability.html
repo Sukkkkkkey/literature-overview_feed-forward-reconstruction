@@ -1,0 +1,23 @@
+<section id="question"><h2><span class="section-number">01 / QUESTION</span>模型懂几何，与这次预测值得信任，是两个问题</h2><div class="prose"><p>机制分析问网络内部形成了哪些关系、哪些机制被输出使用；可靠性分析问面对当前图像，这次几何或位姿可能错多少、是否值得进一步优化。前者解释能力来源，后者支持使用决策，两者互相启发，但不能互相替代。</p><div class="contribution">能从特征中读出几何，不等于证明模型以同样机制推理；预测有高 confidence，也不等于位姿已可靠校准。</div></div></section>
+<section id="notation"><h2><span class="section-number">02 / MODEL</span>从对应到几何，从分数到风险</h2><div class="prose"><div class="math">x₂ᵀ F x₁ = 0，　F = K₂⁻ᵀ[t]× R K₁⁻¹<br>e<sub>pose</sub> = max(e<sub>rotation</sub>, e<sub>translation-direction</sub>)</div><p>第一式提供跨视几何探针；相对变换采用从相机 1 到相机 2 的坐标转换。第二式是多篇位姿评测采用的角误差定义，平移方向误差在基线趋近零时本身就病态。相机旋转看起来正确，也可能伴随极不稳定的平移。</p><details class="derivation"><summary>置信度、排序与校准为什么不能互换？</summary><div class="inner"><p>一个分数只要把更坏的样本排在前面，就可改善 sparsification 或 AUSE；即使数值整体放大十倍，排序也不变。校准却要求预测“失败概率 0.2”的样本中约有 20% 失败，并依赖失败阈值、域和输入条件。</p><p>DUSt3R / VGGT 的逐像素 confidence 与误差损失相连；GeoCond 则学习图对层面的位姿可靠性。像素分数的均值无法自动覆盖小视差、低重叠和相机方向歧义。若要输出概率，必须单独校准和验证。</p></div></details></div></section>
+<section id="comparison"><h2><span class="section-number">03 / DESIGN SPACE</span>四个证据层级</h2>{{table:问题|证据|可以支持|仍然不够证明
+内部是否包含几何信息|MLP probe 从中间特征预测 F|几何关系可被指定 probe 解码|网络实际输出一定依赖该信息
+哪些内部交互重要|对 attention 做定向 knock-out，并有随机/邻域对照|特定干预对 probe 或输出的因果影响|一个模块是唯一几何算法
+输入缺失时依赖什么|遮挡、重复物体、光照和焦距控制实验|在受控分布中的先验/证据行为|所有自然场景遵循同一机制
+是否该相信或优化预测|可靠性排序、校准、门控及系统评测|指定域和协议下的决策价值|高不确定性总可被 BA 修复}}
+<p>本章以两篇专门研究为主，并与 <a href="../papers/vggt.html#experiment">VGGT</a>、<a href="../papers/pi3.html#experiment">π³</a>、<a href="../papers/depth-anything-3.html#experiment">DA3</a> 的结构消融交叉阅读。</p>{{studies}}</section>
+<section id="methods"><h2><span class="section-number">04 / METHODS</span>从机制探针到可靠性决策</h2>{{methods}}</section>
+<section id="evidence"><h2><span class="section-number">05 / EVIDENCE</span>保留与总括性结论不一致的结果</h2><div class="prose"><p><strong>Geometric Understanding。</strong>论文在 DUSt3R、VGGT、DA3 中训练 probe，观察可解码的极几何和 attention 对应随层数变化，并用定向干预加强机制解释。数据干预部分主要围绕 VGGT；不要自动将全部遮挡与重复物体结论推广到三种模型。</p><p><strong>GeoCond。</strong>其 Table 3 的场景划分混合训练评测里，OOD 门控 AUC@30 为 58.4，高于 BA-always 的 38.4，却低于 FF-always 的 60.3。这支持“避免许多有害优化”，不支持“门控在每个域都提高前馈准确率”。不同表里的误差监督头、orbit 蒸馏头也不能混作同一配置。</p></div>{{table:原文观察|解释边界
+中间层 probe 突然变好|probe 的输入、能力、训练数据和误差函数都影响趋势
+遮挡后仍出现合理对应|可能显示先验补全；不说明对应由真实可见证据支持
+输入重排方差能预测部分失效|只对顺序敏感骨干有信息；π³ 等等变骨干可能方差很小
+cycle residual 可以作为无标签信号|边必须独立估计；由同一组全局 pose 相减生成的闭环可能代数恒等为零
+排序优于 native confidence|AUSE 改善不自动意味着概率已校准或所有错误可检测}}
+</section>
+<section id="discussion"><h2><span class="section-number">06 / DISCUSSION</span>可靠性模型也有自己的分布偏移</h2><div class="prose"><p>GeoCond 的 parallax、overlap 和 baseline 来自骨干预测，它们不是额外真值。如果骨干一致地错估几何，可靠性特征也可能一起失真。需要区分原始几何质量、分数排序、阈值校准和实际下游收益四层验证。</p><p>分析论文中的“causal”是对特定干预的因果结论，不等于完整识别网络算法。attention 干预可能改变分布和归一化；因此要看等强度的随机干预、非匹配位置干预及邻域干预是否都有适当对照。</p><p>面向真实系统，拒绝或请求新视角常比盲目优化更合理。但拒绝太多容易制造漂亮的保留子集分数，应同时报告 coverage、拒绝比例和剩余错误，明确成本。</p></div></section>
+<section id="hypotheses"><h2><span class="section-number">07 / RESEARCH</span>把解释变成能推翻的实验</h2>{{table:假设|实验设计|可证伪条件
+中间层对应关系对最终几何有直接作用|在固定层做匹配/随机/邻域等强度干预，同时测 probe 和最终输出|只损害 probe，最终几何不受影响
+几何条件特征跨域比 token 更稳健|留出完整场景与相机设备，比较 scalars-only/token-only/mixed|token 在所有域都稳定更优
+重排方差可作为真实误差的可靠代理|人为构造稳定但错误的低重叠样例，比较监督误差与 orbit variance|出现低方差大误差，说明该信号覆盖不完整}}
+<p class="small muted">本地图提出的研究问题，尚未执行；它们用于约束阅读结论的外推范围。</p></section>
+<section id="reading"><h2><span class="section-number">READING ROUTE</span>先看实验对照，再看机制命名</h2><ol class="reading-questions"><li>精读 Geometric Understanding：分别记录 probe、attention 匹配、干预和输入扰动的对象与变量。</li><li>精读 GeoCond：区分 teacher、head、oracle 和可部署 gate。</li><li>解释为什么 π³ 的重排稳定性不能直接当作“绝不会失败”的证明。</li><li>为自己的研究设计一张 risk–coverage 曲线，并明确误差阈值和校准域。</li></ol><p>继续阅读：<a href="05-backends.html">选择性几何优化</a> · <a href="08-supervision.html">训练先验来源</a>。</p></section>

@@ -1,0 +1,39 @@
+{
+  "checked_at": "2026-10-24T21:10:38+08:00",
+  "html_pages": 35,
+  "topics": 10,
+  "independent_paper_studies": 23,
+  "catalogue_entries": 69,
+  "research_papers": 67,
+  "engineering_entries": 1,
+  "survey_entries": 1,
+  "topic_method_cards": 68,
+  "original_figure_table_plates": 63,
+  "local_links_and_anchors": "passed",
+  "all_primary_method_assignments_covered": true,
+  "fixed_version_pdf_hashes_verified": 23,
+  "original_note_unchanged": true,
+  "browser": {
+    "pages": 35,
+    "desktop_viewport": [
+      1460,
+      1050
+    ],
+    "mobile_viewport": [
+      390,
+      844
+    ],
+    "overflow_pages": 0,
+    "broken_images": 0,
+    "script_errors": 0,
+    "external_requests": 0,
+    "paper_lightbox_and_section_navigation": "passed for all 23 studies",
+    "topic_mobile_toc": "passed for all 10 topics",
+    "search_hash_open_font_toggle_gauge_and_full_resolution_zoom": "passed"
+  },
+  "visual_review": "Topic hero, comparison tables, method cards, mobile layout, study pages and original crop contact sheets inspected.",
+  "limitations": [
+    "Reading-based synthesis; no model execution or reproduction of reported metrics.",
+    "A bounded systematic reading map, not an exhaustive catalogue of the entire field."
+  ]
+}

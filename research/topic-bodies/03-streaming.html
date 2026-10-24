@@ -1,0 +1,24 @@
+<section id="question"><h2><span class="section-number">01 / QUESTION</span>新图像到来时，历史究竟以什么形式留下？</h2><div class="prose"><p>离线多视模型能让所有图像互相解释，却往往需要反复处理已经看过的内容。在线重建将问题改成：当前帧只能使用过去和现在，怎样保存足够几何信息，并让新输出留在同一个参考系？</p><p>本章按历史表示区分三种答案：保留历史 tokens 或 KV、压缩为固定状态、用局部子图与空间记忆组织显式几何。它们的区别同时影响容量、吞吐、回环和错误修正，不能用“支持流式”一个标签概括。</p><div class="contribution">在线是一种信息可用性约束；恒定内存、稳定尺度与长期一致性是另外三项能力。</div></div></section>
+<section id="notation"><h2><span class="section-number">02 / MODEL</span>状态的写入、读取与坐标锚定</h2><div class="prose"><div class="math">sₜ = U(sₜ₋₁, E(Iₜ))<br>(Xₜ, Tₜ, Cₜ) = D(sₜ₋₁, E(Iₜ))</div><p>这是概念性统一表达；实际 CUT3R 的写入与读取通过双 decoder 联合交互，不要求先完整写入再读取。s 可以是定长 token、不断增长的 KV，也可以是显式地图与记忆的组合。三者不能只按张量大小判断“有多少场景信息”。</p><details class="derivation"><summary>为什么每帧深度看起来正确，整段轨迹仍会漂移？</summary><div class="inner"><p>若每步相对位姿估计为 T̂ₜ₋₁,ₜ=Tₜ₋₁,ₜ exp(δξₜ)，绝对位姿要通过连乘得到。小误差经后续旋转、平移传播，且偏差可能相关，不能简单认为误差按独立随机游走增长。更关键的是，逐帧分别做尺度对齐会把部分长期不一致隐藏掉。</p><p>当模型每帧直接预测第一相机系中的点图，形式上无需显式连乘，但历史状态仍可能逐渐偏离初始坐标。要用回访、前进—返回和固定场景密集重复实验区分尺度漂移、记忆污染和视野扩展造成的新困难。</p></div></details></div></section>
+<section id="comparison"><h2><span class="section-number">03 / DESIGN SPACE</span>保存证据、压缩证据、维护局部几何</h2>{{table:历史机制|代表工作|优点|主要代价
+显式空间记忆|Spann3R、SLAM3R|保留可检索上下文或局部几何结构|记忆管理、锚定与融合策略决定长期表现
+持久状态 tokens|CUT3R、MUSt3R|状态容量固定，可持续读写|压缩误差和遗忘；过去输出不一定随新证据修正
+因果 KV 缓存|StreamVGGT、STream3R|复用强离线骨干；历史细节保留较充分|不裁剪时缓存线性增长，整段交互总成本仍可能二次
+长期状态与局部上下文设计|LongStream、LingBot-Map、ABot-Recon|针对长序列的稳定性、上下文组织与漂移|需要区分模型结构、训练长度及外部后端的贡献
+更新控制|TTT3R|可在已有递归模型上抑制冗余观测写入|更新门控无法凭空恢复已遗忘信息}}
+<p>“固定状态”不等于“整个系统固定内存”：保存所有点图供显示、回环候选或导出，本身就随序列增长。比较时应分别记录网络工作内存、缓存、地图存储和最终输出。</p>{{studies}}</section>
+<section id="methods"><h2><span class="section-number">04 / METHODS</span>从增量重建到长期上下文</h2>{{methods}}</section>
+<section id="evidence"><h2><span class="section-number">05 / EVIDENCE</span>长序列不应只有一条帧数曲线</h2>{{table:测试轴|保持不变|改变的变量|检验内容
+轨迹变长|图像采样间距|访问范围与总帧数|新场景容量、累计漂移
+采样变密|同一空间轨迹|重复观测密度|状态污染与冗余处理
+局部停留后离开|终点和路径|中途停留帧数|写入规则是否被重复帧主导
+离开后回访|最终回访视角|时间间隔与中间新内容|记忆保持、回环可用性
+顺序扰动|同一张图像集合|顺序或局部反转|时间假设与参考系敏感性}}
+<div class="prose"><p>CUT3R 的单目深度表使用每帧中位数缩放，视频深度另用序列对齐；不能把两者混读为同一尺度能力。StreamVGGT 的位姿结果使用 Sim(3) 对齐，因果输入和离线模型在信息量上不同。LongStream 与 ABot-Recon 的长期结果，应同时查看帧密度和覆盖范围，而不仅是最长帧数。</p><p>将时间拆为首帧准备、每帧延迟、整段耗时和事后优化。把单帧延迟平均值与 95% 分位并列，才能看到缓存增长或周期性维护引起的卡顿。</p></div></section>
+<section id="discussion"><h2><span class="section-number">06 / DISCUSSION</span>状态可查询，仍不等于状态完整</h2><div class="prose"><p>CUT3R 能用虚拟相机 raymap 读取未见视角几何；这展示了场景先验和状态表达能力，但不意味着被遮挡部分已由观测验证。对动态环境，还必须说明查询对应哪个时刻，否则“永久地图”可能混合多个时间的物体状态。</p><p>递归模型常把误差写入下一步状态。与显式图优化不同，历史输出未必具有可单独修改的变量。引入回环后是否真正修正全部历史几何，还是只改善未来预测，是一个必须检查的系统接口。</p><p>TTT3R 的置信引导状态更新，与下一章 VGG-T³ / ZipMap 的快速权重学习有概念关联，但实现对象和训练方式不同。不要仅因为都使用 TTT 术语就推断其内存、并行性和容量相同。</p></div></section>
+<section id="hypotheses"><h2><span class="section-number">07 / RESEARCH</span>把长期退化定位到具体机制</h2>{{table:假设|实验设计|关键判别
+退化主要来自重复写入|同一路径插入静止重复帧，比较原模型与更新门控|若只加新场景才退化，更像容量不足
+局部上下文改善短程几何但未解决全局锚定|固定局部窗口质量，改变回访间隔并测首尾闭合|局部误差降而闭合误差不降，需单独全局机制
+状态大小控制记忆保留|固定训练预算，在多种场景复杂度下扫描状态容量|收益仅出现在训练长度附近，说明长度泛化仍有限}}
+<p class="small muted">这是待检验的研究设计；未实际运行上述实验。</p></section>
+<section id="reading"><h2><span class="section-number">READING ROUTE</span>先读两种状态，再读长期修复</h2><ol class="reading-questions"><li>读 CUT3R，画出 state-update、state-readout 和虚拟相机查询三条路径。</li><li>读 StreamVGGT，计算第 t 帧和完整 T 帧的注意力成本，说明缓存保留什么。</li><li>用 TTT3R、LongStream、ABot-Recon 对照：改变的是写入、上下文、训练分布还是几何后端？</li><li>为每篇记录是否因果、能否重访、是否修正历史输出及长序列评测协议。</li></ol><p>继续阅读：<a href="04-scaling.html">计算扩展与快速权重</a> · <a href="05-backends.html">回环和几何优化后端</a>。</p></section>

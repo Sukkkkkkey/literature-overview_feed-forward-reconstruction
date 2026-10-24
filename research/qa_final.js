@@ -1,0 +1,6 @@
+const {chromium}=require('C:/Users/26932/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const fs=require('fs'),path=require('path');const root=path.resolve(__dirname,'..');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});const page=await browser.newPage();let checks=0;
+ for(const f of fs.readdirSync(path.join(root,'topics')).filter(f=>f.endsWith('.html'))){for(const width of [1460,390]){await page.setViewportSize({width,height:900});await page.goto('file:///'+path.join(root,'topics',f).replace(/\\/g,'/'));await page.locator('details.derivation').first().evaluate(e=>e.open=true);if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error(f+' overflows');checks++;}}
+ await page.setViewportSize({width:1460,height:1050});await page.goto('file:///'+path.join(root,'papers/geometric-understanding.html').replace(/\\/g,'/'));await page.locator('#figure-experiment').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(root,'research/qa-v2/geometric-intervention-final.png')});
+ await browser.close();console.log(JSON.stringify({finalTopicLayoutChecks:checks,passed:true}));})();

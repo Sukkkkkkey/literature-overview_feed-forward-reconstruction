@@ -1,0 +1,332 @@
+{
+  "id": "C02",
+  "slug": "vgg-t3",
+  "name": "VGG-T³",
+  "version": "2602.23361v1",
+  "pdf": "research/sources/2602.23361v1.pdf",
+  "url": "https://arxiv.org/pdf/2602.23361v1",
+  "sha256": "957444fcd232731d557ab7795b5fa8ded67b1b672e8671758cba26f9ccf22dd8",
+  "pages": 20,
+  "figures": [
+    {
+      "id": "S3.F0.sf1",
+      "text": "(a) VGGT",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/method/vggt_workings.png",
+          "id": "S3.F0.sf1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:685/805;",
+          "width": "685",
+          "height": "805",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F0.sf2",
+      "text": "(b) TTT-based global attention replacement with linear scaling.",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/method/ttt_optim.png",
+          "id": "S3.F0.sf2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/484;",
+          "width": "685",
+          "height": "484",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F1.sf1",
+      "text": "(a) Best number of optimizer step of test-time training objective for two sizes of image collections.",
+      "images": []
+    },
+    {
+      "id": "S3.F1.sf2",
+      "text": "(b) Pointmap prediction error for different number of input images (lower is better).",
+      "images": []
+    },
+    {
+      "id": "S4.T1",
+      "text": "7scenes-D 7scenes-S DTU ETH3D NRBGD-D NRBGD-S CD ↓ \\downarrow NC ↑ \\uparrow CD ↓ \\downarrow NC ↑ \\uparrow CD ↓ \\downarrow NC ↑ \\uparrow CD ↓ \\downarrow NC ↑ \\uparrow CD ↓ \\downarrow NC ↑ \\uparrow CD ↓ \\downarrow NC ↑ \\uparrow O ⁡ ( n 2 ) O(n^{2}) VGGT 0.024 0.668 0.054 0.731 1.537 0.676 0.279 0.855 0.014 0.897 0.055 0.894 SparseVGGT 0.023 0.665 0.094 0.694 1.541 0.675 0.327 0.836 0.018 0.876 0.079 0.859 FastVGGT 0.021 0.662 0.065 0.719 1.683 0.672 0.594 0.775 0.033 0.841 - - O ⁡ ( n ) O(n) TTT3R 0.035 0.666 0.129 0.685 5.708 0.672 0.885 0.733 0.071 0.811 0.094 0.819 VGG-T 3 (ours) 0.030 0.679 0.107 0.716 1.654 0.685 0.480 0.789 0.029 0.867 0.056 0.893 Table 1 : Pointmap estimation on dense ( -D ) and sparse ( -S ) split. Overall, we outperform O ⁡ ( n ) O(n) baseline, TTT3R, and remain competitive w.r.t. O ⁡ ( n 2 ) O(n^{2}) baselines. FastVGGT code fails on NRGBD-S due to one instance having only two views.",
+      "images": []
+    },
+    {
+      "id": "S4.T2",
+      "text": "Bonn KITTI Sintel δ < 1.25 \\delta<1.25 ↑ \\uparrow Abs Rel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow Abs Rel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow Abs Rel ↓ \\downarrow VGGT 0.967 0.059 0.964 0.071 0.646 0.300 SparseVGGT 0.968 0.057 0.963 0.070 0.639 0.304 FastVGGT 0.969 0.058 0.964 0.073 0.630 0.307 TTT3R 0.969 0.061 0.818 0.151 0.510 0.469 VGG-T 3 (ours) 0.963 0.063 0.967 0.076 0.581 0.345 Table 2 : Video depth estimation. VGG-T 3 outperforms sequential O ⁡ ( n ) O(n) baseline by a substantial margin and performs on-par with O ⁡ ( n 2 ) O(n^{2}) baselines.",
+      "images": []
+    },
+    {
+      "id": "S4.T3",
+      "text": "ScanNet Sintel TUM ATE ↓ \\downarrow RPE r \\text{RPE}_{r} ↓ \\downarrow RPE t \\text{RPE}_{t} ↓ \\downarrow ATE ↓ \\downarrow RPE r \\text{RPE}_{r} ↓ \\downarrow RPE t \\text{RPE}_{t} ↓ \\downarrow ATE ↓ \\downarrow RPE r \\text{RPE}_{r} ↓ \\downarrow RPE t \\text{RPE}_{t} ↓ \\downarrow VGGT 0.035 0.381 0.016 0.172 0.467 0.061 0.012 0.310 0.010 SparseVGGT 0.036 0.394 0.016 0.177 0.552 0.070 0.013 0.316 0.010 FastVGGT 0.035 0.494 0.018 0.158 0.516 0.060 0.013 0.317 0.011 TTT3R 0.063 0.617 0.020 0.196 0.767 0.088 0.025 0.337 0.012 TTT3R (unordered) 0.094 3.942 0.089 0.325 1.462 0.213 0.029 0.652 0.029 VGG-T 3 (ours) 0.070 0.878 0.034 0.234 1.553 0.117 0.037 0.533 0.028 Table 3 : Camera pose estimation. Our method supports both ordered and unordered input sequences, whereas the other TTT3R performs poorly on unordered inputs. Via sequential processing, TTT3R provides more accurate pose estimates. Best performance on ordered inputs are marked bold , best un-ordered blue .",
+      "images": []
+    },
+    {
+      "id": "S4.SS2.fig1",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/experiments/qualitative_comparison.png",
+          "id": "S4.SS2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/287;",
+          "width": "685",
+          "height": "287",
+          "alt": "[Uncaptioned image]"
+        }
+      ]
+    },
+    {
+      "id": "S4.F3",
+      "text": "Figure 3 : Runtime ( ↓ \\downarrow ) vs . Chamfer distance ( ↓ \\downarrow ) for collections of size ∈ { 100,500 , 1 ​ k } \\in\\{100,500,1k\\} on 7scenes dataset. In terms of reconstruction quality (Chamfer distance), we observe a small gap between VGG-T 3 and O ⁡ ( n 2 ) O(n^{2}) baselines, that narrows with increasing number of images. However, for 1 ​ k 1k input, VGGT takes ca. 11 11 min while VGG-T 3 only needs 58 58 seconds ( 11.6 × 11.6\\times speedup). VGG-T 3 scales comparably to TTT3R and does not degrade w.r.t. increasing number of images.",
+      "images": []
+    },
+    {
+      "id": "S4.T4",
+      "text": "1500 images 2000 images 1 GPU 2 GPUs 4 GPUs 1 GPU 2 GPUs 4 GPUs TTT3R 90.1 N/A N/A 126.2 N/A N/A VGGT OOM 1779.3 913.6 OOM 2827.1 1590.2 VGG-T 3 (ours) 173.1 56.8 29.7 230.7 74.8 48.5 Table 4 : Reconstruction latency (s) with distributed inference. VGG-T 3 can efficiently process large sequences on a single GPU, and provide linear speed-up via distributed inference.",
+      "images": []
+    },
+    {
+      "id": "S4.T5",
+      "text": "e r ( ∘ ) e_{r}(^{\\circ}) ↓ \\downarrow e t e_{t} (m) ↓ \\downarrow 10 10 cm, 10 ∘ 10^{\\circ} (%) ↑ \\uparrow 20 20 cm, 20 ∘ 20^{\\circ} (%) ↑ \\uparrow 7Scenes TTT3R 7.18 0.17 34.59 70.21 Ours 6.71 0.16 40.69 73.00 Wayspots TTT3R 74.45 4.38 0.69 2.94 Ours 32.04 1.90 13.41 30.64 Table 5 : Feed-forward visual localization in unposed image collection. The MLP-based state representation in VGG-T 3 allows for more precise localization of new images compared to TTT3R.",
+      "images": []
+    },
+    {
+      "id": "S4.T6",
+      "text": "CD ↓ \\downarrow NC ↑ \\uparrow mAA(30) ↑ \\uparrow Softmax Attention 0.061 0.844 76.33 (i) Scratch 0.262 0.727 52.95 (ii) T2R [ 48 ] 0.137 0.804 66.27 (iii) LoLCats [ 111 ] 0.097 0.804 62.87 (iv) Ours 0.074 0.833 72.16 (v) Ours + ShortConv2D 0.066 0.838 74.14 Table 6 : Ablations. We evaluate key design decisions behind our linearization and ShortConv2D design.",
+      "images": []
+    },
+    {
+      "id": "S1.T7",
+      "text": "Type Dataset Indoor Aria Synthetic Environments [ 5 ] DynamicReplica [ 47 ] Hypersim [ 73 ] Replica [ 83 ] Cubify Anything [ 54 ] Scannet++ [ 109 ] Scannet [ 18 ] Taskonomy [ 110 ] Outdoor Mapillary Metropolis [ 72 ] MatrixCity [ 56 ] Megadepth [ 57 ] Mid-Air [ 29 ] Mapillary Planet-scale Depth Dataset [ 2 ] ParallelDomain4D [ 90 , 25 ] vKITTI2 [ 31 , 14 ] Object centric CO3Dv2 [ 71 ] Kubric [ 33 ] Wild-RGBD [ 102 ] Mixed BlendedMVG [ 108 ] DL3DV-10K [ 58 ] Spring [ 63 ] TartanAirV2 [ 98 ] UnrealStereo4k [ 89 ] Table 7 : Datasets used for training.",
+      "images": []
+    },
+    {
+      "id": "S2.T8",
+      "text": "#images 250 500 750 1000 CD ↓ \\downarrow NC ↑ \\uparrow CD ↓ \\downarrow NC ↑ \\uparrow CD ↓ \\downarrow NC ↑ \\uparrow CD ↓ \\downarrow NC ↑ \\uparrow VGGT 0.018 0.894 0.025 0.876 0.040 0.864 0.041 0.855 VGGT + Entropy-scaling 0.016 0.894 0.017 0.889 0.030 0.871 0.029 0.872 Table 8 : Attention entropy-scaling makes VGGT a stronger baseline on large image collections.",
+      "images": []
+    },
+    {
+      "id": "S3.F4",
+      "text": "Figure 4 : Pointmap error with increasing number of images when varying the optimizer steps on the TTT objective.",
+      "images": []
+    },
+    {
+      "id": "S3.T9",
+      "text": "CD ↓ \\downarrow NC ↑ \\uparrow mAA(30) ↑ \\uparrow No ShortConv2D 0.074 0.833 72.16 V ​ - ​ 3 V\\text{-}3 0.066 0.838 74.14 V ​ - ​ 5 V\\text{-}5 0.069 0.833 72.52 K ​ - ​ 3 K\\text{-}3 0.068 0.834 72.89 K ​ V ​ - ​ 3 KV\\text{-}3 0.081 0.820 69.44 Table 9 : Results for different filter configuration in ShortConv2D.",
+      "images": []
+    },
+    {
+      "id": "S4.F5.fig1",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/scannet_comparison/scene0726_00.png",
+          "id": "S4.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/190;",
+          "width": "548",
+          "height": "190",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F5.fig2",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/scannet_comparison/scene0734_00.png",
+          "id": "S4.F5.g2",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/190;",
+          "width": "548",
+          "height": "190",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F5.fig3",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/scannet_comparison/scene0735_00.png",
+          "id": "S4.F5.g3",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/158;",
+          "width": "548",
+          "height": "158",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F5.fig4",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/scannet_comparison/scene0738_00.png",
+          "id": "S4.F5.g4",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/151;",
+          "width": "548",
+          "height": "151",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F5.fig5",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/scannet_comparison/scene0757_00.png",
+          "id": "S4.F5.g5",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/123;",
+          "width": "548",
+          "height": "123",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F6.fig1",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/visloc/mapo.png",
+          "id": "S4.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:480/203;",
+          "width": "480",
+          "height": "203",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F6.fig2",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/visloc/cubes.png",
+          "id": "S4.F6.g2",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:480/220;",
+          "width": "480",
+          "height": "220",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F6.fig3",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/visloc/squarebench.png",
+          "id": "S4.F6.g3",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:480/188;",
+          "width": "480",
+          "height": "188",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F6.fig4",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/visloc/pumpkin.png",
+          "id": "S4.F6.g4",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:480/214;",
+          "width": "480",
+          "height": "214",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F7",
+      "text": "Figure 7 : In-the-wild visual localization. We reconstruct a sequence of the KITTI dataset, then localize a tourist picture that was recorded 7 years later. Note the changes in appearance and composition of the scene.",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/visloc/kitti.png",
+          "id": "S4.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:480/245;",
+          "width": "480",
+          "height": "245",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F8.fig1",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/waymo/1.png",
+          "id": "S4.F8.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/120;",
+          "width": "548",
+          "height": "120",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F7.sf1",
+      "text": "(a) Similar reconstruction as VGGT.",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/waymo/2.png",
+          "id": "S4.F7.sf1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/269;",
+          "width": "548",
+          "height": "269",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F8.fig2",
+      "text": "",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/waymo/failure_0.png",
+          "id": "S4.F8.g2",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/150;",
+          "width": "548",
+          "height": "150",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F7.sf2",
+      "text": "(b) Failure cases.",
+      "images": [
+        {
+          "src": "2602.23361v1/figures/sup/waymo/failure_1.png",
+          "id": "S4.F7.sf2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/187;",
+          "width": "548",
+          "height": "187",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

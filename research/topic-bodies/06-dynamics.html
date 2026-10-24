@@ -1,0 +1,27 @@
+<section id="question"><h2><span class="section-number">01 / QUESTION</span>恢复了一段会动的点云，还是同一批点的运动？</h2><div class="prose"><p>“4D 重建”至少有四种接口：每帧独立几何、跨帧场景流、具有长期身份的三维轨迹，以及可随时间渲染的场景表示。前者能显示物体在移动，但未必知道前一帧的哪个点去了哪里；后者需要持续对应、可见性和时间建模。</p><p>本章将静态相机几何扩展到时间，重点研究相机自运动与场景运动怎样分离。可渲染动态 Gaussian 留在专题 07，以免把 RGB 观感与三维轨迹准确性混为一谈。</p><div class="contribution">动态任务首先要定义点的身份、物理时刻和输出坐标系；三者不能共用一个含糊的时间索引。</div></div></section>
+<section id="notation"><h2><span class="section-number">02 / MODEL</span>一个点，三个时间角色</h2><div class="prose"><div class="math">q = (u,v,t<sub>src</sub>,t<sub>tgt</sub>,t<sub>cam</sub>)<br>X(q) = T<sub>cam</sub>⁻¹ Xʷ<sub>identity(u,v,src)</sub>(t<sub>tgt</sub>)</div><p>这是对 D4RT 接口的统一说明。t_src 决定从哪帧像素指定物理点，t_tgt 决定询问该点在何时的位置，t_cam 只决定用哪个相机坐标系表达该位置。改变参考系本身不应改变物理点的时刻。</p>{{table:查询方式|得到的量|注意事项
+src=tgt=cam=t|该帧局部点图；z 分量为深度|不是跨时间对应
+固定 src 和像素，改变 tgt，固定 cam|同一世界参考系中的三维轨迹|可检验真实场景运动
+固定 src 和像素，tgt=cam 随时间改变|各时刻相机系中的轨迹|运动包含相机参考系变化
+固定 src、tgt，仅改变 cam|同一物理状态的两种坐标表达|可据此恢复相对相机变换}}
+<details class="derivation"><summary>为什么不能直接相减两帧 local pointmap 得到 scene flow？</summary><div class="inner"><p>首先，同一像素位置在下一帧通常对应另一个物理点，需要跨时对应 p→p′。其次，两张 local pointmap 使用不同相机系。只有先将对应点变换到共同世界系，再计算 ΔXʷ=Xʷ(t+1)−Xʷ(t)，才得到场景运动。局部相减会混入自运动；不匹配像素则同时混入身份错误。</p><p>即使所有点图都在第一相机系，逐帧点集也仍缺少点身份。共同坐标是必要接口之一，不是长期轨迹的充分条件。</p></div></details></div></section>
+<section id="comparison"><h2><span class="section-number">03 / DESIGN SPACE</span>从动态适配到统一查询</h2>{{table:表示/机制|代表方法|能直接回答|额外要核对
+逐时刻 pointmap + 优化|MonST3R|动态环境下的深度与相机、时变点云|静态 mask、光流和全局优化成本
+训练免除的动态适配|Easi3R|将已有几何骨干迁移至动态场景|注意力诊断与完整后处理
+前馈几何/运动联合建模|Any4D、4RC、UFO-4D|相机、点图及相应运动信息|metric 来源、K 条件、具体运动输出
+独立时空点查询|D4RT、Point4D|指定点、时刻和参考系下的三维位置/轨迹|查询密度、遮挡、身份持续性与编码成本}}
+<p>MonST3R 不把动态前景删掉后交给静态网络，而是用动态数据适配点图回归，再将相机诱导 flow 与光流比较以识别静态证据。D4RT 则把轨迹读取作为原生接口；两者的主任务和计算路径都不同。</p>{{studies}}</section>
+<section id="methods"><h2><span class="section-number">04 / METHODS</span>七个方法的时间与运动接口</h2>{{methods}}</section>
+<section id="evidence"><h2><span class="section-number">05 / EVIDENCE</span>三种结果需要三套指标</h2>{{table:能力|指标与协议|常见误读
+相机运动|ATE / RPE / pose AUC；是否 Sim(3) 对齐|相机好不代表前景轨迹好
+逐帧几何|AbsRel、点图误差；每帧或整段对齐|每帧独立缩放可能掩盖时间尺度不一致
+持续对应|3D AJ、APD、遮挡准确率；local/world 分列|只评价可见点会遗漏遮挡后的身份漂移
+效率|视频编码 + Q 个查询 + 拼接/优化|以相机稀疏查询 FPS 代表稠密全视频轨迹吞吐}}
+<div class="prose"><p>D4RT 的 Table 4 分开 local-camera 与 world-frame 跟踪；Table 3 在给定 FPS 下统计可输出多少完整轨迹。它的稀疏独立查询可按需解码，但对每帧所有像素都追踪到所有时刻，朴素查询数仍为 O(T²HW)。原文用占据网格跳过已覆盖轨迹，速度收益与运动复杂度有关。</p><p>MonST3R 的动态数据包含静态 TartanAir；训练数据“来自视频”不等于全部含非刚体运动。实验需同时检查动态像素比例、运动幅度、相机运动和光流质量。</p></div></section>
+<section id="discussion"><h2><span class="section-number">06 / DISCUSSION</span>遮挡中的合理补全，不能代替身份证据</h2><div class="prose"><p>一个物体消失后再出现，模型可能预测出视觉上合理的移动轨迹，却连错点的身份。重复人物、衣物纹理和对称物体特别容易暴露这种问题。仅显示一张融合点云，很难看出身份交换。</p><p>跨参考系一致性也值得独立测试。对同一物理时刻的点在两相机系查询后，使用预测相机变换对齐，应得到相同三维位置。若轨迹平滑但这种闭合残差很大，时间先验可能掩盖坐标不一致。</p><p>Any4D 的 metric、UFO-4D 的已知 K、MonST3R 的附加优化必须在方法卡中保留。不同输入约束下的榜单分数不能直接形成“4D 能力”单一排名。</p></div></section>
+<section id="hypotheses"><h2><span class="section-number">07 / RESEARCH</span>让动态与坐标误差各自暴露</h2>{{table:假设|控制实验|反证信号
+轨迹误差主要来自相机估计|分别用预测与真值相机将相同轨迹转到世界系|使用真值相机后动态点误差仍不下降
+独立查询兼容不同密度而不改变已查询点|固定视频编码，将同一查询放入不同大小查询批次|该点输出明显依赖同时请求的其他点
+遮挡恢复依赖身份而不只是平滑先验|固定运动，增加遮挡长度、交换相似外观并记录身份切换|路径连续但持续追踪到错误物体}}
+<p class="small muted">研究假设为本地图提出；“独立查询”测试应关闭随机性并保持精度模式一致。</p></section>
+<section id="reading"><h2><span class="section-number">READING ROUTE</span>先读时间定义，再看融合点云</h2><ol class="reading-questions"><li>读 MonST3R，说明为什么它的两张点图可以表达不同时间，却共用同一相机系。</li><li>读 D4RT，将原文 Table 1 的每种任务改写成 src/tgt/cam 查询组合。</li><li>对照 Any4D、4RC、Point4D，逐一记录原生输出和仍需推导的量。</li><li>检查长视频是否通过重叠分块拼接，避免把短片段前馈推广成无限长度模型。</li></ol><p>继续阅读：<a href="07-rendering.html">动态可渲染表示</a> · <a href="09-reliability.html">对应、先验与失效</a>。</p></section>

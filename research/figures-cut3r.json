@@ -1,0 +1,142 @@
+{
+  "id": "B02",
+  "slug": "cut3r",
+  "name": "CUT3R / Continuous 3D Perception Model with Persistent State",
+  "version": "2501.12387v1",
+  "pdf": "research/sources/2501.12387v1.pdf",
+  "url": "https://arxiv.org/pdf/2501.12387v1",
+  "sha256": "5467dd822b4b45c0829115bbf361a5ca8c3319a930f4e0d861b6e9138d0d9db4",
+  "pages": 17,
+  "figures": [
+    {
+      "id": "S0.F1",
+      "text": "Continuous 3D Perception Model with Persistent State Qianqian Wang Affiliation: University of California, Berkeley Yifei Zhang Aleksander Holynski Affiliation: University of California, Berkeley Affiliation: Google DeepMind Alexei A. Efros Affiliation: University of California, Berkeley Angjoo Kanazawa Affiliation: University of California, Berkeley Abstract We present a unified framework capable of solving a broad range of 3D tasks. Our approach features a stateful recurrent model that continuously updates its state representation with each new observation. Given a stream of images, this evolving state can be used to generate metric-scale pointmaps (per-pixel 3D points) for each new input in an online fashion. These pointmaps reside within a common coordinate system, and can be accumulated into a coherent, dense scene reconstruction that updates as new images arrive. Our model, called CUT3R ( C ontinuous U pdating T ransformer for 3 D R econstruction), captures rich priors of real-world scenes: not only can it predict accurate pointmaps from image observations, but it can also infer unseen regions of the scene by probing at virtual, unobserved views. Our method is simple yet highly flexible, naturally accepting varying length of images that may be either video streams or unordered photo collections, containing both static and dynamic content. We evaluate our method on various 3D/4D tasks and demonstrate competitive or state-of-the-art performance in each. Project page: https://cut3r.github.io/ . Figure 1 : Continuous 3D Perception. Given a stream of RGB images as input, our approach enables dense 3D reconstruction in an online, continuous manner, estimating both camera parameters and dense 3D geometry with each incoming frame. Our framework supports various 3D tasks, processes inputs from video sequences and sparse photo collections, and can handle both static and dynamic scenes.",
+      "images": [
+        {
+          "src": "2501.12387v1/v6.png",
+          "id": "S0.F1.g1",
+          "class": "ltx_graphics ltx_centering ltx_figure_panel ltx_img_landscape",
+          "style": "aspect-ratio:685/214;",
+          "width": "685",
+          "height": "214",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S1.F2",
+      "text": "Figure 2 : Querying Unseen Regions. In addition to reconstructing a scene from images, our method can also infer structure for unseen parts of the scene, given a virtual camera query (shown in blue).",
+      "images": [
+        {
+          "src": "2501.12387v1/fig2_4.png",
+          "id": "S1.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/281;",
+          "width": "685",
+          "height": "281",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S2.F3",
+      "text": "Figure 3 : Method Overview . Our method performs online dense 3D reconstruction from a stream of images (video frames or a photo collection) by using a persistent state. Each input image is encoded into visual tokens via a shared-weight ViT encoder. These tokens interact with state tokens, where state update integrates the current image into the state, and state readout retrieves the past context stored in the state for predictions. Both processes occur simultaneously through two interconnected ViT decoders. Outputs include pointmaps in world and camera frames (only world pointmaps are shown) and the camera-to-world transformation. On the right, we demonstrate our method’s ability to predict unseen views: given a query camera (as a raymap), it reads information from the state to predict its corresponding pointmap, even for unobserved regions. For these readouts, we do not update the state. The hallucinated pointmap is highlighted with a blue border.",
+      "images": [
+        {
+          "src": "2501.12387v1/state_overview.png",
+          "id": "S2.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/260;",
+          "width": "685",
+          "height": "260",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T1",
+      "text": "Sintel Bonn KITTI NYU-v2 Method Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow DUSt3R 0.424 58.7 0.141 82.5 0.112 86.3 0.080 90.7 MASt3R 0.340 60.4 0.142 82.0 0.079 94.7 0.129 84.9 MonST3R 0.358 54.8 0.076 93.9 0.100 89.3 0.102 88.0 Spann3R 0.470 53.9 0.118 85.9 0.128 84.6 0.122 84.9 Ours 0.428 55.4 0.063 96.2 0.092 91.3 0.086 90.9 Table 1 : Single-frame Depth Evaluation. We report the performance on Sintel, Bonn, KITTI, and NYU-v2 (static) datasets.",
+      "images": []
+    },
+    {
+      "id": "S4.T2",
+      "text": "Sintel BONN KITTI Alignment Method Optim. Onl. Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow FPS Per-sequence scale DUSt3R-GA [ 107 ] ✓ 0.656 45.2 0.155 83.3 0.144 81.3 0.76 MASt3R-GA [ 51 ] ✓ 0.641 43.9 0.252 70.1 0.183 74.5 0.31 MonST3R-GA [ 125 ] ✓ 0.378 55.8 0.067 96.3 0.168 74.4 0.35 Spann3R [ 101 ] ✓ 0.622 42.6 0.144 81.3 0.198 73.7 13.55 Ours ✓ 0.421 47.9 0.078 93.7 0.118 88.1 16.58 Metric scale MASt3R-GA [ 51 ] ✓ 1.022 14.3 0.272 70.6 0.467 15.2 0.31 Ours ✓ 1.029 23.8 0.103 88.5 0.122 85.5 16.58 Table 2 : Video Depth Evaluation . We report scale-invariant depth and metric depth accuracy on Sintel, Bonn, and KITTI datasets. Methods requiring global alignment are marked “GA”, while “Optim.” and “Onl.” indicate optimization-based and online methods, respectively. We also report the FPS on KITTI dataset using 512 × \\times 144 image resolution for all methods on an A100 GPU, except Spann3R which only supports 224 × \\times 224 inputs. We present a subset of baselines here; please refer to the supplementary material for full comparisons.",
+      "images": []
+    },
+    {
+      "id": "S4.T3",
+      "text": "Sintel TUM-dynamics ScanNet Method Optim. Onl. ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow Particle-SfM [ 129 ] ✓ 0.129 0.031 0.535 - - - 0.136 0.023 0.836 Robust-CVD [ 47 ] ✓ 0.360 0.154 3.443 0.153 0.026 3.528 0.227 0.064 7.374 CasualSAM [ 128 ] ✓ 0.141 0.035 0.615 0.071 0.010 1.712 0.158 0.034 1.618 DUSt3R-GA [ 107 ] ✓ 0.417 0.250 5.796 0.083 0.017 3.567 0.081 0.028 0.784 MASt3R-GA [ 51 ] ✓ 0.185 0.060 1.496 0.038 0.012 0.448 0.078 0.020 0.475 MonST3R-GA [ 125 ] ✓ 0.111 0.044 0.869 0.098 0.019 0.935 0.077 0.018 0.529 DUSt3R [ 107 ] ✓ 0.290 0.132 7.869 0.140 0.106 3.286 0.246 0.108 8.210 Spann3R [ 101 ] ✓ 0.329 0.110 4.471 0.056 0.021 0.591 0.096 0.023 0.661 Ours ✓ 0.213 0.066 0.621 0.046 0.015 0.473 0.099 0.022 0.600 Table 3 : Evaluation on Camera Pose Estimation on Sintel [ 12 ] , TUM-dynamic [ 89 ] , and ScanNet [ 19 ] datasets. Our method achieves the best overall performance among all online methods.",
+      "images": []
+    },
+    {
+      "id": "S4.F4",
+      "text": "Figure 4 : Qualitative Results on In-the-wild Internet Videos. We compare our method with concurrent works Spann3R [ 101 ] and MonST3R [ 125 ] . Our method achieves the best qualitative results.",
+      "images": [
+        {
+          "src": "2501.12387v1/qual_res_3.png",
+          "id": "S4.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/380;",
+          "width": "685",
+          "height": "380",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T4",
+      "text": "7 scenes [ 83 ] NRGBD [ 4 ] Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow Method Optim. Onl. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. FPS DUSt3R-GA [ 107 ] ✓ 0.146 0.077 0.181 0.067 0.736 0.839 0.144 0.019 0.154 0.018 0.870 0.982 0.68 MASt3R-GA [ 51 ] ✓ 0.185 0.081 0.180 0.069 0.701 0.792 0.085 0.033 0.063 0.028 0.794 0.928 0.34 MonST3R-GA [ 51 ] ✓ 0.248 0.185 0.266 0.167 0.672 0.759 0.272 0.114 0.287 0.110 0.758 0.843 0.39 Spann3R [ 101 ] ✓ 0.298 0.226 0.205 0.112 0.650 0.730 0.416 0.323 0.417 0.285 0.684 0.789 12.97 Ours ✓ 0.126 0.047 0.154 0.031 0.727 0.834 0.099 0.031 0.076 0.026 0.837 0.971 17.00 Table 4 : 3D reconstruction comparison on 7-Scenes [ 83 ] and NRGBD [ 4 ] datasets. While operating online, our method achieves competitive performance, on par with and even surpassing offline methods that employ global alignment.",
+      "images": []
+    },
+    {
+      "id": "S4.T5",
+      "text": "7-Scenes NRGBD Method Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow DUSt3R-GA [ 107 ] 0.146 0.181 0.736 0.144 0.154 0.870 Ours 0.126 0.154 0.727 0.099 0.076 0.837 Ours Revisit 0.113 0.107 0.732 0.094 0.076 0.844 Table 5 : State Update Analysis on 7-Scenes [ 83 ] and NRGBD [ 4 ] datasets.",
+      "images": []
+    },
+    {
+      "id": "S4.F5",
+      "text": "Figure 5 : State Update Analysis. Compared to online, revisiting incorporates global context which improves overall reconstruction results, especially in the highlighted regions.",
+      "images": [
+        {
+          "src": "2501.12387v1/revisiting5.png",
+          "id": "S4.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:685/568;",
+          "width": "685",
+          "height": "568",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F6",
+      "text": "Figure 6 : Inferring New Structure via. State Readout . From top to bottom: the input image; the ground truth (GT) image, used to query the state via its camera parameters (note: GT image is not given to the model); the depth map from the predicted pointmap; the pointmap prediction of the input image alone; and the pointmap combined with the predicted pointmap in a shared coordinate frame.",
+      "images": [
+        {
+          "src": "2501.12387v1/raymap3.png",
+          "id": "S4.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:685/702;",
+          "width": "685",
+          "height": "702",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.T6",
+      "text": "Dataset Name Scene Type Metric? Real? Dynamic? Camera only? Single View? ARKitScenes [ 5 ] Indoor Yes Real Static No No ARKitScenes-HighRes [ 5 ] Indoor Yes Real Static No No ScanNet [ 19 ] Indoor Yes Real Static No No ScanNet++ [ 121 ] Indoor Yes Real Static No No TartanAir [ 108 ] Mixed Yes Synthetic Dynamic No No Waymo [ 93 ] Outdoor Yes Real Dynamic No No MapFree [ 3 ] Outdoor Yes Real Static No No BlendedMVS [ 120 ] Mixed No Synthetic Static No No HyperSim [ 75 ] Indoor Yes Synthetic Static No No MegaDepth [ 53 ] Outdoor No Real Static No No Unreal4K [ 99 ] Mixed Yes Synthetic Static No No DL3DV [ 55 ] Mixed No Real Static No No CO3Dv2 [ 74 ] Object-Centric No Real Static No No WildRGBD [ 115 ] Object-Centric Yes Real Static No No VirtualKITTI2 [ 13 ] Outdoor Yes Synthetic Dynamic No No Matterport3D [ 15 ] Indoor Yes Real Static No No BEDLAM [ 9 ] Mixed Yes Synthetic Dynamic No No Dynamic Replica [ 43 ] Indoor Yes Synthetic Dynamic No No PointOdyssey [ 130 ] Mixed Yes Synthetic Dynamic No No Spring [ 60 ] Mixed Yes Synthetic Dynamic No No MVS-Synth [ 40 ] Outdoor Yes Synthetic Dynamic No No UASOL [ 6 ] Outdoor Yes Real Static No No OmniObject3D [ 114 ] Object-Centric Yes Synthetic Static No No RealEstate10K [ 131 ] Indoor No Real Static Yes No MVImgNet [ 123 ] Object-Centric No Real Static Yes No CoP3D [ 84 ] Object-Centric No Real Dynamic Yes No EDEN [ 50 ] Outdoor Yes Synthetic Static No Yes IRS [ 105 ] Indoor Yes Synthetic Static No Yes Synscapes [ 111 ] Outdoor Yes Synthetic Dynamic No Yes 3D Ken Burns [ 67 ] Mixed No Synthetic Static No Yes SmartPortraits [ 48 ] Indoor Yes Real Dynamic No Yes UrbanSyn [ 32 ] Outdoor Yes Synthetic Dynamic No Yes HOI4D [ 57 ] Indoor Yes Real Dynamic No Yes Table 6 : Training Datasets. We provide more details of our training datasets. We classify a dataset as dynamic if annotations exist for moving objects like humans. If there is only camera parameters (intrinsics and extrinsics) available, we mark them as “camera only”. If the dataset only contains depth and intrinsics for single views, we mark them as “single view”.",
+      "images": []
+    },
+    {
+      "id": "A2.T7",
+      "text": "Sintel BONN KITTI Alignment Method Optim. Onl. Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow FPS Per-sequence scale & shift Marigold [ 44 ] ✓ 0.532 51.5 0.091 93.1 0.149 79.6 < < 0.1 Depth-Anything-V2 [ 117 ] ✓ 0.367 55.4 0.106 92.1 0.140 80.4 3.13 NVDS [ 109 ] ✓ 0.408 48.3 0.167 76.6 0.253 58.8 - ChronoDepth [ 82 ] ✓ 0.687 48.6 0.100 91.1 0.167 75.9 1.89 DepthCrafter [ 39 ] ✓ 0.292 69.7 0.075 97.1 0.110 88.1 0.97 Robust-CVD [ 47 ] ✓ 0.703 47.8 - - - - - CasualSAM [ 128 ] ✓ 0.387 54.7 0.169 73.7 0.246 62.2 - DUSt3R-GA [ 107 ] ✓ 0.531 51.2 0.156 83.1 0.135 81.8 0.76 MASt3R-GA [ 51 ] ✓ 0.327 59.4 0.167 78.5 0.137 83.6 0.31 MonST3R-GA [ 125 ] ✓ 0.333 59.0 0.066 96.4 0.157 73.8 0.35 Spann3R [ 101 ] ✓ 0.508 50.8 0.157 82.1 0.207 73.0 13.55 Ours ✓ 0.454 55.7 0.074 94.5 0.106 88.7 16.58 Per-sequence scale DUSt3R-GA [ 107 ] ✓ 0.656 45.2 0.155 83.3 0.144 81.3 0.76 MASt3R-GA [ 51 ] ✓ 0.641 43.9 0.252 70.1 0.183 74.5 0.31 MonST3R-GA [ 125 ] ✓ 0.378 55.8 0.067 96.3 0.168 74.4 0.35 Spann3R [ 101 ] ✓ 0.622 42.6 0.144 81.3 0.198 73.7 13.55 Ours ✓ 0.421 47.9 0.078 93.7 0.118 88.1 16.58 Metric scale MASt3R-GA [ 51 ] ✓ 1.022 14.3 0.272 70.6 0.467 15.2 0.31 Ours ✓ 1.029 23.8 0.103 88.5 0.122 85.5 16.58 Table 7 : Video Depth Evaluation . We report scale&shift-invariant depth, scale-invariant depth and metric depth accuracy on Sintel, Bonn, and KITTI datasets. Methods requiring global alignment are marked “GA”, while “Optim.” and “Onl.” indicate optimization-based and online methods, respectively. We also report the FPS on KITTI dataset using 512 × \\times 144 image resolution for all methods, except Spann3R which only supports 224 × \\times 224 inputs.",
+      "images": []
+    },
+    {
+      "id": "A2.T8",
+      "text": "Sintel TUM-dynamics ScanNet Method Optim. Onl. ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow DROID-SLAM [ 96 ] ✓ 0.175 0.084 1.912 - - - - - - DPVO [ 97 ] ✓ 0.115 0.072 1.975 - - - - - - LEAP-VO [ 17 ] ✓ 0.089 0.066 1.250 0.068 0.008 1.686 0.070 0.018 0.535 Particle-SfM [ 129 ] ✓ 0.129 0.031 0.535 - - - 0.136 0.023 0.836 Robust-CVD [ 47 ] ✓ 0.360 0.154 3.443 0.153 0.026 3.528 0.227 0.064 7.374 CasualSAM [ 128 ] ✓ 0.141 0.035 0.615 0.071 0.010 1.712 0.158 0.034 1.618 DUSt3R-GA [ 107 ] ✓ 0.417 0.250 5.796 0.083 0.017 3.567 0.081 0.028 0.784 MASt3R-GA [ 51 ] ✓ 0.185 0.060 1.496 0.038 0.012 0.448 0.078 0.020 0.475 MonST3R-GA [ 125 ] ✓ 0.111 0.044 0.869 0.098 0.019 0.935 0.077 0.018 0.529 DUSt3R [ 107 ] ✓ 0.290 0.132 7.869 0.140 0.106 3.286 0.246 0.108 8.210 Spann3R [ 101 ] ✓ 0.329 0.110 4.471 0.056 0.021 0.591 0.096 0.023 0.661 Ours ✓ 0.213 0.066 0.621 0.046 0.015 0.473 0.099 0.022 0.600 Table 8 : Evaluation on Camera Pose Estimation on Sintel [ 12 ] , TUM-dynamic [ 89 ] , and ScanNet [ 19 ] datasets. Note that unlike the the rest of the methods, the three methods in the first section require ground truth camera intrinsics as input.",
+      "images": []
+    }
+  ]
+}

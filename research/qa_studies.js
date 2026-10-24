@@ -1,13 +1,14 @@
 const {chromium}=require('C:/Users/26932/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const fs=require('fs'),path=require('path');
 const root=path.resolve(__dirname,'..'),qa=path.join(root,'research','qa-v2');
+fs.mkdirSync(qa,{recursive:true});
 const url=f=>'file:///'+path.join(root,f).replace(/\\/g,'/');
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
  const ctx=await browser.newContext({viewport:{width:1460,height:1050},deviceScaleFactor:1});const page=await ctx.newPage();const errors=[],external=[];const report={pages:[],errors,external};
  page.on('pageerror',e=>errors.push(String(e)));await ctx.route(/^https?:/,r=>{external.push(r.request().url());r.abort();});
  const papers=JSON.parse(fs.readFileSync(path.join(root,'papers','registry.json'),'utf8'));
- const files=['topics/01-geometry.html',...papers.map(p=>p.path),'index.html','review.html'];
+ const files=[...fs.readdirSync(path.join(root,'topics')).filter(f=>f.endsWith('.html')).map(f=>'topics/'+f),...papers.map(p=>p.path),'index.html','review.html'];
  for(const f of files){
   await page.goto(url(f));await page.locator('img').evaluateAll(es=>es.forEach(e=>e.loading='eager'));
   await page.evaluate(async()=>{await Promise.all([...document.images].map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;})));});
@@ -29,8 +30,19 @@ const url=f=>'file:///'+path.join(root,f).replace(/\\/g,'/');
    await page.locator('#search').fill('DA3');data.searchWorks=await page.locator('#paper-A10').evaluate(e=>!e.hidden);
    await page.goto(url(f)+'#paper-A10');data.hashOpens=await page.locator('#paper-A10').evaluate(e=>e.open&&!e.hidden);
   }
+  if(f.startsWith('topics/')&&f!=='topics/01-geometry.html'){
+   data.methodCards=await page.locator('article.method').count();data.sections=await page.locator('section').count();
+   const stem=path.basename(f,'.html');await page.screenshot({path:path.join(qa,stem+'-desktop.png')});
+   await page.locator('#comparison').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(qa,stem+'-comparison.png')});
+   await page.locator('article.method').first().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(qa,stem+'-method.png')});
+  }
   await page.setViewportSize({width:390,height:844});await page.goto(url(f));
   data.mobileOverflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
+  if(f.startsWith('topics/')&&f!=='topics/01-geometry.html'){
+   await page.screenshot({path:path.join(qa,path.basename(f,'.html')+'-mobile.png')});
+   await page.locator('.mobile-toc summary').click();await page.locator('.mobile-toc a[href="#methods"]').click();
+   await page.waitForFunction(()=>Math.abs(document.querySelector('#methods').getBoundingClientRect().top)<150);data.mobileTocWorks=await page.locator('.mobile-toc').evaluate(e=>!e.open);
+  }
   if(f==='topics/01-geometry.html'){await page.screenshot({path:path.join(qa,'chapter-mobile.png')});await page.locator('#paper-studies').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(qa,'chapter-studies-mobile.png')});await page.locator('.mobile-toc summary').click();await page.locator('.mobile-toc a[href="#gauge"]').click();await page.waitForFunction(()=>Math.abs(document.querySelector('#gauge').getBoundingClientRect().top)<150);data.mobileTocWorks=await page.locator('.mobile-toc').evaluate(e=>!e.open);}
   if(f==='papers/depth-anything-3.html'){
    await page.screenshot({path:path.join(qa,'da3-mobile.png')});await page.locator('#figure-architecture').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(qa,'da3-figure-mobile.png')});

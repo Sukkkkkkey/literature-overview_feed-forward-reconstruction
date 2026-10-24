@@ -1,0 +1,985 @@
+{
+  "id": "N03",
+  "slug": "croco-v2",
+  "name": "CroCo v2",
+  "version": "2211.10408v3",
+  "pdf": "research/sources/2211.10408v3.pdf",
+  "url": "https://arxiv.org/pdf/2211.10408v3",
+  "sha256": "39ba21720c077a12f52080bd23e0ec03aae341707002b43866fa2d87248924af",
+  "pages": 19,
+  "figures": [
+    {
+      "id": "S1.F1",
+      "text": "Figure 1 : Pre-training for dense geometric tasks. We pre-train a generic architecture, with a monocular encoder and a binocular decoder, with cross-view completion before finetuning it on the stereo matching or optical flow downstream task.",
+      "images": [
+        {
+          "src": "2211.10408v3/croco_v2_teaser.png",
+          "id": "S1.F1.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:685/426;",
+          "width": "685",
+          "height": "426",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S1.F2",
+      "text": "Figure 2 : Overview of the improvements in CroCo v2 for cross-view completion pre-training: (a) collecting and using real-world images, (b) using rotary positional embeddings which model relative token positions, instead of absolute positions using the standard cosine embedding, (c) increasing network size both in the encoder and the decoder.",
+      "images": [
+        {
+          "src": "2211.10408v3/croco_v2_small.png",
+          "id": "S1.F2.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:685/245;",
+          "width": "685",
+          "height": "245",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S1.F3",
+      "text": "Habitat (synth.) ARKitScenes MegaDepth 3DStreetView IndoorVL Figure 3 : Example of pre-training cropped image pairs from Habitat which was the synthetic data used by CroCo [ 84 ] on the top row, and from real-world datasets we use in this paper (from ARKitScenes, MegaDepth, 3DStreetView and IndoorVL) below.",
+      "images": [
+        {
+          "src": "2211.10408v3/fig/pairs/Habitat/00000067_00.jpg",
+          "id": "S1.F3.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/Habitat/00000067_01.jpg",
+          "id": "S1.F3.g2",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/Habitat/00000044_00.jpg",
+          "id": "S1.F3.g3",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/Habitat/00000044_01.jpg",
+          "id": "S1.F3.g4",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/Habitat/00000004_00.jpg",
+          "id": "S1.F3.g5",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/Habitat/00000004_01.jpg",
+          "id": "S1.F3.g6",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/Habitat/00000029_00.jpg",
+          "id": "S1.F3.g7",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/Habitat/00000029_01.jpg",
+          "id": "S1.F3.g8",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/ARKitV2/3a74ce387fdebd_1.jpg",
+          "id": "S1.F3.g9",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/ARKitV2/3a74ce387fdebd_2.jpg",
+          "id": "S1.F3.g10",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/ARKitV2/12a0de6c003ca569_1.jpg",
+          "id": "S1.F3.g11",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/ARKitV2/12a0de6c003ca569_2.jpg",
+          "id": "S1.F3.g12",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/ARKitV2/2a8343f99d79fa05_1.jpg",
+          "id": "S1.F3.g13",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/ARKitV2/2a8343f99d79fa05_2.jpg",
+          "id": "S1.F3.g14",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/ARKitV2/7c460e6b8565b6db_1.jpg",
+          "id": "S1.F3.g15",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/ARKitV2/7c460e6b8565b6db_2.jpg",
+          "id": "S1.F3.g16",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/MegadepthV2/101a9ce328c6bcf6_1.jpg",
+          "id": "S1.F3.g17",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/MegadepthV2/101a9ce328c6bcf6_2.jpg",
+          "id": "S1.F3.g18",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/MegadepthV2/101b8df3e955c98f_1.jpg",
+          "id": "S1.F3.g19",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/MegadepthV2/101b8df3e955c98f_2.jpg",
+          "id": "S1.F3.g20",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/MegadepthV2/1010aed757a8a5c6_1.jpg",
+          "id": "S1.F3.g21",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/MegadepthV2/1010aed757a8a5c6_2.jpg",
+          "id": "S1.F3.g22",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/MegadepthV2/101c86ee7cb2f0d7_1.jpg",
+          "id": "S1.F3.g23",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/MegadepthV2/101c86ee7cb2f0d7_2.jpg",
+          "id": "S1.F3.g24",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/3Dstreetview/100080be64f58146_1.jpg",
+          "id": "S1.F3.g25",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/3Dstreetview/100080be64f58146_2.jpg",
+          "id": "S1.F3.g26",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/3Dstreetview/100640a802215b37_1.jpg",
+          "id": "S1.F3.g27",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/3Dstreetview/100640a802215b37_2.jpg",
+          "id": "S1.F3.g28",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/3Dstreetview/11019ee69fdd2397_1.jpg",
+          "id": "S1.F3.g29",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/3Dstreetview/11019ee69fdd2397_2.jpg",
+          "id": "S1.F3.g30",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/3Dstreetview/6ca79e70ca9ba_1.jpg",
+          "id": "S1.F3.g31",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/3Dstreetview/6ca79e70ca9ba_2.jpg",
+          "id": "S1.F3.g32",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/NLK/10273cd592bed005_1.jpg",
+          "id": "S1.F3.g33",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/NLK/10273cd592bed005_2.jpg",
+          "id": "S1.F3.g34",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/NLK/102c56a0c77d4530_1.jpg",
+          "id": "S1.F3.g35",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/NLK/102c56a0c77d4530_2.jpg",
+          "id": "S1.F3.g36",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/NLK/1af8143d5fc59088_1.jpg",
+          "id": "S1.F3.g37",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/NLK/1af8143d5fc59088_2.jpg",
+          "id": "S1.F3.g38",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/NLK/11228c939c1a2f98_1.jpg",
+          "id": "S1.F3.g39",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/pairs/NLK/11228c939c1a2f98_2.jpg",
+          "id": "S1.F3.g40",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:79/79;",
+          "width": "79",
+          "height": "79",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F4",
+      "text": "Figure 4 : Overview of our pre-training cropped image pair collection method. Given a dataset of posed images, optionally with point clouds ( e.g . from SfM) or meshes of the scene, we first measure the visual overlap between pairs and the viewpoint angle difference. Based on these scores, we use a greedy algorithm to select diverse image pairs and finally generate crops from them.",
+      "images": [
+        {
+          "src": "2211.10408v3/pipeline.png",
+          "id": "S3.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/106;",
+          "width": "685",
+          "height": "106",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F5",
+      "text": "Figure 5 : Architecture of CroCo-Stereo and CroCo-Flow. The two images (left and right views for stereo, two frames for flow) are split into patches and encoded with a series of transformer blocks with RoPE positional embeddings. The decoder consists in a series of transformer decoder blocks (self-attention among token features from the first image, cross-attention with the token features from the second image, and an MLP). Token features from different intermediate blocks are fed to the DPT module [ 61 ] to obtain the final prediction.",
+      "images": [
+        {
+          "src": "2211.10408v3/croco_v2_dpt.png",
+          "id": "S3.F5.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:685/182;",
+          "width": "685",
+          "height": "182",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.T1",
+      "text": "pos. encoder decoder pre-train Stereo (bad@1.0px ↓ \\downarrow ) Flow (EPE ↓ \\downarrow ) emb. data Md ETH SF(c) SF(f) FT(c) FT(f) Si.(c) Si.(f) cosine ViT-B Small 2M habitat (CroCo [ 84 ] ) 26.3 1.82 6.7 7.0 3.89 3.56 2.07 2.57 RoPE ViT-B Small 2M habitat 25.3 0.60 6.0 6.3 3.73 3.37 2.13 2.77 RoPE ViT-B Small 2M habitat + 5.3M real 20.7 0.82 5.8 6.1 3.35 2.94 1.76 2.30 RoPE ViT-B Base 2M habitat + 5.3M real 17.1 1.14 5.3 5.6 3.10 2.73 1.51 1.99 RoPE ViT-L Base 2M habitat + 5.3M real ( CroCo v2 ) 15.5 0.38 5.0 5.3 2.85 2.45 1.43 1.99 Table 1 : Ablative study of each change to CroCo with the percentage of pixels with error above 1px (bad@1.0) on validation sets from Middlebury (Md), ETH3D, SceneFlow (SF) in clean (c) and final (f) renderings for stereo, and with the endpoint error (EPE) on validation sets from FlyingThings (FT) and MPI-Sintel (Si.) in both clean (c) and final (f) renderings for optical flow. A Small decoder has 8 decoder blocks with 16 attention heads on 512-dimensional features, while the Base one has 12 blocks with 12 heads on 768-dimensional features.",
+      "images": []
+    },
+    {
+      "id": "S3.T2",
+      "text": "Bicyc2 Compu Austr AustrP Djemb DjembL Livgrm Plants Hoops Stairs Nkuba Class ClassE Crusa CrusaP avg ↓ \\downarrow nd < 400px \\text{nd}<\\text{400px} D D D D D D D D LEAStereo [ 18 ] 1.83 3.81 2.81 2.52 1.07 1.64 2.59 5.13 5.34 2.79 3.09 2.46 2.75 2.91 3.09 2.89 AdaStereo [ 72 ] 2.19 2.29 4.37 3.08 1.40 1.64 3.93 7.58 4.46 2.67 3.69 3.29 3.35 3.78 2.94 3.39 HITNet [ 78 ] 1.43 1.87 3.61 3.27 0.90 9.12 2.37 4.07 4.45 3.38 3.45 2.43 3.20 4.67 4.74 3.29 RAFT-Stereo [ 48 ] 0.90 1.13 2.64 2.22 0.63 1.22 3.13 3.55 3.54 1.89 4.36 1.46 2.44 4.58 6.00 2.71 CREStereo [ 45 ] 1.38 1.06 2.63 2.53 0.64 1.11 1.42 5.31 3.22 2.40 2.51 1.92 2.31 1.78 1.83 2.10 GMStereo [ 90 ] 1.34 1.32 2.26 2.23 1.01 1.62 1.84 2.49 3.19 2.18 2.10 2.19 2.08 1.71 1.75 1.89 CroCo-Stereo 0.84 1.45 1.87 1.83 0.69 1.19 2.40 2.28 8.31 1.44 1.96 3.99 4.61 2.48 2.81 2.36 Table 2 : Evaluation on Middlebury with the average error over all pixels for each sequence and the average (last column). Sequences are ordered according to their ‘nd’ value, which is the official threshold of maximum disparity used to clip predictions before evaluation.",
+      "images": []
+    },
+    {
+      "id": "S5.F6",
+      "text": "Left image Ground truth CREStereo [ 45 ] CroCo-Stereo Figure 6 : Three example results from the Middlebury test set (Australia, Bicycle2 and Hoops) with from left to right: the left image, the ground truth, CREStereo [ 45 ] and CroCo-Stereo.",
+      "images": [
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Australia_im0.jpg",
+          "id": "S5.F6.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/116;",
+          "width": "168",
+          "height": "116",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Australia_GT.jpg",
+          "id": "S5.F6.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/116;",
+          "width": "168",
+          "height": "116",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Australia_CREStereo.jpg",
+          "id": "S5.F6.g3",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/116;",
+          "width": "168",
+          "height": "116",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Australia_CroCoStereo.jpg",
+          "id": "S5.F6.g4",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/116;",
+          "width": "168",
+          "height": "116",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Bicycle2_im0.jpg",
+          "id": "S5.F6.g5",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/115;",
+          "width": "168",
+          "height": "115",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Bicycle2_GT.jpg",
+          "id": "S5.F6.g6",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/115;",
+          "width": "168",
+          "height": "115",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Bicycle2_CREStereo.jpg",
+          "id": "S5.F6.g7",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/115;",
+          "width": "168",
+          "height": "115",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Bicycle2_CroCoStereo.jpg",
+          "id": "S5.F6.g8",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/115;",
+          "width": "168",
+          "height": "115",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Hoops_im0.jpg",
+          "id": "S5.F6.g9",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/116;",
+          "width": "168",
+          "height": "116",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Hoops_GT.jpg",
+          "id": "S5.F6.g10",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/116;",
+          "width": "168",
+          "height": "116",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Hoops_CREStereo.jpg",
+          "id": "S5.F6.g11",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/116;",
+          "width": "168",
+          "height": "116",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/middlebury_test_examples/Hoops_CroCoStereo.jpg",
+          "id": "S5.F6.g12",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/116;",
+          "width": "168",
+          "height": "116",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.T3",
+      "text": "Method D1-bg ↓ \\downarrow D1-fg ↓ \\downarrow D1-all ↓ \\downarrow AdaStereo [ 72 ] 2.59 5.55 3.08 HITNet [ 78 ] 1.74 3.20 1.98 PCWNet [ 69 ] 1.37 3.16 1.67 GMStereo [ 90 ] 1.49 3.14 1.77 ACVNet [ 88 ] 1.37 3.07 1.65 LEAStereo [ 18 ] 1.40 2.91 1.65 CREStreo [ 45 ] 1.45 2.86 1.69 CroCo-Stereo 1.38 2.65 1.59 Table 3 : Evaluation on the KITTI 2015 stereo benchmark with the percentage of outliers ( i.e . , error above 3 pixels) for background (D1-bg), foreground (D1-fg) and all (D1-all) pixels.",
+      "images": []
+    },
+    {
+      "id": "S5.T4",
+      "text": "Method bad@0.5 (%) ↓ \\downarrow bad@1.0 (%) ↓ \\downarrow avg err (px) ↓ \\downarrow noc all noc all noc all AdaStereo [ 72 ] 10.22 10.85 3.09 3.34 0.24 0.25 HITNet [ 78 ] 7.89 8.41 2.79 3.11 0.20 0.22 RAFT-Stereo [ 48 ] 7.04 7.33 2.44 2.60 0.18 0.19 DIP-Stereo [ 99 ] 6.74 6.99 1.97 2.12 0.18 0.20 GMStereo [ 90 ] 5.94 6.44 1.83 2.07 0.19 0.21 CREStereo [ 45 ] 3.58 3.75 0.98 1.09 0.13 0.14 CroCo-Stereo 3.27 3.51 0.99 1.14 0.14 0.15 Table 4 : Evaluation on ETH3D with the percentage of pixels with an error over 0.5px (bad@0.5), over 1px (bad@1.0) and the average error over non-occluded (noc) or all pixels.",
+      "images": []
+    },
+    {
+      "id": "S5.T5",
+      "text": "Method 1px ↓ \\downarrow 1px s0-10 ↓ \\downarrow 1px s10-40 ↓ \\downarrow 1px s40+ ↓ \\downarrow Abs ↓ \\downarrow RAFT-Stereo [ 48 ] ‡ 15.273 22.588 10.018 17.086 3.025 AVC-Net [ 88 ] ‡ 14.772 18.386 11.346 18.145 1.516 CroCo-Stereo 7.135 2.934 7.757 13.247 0.471 Table 5 : Evaluation of CroCo-Stereo on the Spring benchmark with the percentage of outliers (error over 1px) over all pixels, or over pixels with disparities in [0,10] (s0-10), in [10,40] (s10-40) and over 40 pixels (s40+), as well as the average absolute error (Abs). ‡ means methods submitted by the leaderboard’s authors.",
+      "images": []
+    },
+    {
+      "id": "S5.T6",
+      "text": "Method clean ↓ \\downarrow final ↓ \\downarrow PWC-Net+ [ 76 ] 3.45 4.60 RAFT † [ 79 ] 1.61 2.86 CRAFT † [ 74 ] 1.44 2.42 FlowFormer [ 31 ] 1.20 2.12 SKFlow [ 77 ] 1.30 2.26 GMFlow+ [ 90 ] 1.03 2.12 CroCo-Flow 1.09 2.44 Table 6 : Evaluation on the MPI-Sintel benchmark with the EPE ( ↓ \\downarrow ) on the clean and final renderings. † means that the flow prediction from the previous frames is used as initialization.",
+      "images": []
+    },
+    {
+      "id": "S5.F7",
+      "text": "First image Ground truth GMFlow+ [ 90 ] CroCo-Flow Figure 7 : Two examples from the MPI-Sintel test set with from left to right: the first image, the ground truth, GMFlow+ [ 90 ] and CroCo-Flow.",
+      "images": [
+        {
+          "src": "2211.10408v3/fig/sintel_test_examples/sintel_images_R1C2.png",
+          "id": "S5.F7.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/72;",
+          "width": "168",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/sintel_test_examples/sintel_gt_flow_R1C2.png",
+          "id": "S5.F7.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/72;",
+          "width": "168",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/sintel_test_examples/sintel_gmflowplus_flowR1C2.png",
+          "id": "S5.F7.g3",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/72;",
+          "width": "168",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/sintel_test_examples/sintel_crocoflow_flow_R1C2.png",
+          "id": "S5.F7.g4",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/72;",
+          "width": "168",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/sintel_test_examples/sintel_images_R2C1.png",
+          "id": "S5.F7.g5",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/72;",
+          "width": "168",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/sintel_test_examples/sintel_gt_flow_R2C1.png",
+          "id": "S5.F7.g6",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/72;",
+          "width": "168",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/sintel_test_examples/sintel_gmflowplus_flowR2C1.png",
+          "id": "S5.F7.g7",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/72;",
+          "width": "168",
+          "height": "72",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/sintel_test_examples/sintel_crocoflow_flow_R2C1.png",
+          "id": "S5.F7.g8",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:168/72;",
+          "width": "168",
+          "height": "72",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.T7",
+      "text": "Method Fl-bg ↓ \\downarrow Fl-fg ↓ \\downarrow Fl-all ↓ \\downarrow PWC-Net+ [ 76 ] 7.69 7.88 7.72 RAFT † [ 79 ] 4.74 6.87 5.10 CRAFT † [ 74 ] 4.58 5.85 4.79 FlowFormer [ 31 ] 4.37 6.18 4.68 GMFlow+ [ 90 ] 4.27 5.60 4.49 CroCo-Flow 3.18 5.94 3.64 Table 7 : Evaluation of CroCo-Flow on the KITTI 2015 benchmark with the percentage of outliers for background (F1-bg), foreground (F1-fg) and all (F1-all) pxiels. † means that the flow prediction from the previous frames is used as initialization.",
+      "images": []
+    },
+    {
+      "id": "S5.T8",
+      "text": "Method 1px ↓ \\downarrow 1px s0-10 ↓ \\downarrow 1px s10-40 ↓ \\downarrow 1px s40+ ↓ \\downarrow EPE ↓ \\downarrow FlowFormer [ 31 ] ‡ 6.510 3.381 5.530 35.344 0.723 MS-Raft+ [ 32 ] ‡ 5.724 2.055 5.022 38.315 0.643 CroCo-Flow 4.565 1.225 4.332 33.134 0.498 Table 8 : Evaluation of CroCo-Flow on the Spring benchmark with the number of outliers (error over 1px) over all pixels, or over pixels with flow norm in [0,10] (s0-10), in [10,40] (s10-40) and over 40 pixels (s40+) as well as the endpoint error (EPE). ‡ means methods submitted by the leaderboard’s authors.",
+      "images": []
+    },
+    {
+      "id": "A0.F8",
+      "text": "Figure 8 : Cross-view reconstruction examples (pre-training pretext task) on scenes unseen during pretraining for the original CroCo [ 84 ] and with our improvements. The images come from the Middlebury stereo benchmark [ 65 ] .",
+      "images": []
+    },
+    {
+      "id": "A0.F9",
+      "text": "Reference image Masked target CroCo [ 84 ] CroCo v2 Target image Figure 9 : Cross-view reconstruction examples (pre-training pretext task) on scenes unseen during pre-training for the original CroCo [ 84 ] and with our improvements. The images come from the stereo benchmark of KITTI [ 24 ] .",
+      "images": [
+        {
+          "src": "2211.10408v3/fig/completion_examples/99_ref.png",
+          "id": "A0.F9.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/99_maskedtgt.png",
+          "id": "A0.F9.g2",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/99_pred_neurips.png",
+          "id": "A0.F9.g3",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/99_pred_v2.png",
+          "id": "A0.F9.g4",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/99_tgt.png",
+          "id": "A0.F9.g5",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/193_ref.png",
+          "id": "A0.F9.g6",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/193_maskedtgt.png",
+          "id": "A0.F9.g7",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/193_pred_neurips.png",
+          "id": "A0.F9.g8",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/193_pred_v2.png",
+          "id": "A0.F9.g9",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/193_tgt.png",
+          "id": "A0.F9.g10",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/33_ref.png",
+          "id": "A0.F9.g11",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/33_maskedtgt.png",
+          "id": "A0.F9.g12",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/33_pred_neurips.png",
+          "id": "A0.F9.g13",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/33_pred_v2.png",
+          "id": "A0.F9.g14",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/completion_examples/33_tgt.png",
+          "id": "A0.F9.g15",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:134/134;",
+          "width": "134",
+          "height": "134",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A8.T9",
+      "text": "Network initialization Stereo (bad@1.0px ↓ \\downarrow ) Flow (EPE ↓ \\downarrow ) Md ETH SF(c) SF(f) FT(c) FT(f) Si.(c) Si.(f) RoPE positional embedding, ViT-L encoder, Base decoder, 2M Habitat + 5.3M real pre-training pairs CroCo v2 pre-training 15.5 0.38 5.0 5.3 2.85 2.45 1.43 1.99 random init. 43.4 1.06 11.0 11.2 10.53 10.57 4.84 5.49 cosine positional embedding, ViT-B encoder, Small decoder, 2M Habitat (synthetic only) pre-training pairs CroCo [ 84 ] pre-training 26.3 1.82 6.7 7.0 3.89 3.56 2.07 2.57 MAE [ 29 ] (ImageNet) pre-training (encoder only) 35.8 1.68 8.6 8.8 5.13 4.83 2.92 3.82 random init. 87.5 5.42 24.6 24.6 14.28 14.31 8.99 9.76 Table 9 : Impact of pre-training. We compare the performance of our final model (first row) with improved cross-view completion pre-training to a randomly initialized version (second row). To compare to MAE [ 29 ] , that is pre-trained on ImageNet [ 63 ] , and which is based on cosine positional embeddings, we make the comparison with the original CroCo in the bottom rows.",
+      "images": []
+    },
+    {
+      "id": "A8.T10",
+      "text": "Masking Stereo (bad@1.0px ↓ \\downarrow ) Flow (EPE ↓ \\downarrow ) ratio Md ETH SF(c) SF(f) FT(c) FT(f) Si.(c) Si.(f) 80% 32.5 1.96 7.3 7.5 4.29 4.06 2.06 2.71 85% 59.2 1.15 8.7 9.0 3.48 3.08 1.99 2.41 90% 20.7 0.82 5.8 6.1 3.35 2.94 1.76 2.30 Table 10 : Impact of the pre-training masking ratio for a model with RoPE positional embeddings, a ViT-B encoder, a Small decoder, pre-trained on 2M Habitat + 5.3M real pairs.",
+      "images": []
+    },
+    {
+      "id": "A8.T11",
+      "text": "Method MPI-Sintel( ↓ \\downarrow ) clean final LiteFlowNet2 [ 34 ] 2.24 3.78 FM-RAFT [ 35 ] 1.29 2.95 FlowFormer [ 31 ] 1.01 2.40 RAFT [ 79 ] before refinement 4.04 5.45 RAFT [ 79 ] 1.41 2.69 GMFlow [ 90 ] before refinement 1.31 2.96 GMFlow [ 90 ] 1.08 2.48 CroCo-Flow 1.28 2.58 Table 11 : Optical flow results when training on FlyingChairs and FlyingThings only. We report the EPE on MPI-Sintel training set (clean or final rendering). Numbers for the first three rows come from [ 31 ] , numbers for RAFT and GMFlow (before and after refinement) from [ 90 ] .",
+      "images": []
+    },
+    {
+      "id": "A8.T12",
+      "text": "Pos. Encoder Decoder runtime #Parameters cosine ViT-B Small 25ms 139.4M (85.6M+34.0M+19.7M) RoPE ViT-B Small 26ms 139.4M (85.6M+34.0M+19.7M) RoPE ViT-B Base 29ms 219.7M (85.6M+114.0M+20.1M) RoPE ViT-L Base 53ms 437.4M (303.1M+114.2M+20.1M) Table 12 : Runtime and number of parameters. Runtime is measured for a single tile of size 704 × 352 704{\\times}352 , on a NVIDIA A100 GPU. For the number of parameters we report in parenthesis the numbers for the encoder, the decoder and the DPT head separately.",
+      "images": []
+    },
+    {
+      "id": "A8.F10.fig1",
+      "text": "0 0 0.1 0.1 0.2 0.2 0.3 0.3 0.4 0.4 0.5 0.5 0.6 0.6 0.7 0.7 0.8 0.8 0.9 0.9 16 16 18 18 20 20 22 22 24 24 Overlap ratio Middlebury v3 (bad@1.0px ↓ \\downarrow )",
+      "images": []
+    },
+    {
+      "id": "A8.F10.fig2",
+      "text": "0 0 0.1 0.1 0.2 0.2 0.3 0.3 0.4 0.4 0.5 0.5 0.6 0.6 0.7 0.7 0.8 0.8 0.9 0.9 1.9 1.9 2 2 2.1 2.1 2.2 2.2 2.3 2.3 Overlap ratio MPI-Sintel final (EPE ↓ \\downarrow )",
+      "images": []
+    },
+    {
+      "id": "A8.F10.fig3",
+      "text": "0 0 0.1 0.1 0.2 0.2 0.3 0.3 0.4 0.4 0.5 0.5 0.6 0.6 0.7 0.7 0.8 0.8 0.9 0.9 0 0 100 100 200 200 300 300 400 400 Overlap ratio Nb. tiles ↓ \\downarrow",
+      "images": []
+    },
+    {
+      "id": "A8.F11",
+      "text": "First image Prediction error Uncertainty Figure 11 : Visualization of the uncertainty predicted by CroCo-Stereo on a few examples from the SceneFlow test set. The first column shows the first image, the second column shows the error of the prediction clamped within the segment [ 0 , 10 ] [0,10] , the third column shows the logarithm of the predicted scale of the Laplacian distribution output by the model: green colors denote confident areas while blue colors denote uncertain areas.",
+      "images": [
+        {
+          "src": "2211.10408v3/fig/confidence/0003_img1.png",
+          "id": "A8.F11.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0003_err.png",
+          "id": "A8.F11.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0003_conf.png",
+          "id": "A8.F11.g3",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0042_img1.png",
+          "id": "A8.F11.g4",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0042_err.png",
+          "id": "A8.F11.g5",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0042_conf.png",
+          "id": "A8.F11.g6",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0075_img1.png",
+          "id": "A8.F11.g7",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0075_err.png",
+          "id": "A8.F11.g8",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0075_conf.png",
+          "id": "A8.F11.g9",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0044_img1.png",
+          "id": "A8.F11.g10",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0044_err.png",
+          "id": "A8.F11.g11",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2211.10408v3/fig/confidence/0044_conf.png",
+          "id": "A8.F11.g12",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:227/114;",
+          "width": "227",
+          "height": "114",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A8.F12",
+      "text": "Figure 12 : Statistics on the uncertainty predicted by CroCo-Stereo. We subsample 1000 points per test image from SceneFlow in its clean renderings and compute the error of the prediction and the logarithm of the predicted scale of the Laplacian, i.e . , the pixelwise uncertainty. On the left plot, we show the median of the error for a given predicted uncertainty (orange line), the 25- and 75-percentile in dark blue, and the 10- and 90-percentile in light blue. On the right plot, we sort pixels according to their predicted uncertainty from the less uncertain to the more uncertain and show the median of the error over the fractions of pixels considered (orange line), the 25- and 75-percentile in dark blue, and the 10- and 90-percentile in light blue.",
+      "images": []
+    },
+    {
+      "id": "A8.T13",
+      "text": "loss Stereo (bad@1.0px ↓ \\downarrow ) Flow (EPE ↓ \\downarrow ) Md ETH SF(c) SF(f) FT(c) FT(f) Si.(c) Si.(f) L1 23.0 0.95 6.1 6.3 3.02 2.69 1.51 2.13 Lap. 15.5 0.38 5.0 5.3 2.85 2.45 1.43 1.99 Table 13 : Impact of the loss. We compare a standard L1 loss vs . the Laplacian (Lap.) loss.",
+      "images": []
+    },
+    {
+      "id": "A8.T14",
+      "text": "stereo dataset # pairs comment CREStereo [ 45 ] 200,000 all training pairs SceneFlow [ 53 ] 70,908 Driving, Monkaa and FlyingThings in both clean and final renderings 4,370 validation pairs from FlyingThings test for each rendering (clean and final) ETH3D Low Res [ 67 ] 30 × {\\times} 24 ‘delivery_area_3s’, ‘electro_3l’ ‘playground_3l’ (3 pairs) are kept apart for validation Middlebury v3 [ 65 ] 50 × {\\times} 14 ‘Vintge’ (1 pair) is kept apart for validation, we use the ‘full’ resolution Middlebury 21 50 × {\\times} 335 ‘traproom1’ and ‘traproom2’ are kept apart for validation (20 pairs) Middlebury 14 50 × {\\times} 132 ‘Umbrella-umperfect’ and ‘Vintage-perfect’ are kept apart for validation (6 pairs) Middlebury 06 50 × {\\times} 171 ‘Rocks1’ and ‘Wood2’ are kept apart for validation (18 pairs) Middlebury 05 50 × {\\times} 45 ‘Reindeer’ is kept apart for validation (9 pairs) Booster [ 60 ] 213 only the ‘balanced’ subset, ‘Vodka’ and ‘Washer’ sequences (15 pairs) kept apart for validation total 306,691 Table 14 : Overview of our stereo training data. We indicate here the train/val split used for the ablations, as well as the number of training pairs. For ETH3D and Middlebury, we also consider multiple times each pair in each epoch.",
+      "images": []
+    },
+    {
+      "id": "A8.T15",
+      "text": "flow dataset # pairs prob. comment FlyingChairs [ 21 ] 22,232 12% - FlyingThings [ 53 ] 80,604 40% 40,302 pairs for both ‘clean’ and ‘final’ renderings we use the same 1,024 validation pairs from the test set as [ 90 ] MPI-Sintel [ 11 ] 943 10% sequences ‘temple_2’ and ‘temple_3’ (98 pairs) are kept apart for validation TartanAir [ 81 ] 306,268 38% - total 410,047 100% Table 15 : Overview of our flow training data. We indicate here the train/val split used for the ablations, as well as the number of remaining training pairs. During training, we set a number of images per epoch and randomly sample them among the available datasets with the percentages shown in the column ‘prob.’.",
+      "images": []
+    }
+  ]
+}

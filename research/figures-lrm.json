@@ -1,0 +1,157 @@
+{
+  "id": "H07",
+  "slug": "lrm",
+  "name": "LRM",
+  "version": "2311.04400v2",
+  "pdf": "research/sources/2311.04400v2.pdf",
+  "url": "https://arxiv.org/pdf/2311.04400v2",
+  "sha256": "e15fa47f50d7477b6fcb6a253cd14e938943507747536b454de4970cc1d4ab08",
+  "pages": 25,
+  "figures": [
+    {
+      "id": "S2.F1",
+      "text": "Figure 1: The overall architecture of LRM, a fully-differentiable transformer-based encoder-decoder framework for single-image to NeRF reconstruction. LRM applies a pre-trained vision model (DINO) to encode the input image (Sec. 3.1 ), where the image features are projected to a 3D triplane representation by a large transformer decoder via cross-attention (Sec. 3.2 ), followed by a multi-layer perceptron to predict the point color and density for volumetric rendering (Sec. 3.3 ). The entire network is trained end-to-end on around a million of 3D data (Sec. 4.1 ) with simple image reconstruction losses (Sec. 3.4 ).",
+      "images": [
+        {
+          "src": "2311.04400v2/img2nerf_model_figure.png",
+          "id": "S2.F1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:543/286;",
+          "width": "543",
+          "height": "286",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F2",
+      "text": "Figure 2: Rendered novel views (RGB and depth) of shapes reconstructed by our LRM from single images. None of the images are observed by the model during training. Generated images are created using Adobe Firefly. The last two rows compare our results to the rendered ground truth images of Objaverse objects (GT). Please zoom in for clearer visualization.",
+      "images": [
+        {
+          "src": "2311.04400v2/visualize-self-p1.png",
+          "id": "S4.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "style": "aspect-ratio:548/797;",
+          "width": "548",
+          "height": "797",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F3",
+      "text": "Figure 3: Comparison to One-2-3-45 ( Liu et al., 2023a ) . To avoid cherry-picking, input images in the first three rows are selected from the examples provided in One-2-3-45’s paper or demo page. None of the images are observed by our model during training. Please zoom in for clearer visualization.",
+      "images": [
+        {
+          "src": "2311.04400v2/visualize-compare.png",
+          "id": "S4.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/242;",
+          "width": "548",
+          "height": "242",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F4",
+      "text": "Figure 4: Failure cases of our method. All three examples show blurry textures for occluded regions, and distortion due to the largely inaccurate assumption of the camera parameters.",
+      "images": [
+        {
+          "src": "2311.04400v2/visualize-fail.png",
+          "id": "S4.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:494/72;",
+          "width": "494",
+          "height": "72",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5",
+      "text": "Figure 5: Visual illustration of the cross-attention and self-attention in LRM’s image-to-triplane decoder.",
+      "images": []
+    },
+    {
+      "id": "A3.T1",
+      "text": "Table 1: Comparison between LRM and state-of-the-art 3D generative models on Google Scanned Objects dataset (100 randomly selected objects and 20 reference views). Models GSO Evaluation FID ↓ \\downarrow CLIP-Similarity ↑ \\uparrow PSNR ↑ \\uparrow LPIPS ↓ \\downarrow Chamfer Distance ↓ \\downarrow Point-E 123.70 0.741 15.60 0.308 0.099 Shap-E 97.05 0.805 14.36 0.289 0.085 One-2-3-45 139.24 0.713 12.42 0.448 0.123 LRM (ours) 31.44 0.902 19.60 0.163 0.053",
+      "images": []
+    },
+    {
+      "id": "A4.T2",
+      "text": "Table 2: Comparison between the final model and the baseline for analysis. Models Unseen Evaluation PSNR ↑ \\uparrow CLIP-Similarity ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow Final 20.1 91.0 79.7 16.0 Baseline 19.0 87.8 77.4 19.1",
+      "images": []
+    },
+    {
+      "id": "A4.T3",
+      "text": "Table 3: Influence of training datasets. Data Unseen Evaluation PSNR ↑ \\uparrow CLIP-Similarity ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow Synthetic (Objaverse) 15.5 84.7 70.3 29.3 Real (MvImgNet) 17.5 85.7 75.7 22.0 Synthetic+Real 19.0 87.8 77.4 19.1",
+      "images": []
+    },
+    {
+      "id": "A4.T4",
+      "text": "Table 4: Effect of the number of different views per shape in training. 32+ indicates some video data in MvImgNet contain more than 32 views per shape, which we apply all of them in training. Train Views Unseen Evaluation PSNR ↑ \\uparrow CLIP-Similarity ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow 4 18.8 86.7 77.5 19.8 8 18.9 87.3 77.5 19.4 16 19.1 87.9 77.6 19.0 32+ 19.0 87.8 77.4 19.1",
+      "images": []
+    },
+    {
+      "id": "A4.T5",
+      "text": "Table 5: Effect of the number of cross-attention layers in image-to-triplane decoder. CrossAttn Layers Unseen Evaluation PSNR ↑ \\uparrow CLIP-Similarity ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow 6 19.0 87.7 77.6 19.1 16 19.0 87.8 77.4 19.1 24 19.1 88.0 77.6 18.9",
+      "images": []
+    },
+    {
+      "id": "A4.T6",
+      "text": "Table 6: Effect of the number of MLP layers in NeRF. NeRF MLP Layers Unseen Evaluation PSNR ↑ \\uparrow CLIP-Similarity ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow 2 19.2 87.7 77.8 18.9 6 19.1 88.0 77.6 19.0 12 19.0 87.8 77.4 19.1 14 19.1 87.2 77.6 19.0",
+      "images": []
+    },
+    {
+      "id": "A4.T7",
+      "text": "Table 7: Effect of the resolution of triplane. For 64up and 128up , we apply additional 2 × 2 2{\\times}2 and 4 × 4 4{\\times}4 deconvolution layers, respectively, to upsample a Res. 32 triplane. Triplane Res. Unseen Evaluation PSNR ↑ \\uparrow CLIP-Similarity ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow 32 18.9 86.3 77.2 19.7 64up 19.0 87.8 77.4 19.1 128up 19.0 88.3 77.5 19.0",
+      "images": []
+    },
+    {
+      "id": "A4.T8",
+      "text": "Table 8: Effect of camera pose normalization. Camera Pose Unseen Evaluation PSNR ↑ \\uparrow CLIP-Similarity ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow None 15.3 83.4 70.1 28.9 Random 18.0 85.6 75.7 21.1 Normalized 19.0 87.8 77.4 19.1",
+      "images": []
+    },
+    {
+      "id": "A4.T9",
+      "text": "Table 9: Influence of the number of side views applied for each training sample. Side Views Unseen Evaluation PSNR ↑ \\uparrow CLIP-Similarity ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow 1 18.7 87.7 77.2 19.7 2 18.7 87.5 77.2 19.6 3 19.0 87.8 77.4 19.1 4 19.1 87.8 77.6 18.9",
+      "images": []
+    },
+    {
+      "id": "A4.T10",
+      "text": "Table 10: Influence of the rendering resolution of images in training. Render Res. Unseen Evaluation PSNR ↑ \\uparrow CLIP-Similarity ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow 32 18.8 86.3 77.0 20.1 64 19.0 87.8 77.4 19.1 128 19.4 89.0 78.3 18.0",
+      "images": []
+    },
+    {
+      "id": "A5.F6",
+      "text": "Figure 6: Comparison between LRM rendered novel views and the ground truth images (GT). None of the images are observed by the model during training. The GT depth images of Objaverse are rendered from the 3D models. Please zoom in for clearer visualization.",
+      "images": [
+        {
+          "src": "2311.04400v2/visualize-self-p3.png",
+          "id": "A5.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:548/455;",
+          "width": "548",
+          "height": "455",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F7",
+      "text": "Figure 7: Rendered novel views (RGB and Depth) of shapes reconstructed by our LRM from single images. None of the images are observed by the model during training. Generated images are created by the Adobe Firefly. Please zoom in for clearer visualization.",
+      "images": [
+        {
+          "src": "2311.04400v2/visualize-self-p2.png",
+          "id": "A5.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "style": "aspect-ratio:548/778;",
+          "width": "548",
+          "height": "778",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

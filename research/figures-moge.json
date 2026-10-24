@@ -1,0 +1,247 @@
+{
+  "id": "H02",
+  "slug": "moge",
+  "name": "MoGe",
+  "version": "2410.19115v3",
+  "pdf": "research/sources/2410.19115v3.pdf",
+  "url": "https://arxiv.org/pdf/2410.19115v3",
+  "sha256": "5663f90c36e00ae26823be95117ff7e87bb6cdd3c0b1ff2a5ba278c3c2ddb61f",
+  "pages": 23,
+  "figures": [
+    {
+      "id": "S1.F2",
+      "text": "Figure 2 : Accuracy ranking of existing methods and ours in our extensive evaluation on monocular 3D point map (scale-invariant and affine-invariant), depth map (scale-invariant depth, affine-invariant depth, and affine-invariant disparity), and camera field of view. Outer methods rank higher. See our experiments for details.",
+      "images": [
+        {
+          "src": "2410.19115v3/rank_v5.png",
+          "id": "S1.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/434;",
+          "width": "685",
+          "height": "434",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S2.F3",
+      "text": "Figure 3 : Method overview. Our model consists of a ViT encoder and a convolutional decoder. It predicts an affine-invariant point map as well as a mask that excludes regions with undefined geometry ( e.g . , infinity). Depth, camera shift, and focal length can be further derived from the model output. For training, we design robust and effective supervisions focusing on both the global and local geometry.",
+      "images": [
+        {
+          "src": "2410.19115v3/overview_v10.png",
+          "id": "S2.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/290;",
+          "width": "685",
+          "height": "290",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S2.F5.fig1",
+      "text": "Figure 4 : The focal-distance ambiguity and effects of different 3D point representations. (a) For similar images captured with varying camera focal length and distance to the objects, perceiving their true camera setup is challenging and models often produce similar geometries. (b) Inconsistent supervision signals occur with only scale alignment. (c) Consistent geometry supervision with an additional translation alignment.",
+      "images": [
+        {
+          "src": "2410.19115v3/scale_vis_affine_v9.png",
+          "id": "S2.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:531/150;",
+          "width": "531",
+          "height": "150",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S2.F5.fig2",
+      "text": "Figure 5 : The relative distance ambiguity, where distances between objects can be hard to predict.",
+      "images": [
+        {
+          "src": "2410.19115v3/relative_distance_ambiguity_v5.png",
+          "id": "S2.F5.g2",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:139/148;",
+          "width": "139",
+          "height": "148",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "alg1",
+      "text": "Algorithm 1 Overview of ROE alignment function SolveSubproblem ( ) Enumerate breakpoints of the piecewise linear function. Find extrema among the breakpoints by their derivatives. return s ( k ) s^{(k)} with smallest objective value l ( k ) l^{(k)} at extrema. end function for index k = 1 k=1 to N N do ⊳ \\triangleright parallel computation Formulate subproblem by substituting t z t_{z} with z k − s ( k ) ​ z ^ k z_{k}\\!-s^{(k)}\\hat{z}_{k} . Solve scale s ( k ) s^{(k)} and l ( k ) l^{(k)} via SolveSubproblem ( ). Obtain translation t z ( k ) t_{z}^{(k)} as z k − s ( k ) ​ z ^ k z_{k}\\!-\\!s^{(k)}\\hat{z}_{k} . end for Select optimal s ∗ s^{*} and t z ∗ t_{z}^{*} with smallest function value l ( k ) l^{(k)} .",
+      "images": []
+    },
+    {
+      "id": "S4.T1",
+      "text": "Method NYUv2 KITTI ETH3D iBims-1 GSO Sintel DDAD DIODE Average Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rank ↓ \\downarrow Scale-invariant point map LeReS 16.9 76.0 31.6 28.4 17.1 75.8 18.5 72.2 14.7 76.0 38.6 30.6 32.0 39.4 27.6 46.4 24.6 55.6 3.94 DUSt3R 5.53 97.1 15.2 87.9 10.7 90.6 6.18 95.4 4.54 99.3 34.8 50.3 21.4 70.1 12.4 86.7 13.8 84.7 2.75 UniDepth 5.33 98.4 5.96 98.5 18.5 77.6 5.29 97.4 6.58 99.6 33.0 48.9 11.4 90.2 12.3 91.0 12.3 87.7 2.09 Ours 4.86 98.4 5.47 97.4 4.58 98.9 4.63 97.1 2.58 100 22.3 69.5 12.3 90.3 6.58 94.5 7.91 93.3 1.22 Affine-invariant point map LeReS 9.51 91.4 26.1 49.1 14.7 79.6 11.0 88.6 8.91 95.2 29.7 55.5 29.4 46.7 15.1 80.1 18.1 73.3 3.94 DUSt3R 4.45 97.4 12.7 83.3 7.27 95.0 5.04 96.0 3.07 99.6 30.3 56.6 19.7 71.2 8.97 88.7 11.4 86.0 2.94 UniDepth 3.93 98.4 4.29 98.6 12.2 89.6 4.65 98.0 2.99 99.8 28.5 58.4 10.3 90.5 8.56 90.9 9.43 90.5 1.81 Ours 3.68 98.3 4.86 97.2 3.57 99.0 3.61 97.3 1.14 100 16.8 77.8 10.5 91.4 4.37 96.4 6.07 94.7 1.31 Local point map LeReS - - - - 9.32 91.9 8.57 93.2 - - 13.3 84.8 10.7 88.9 11.6 88.2 10.7 89.4 3.80 DUSt3R - - - - 6.05 94.8 5.44 95.9 - - 11.8 87.0 9.24 90.8 7.32 93.1 7.97 92.3 2.30 UniDepth - - - - 8.61 92.6 5.92 96.0 - - 13.4 84.3 8.18 92.0 9.95 90.0 9.21 91.0 2.90 Ours - - - - 3.21 98.1 4.16 96.8 - - 8.63 92.7 6.74 94.3 4.78 96.3 5.50 95.6 1.00 Table 1 : Quantitative results for point map estimation. Rel p {}^{\\text{p}} and δ 1 p \\delta_{1}^{\\text{p}} are in percentage. The best values are highlighted in bold , and the second-best ones are underlined . Local point map accuracy is evaluated on affine-invariant point maps within local object regions",
+      "images": []
+    },
+    {
+      "id": "S4.T2",
+      "text": "Method NYUv2 KITTI ETH3D iBims-1 GSO Sintel DDAD DIODE Average Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel. ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel. ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rank ↓ \\downarrow Scale-invariant depth map LeReS 12.1 82.6 19.2 64.8 14.2 78.4 14.0 78.8 13.6 77.9 30.5 52.1 26.5 52.0 18.2 69.6 18.5 69.5 7.31 ZoeDepth 5.62 96.3 7.27 91.9 10.4 87.3 7.45 93.2 3.23 99.9 27.4 61.8 17.0 72.8 11.3 85.2 11.2 86.1 5.50 DUSt3R 4.40 97.1 7.81 90.6 6.04 95.7 4.98 95.8 3.27 99.5 31.1 57.2 18.6 73.3 8.91 88.8 10.6 87.2 5.00 Metric3D V2 4.69 97.4 4.00 98.5 3.84 98.5 4.23 97.7 2.46 99.9 20.7 69.8 7.41 94.6 3.29 98.4 6.33 94.3 2.07 UniDepth 3.86 98.4 3.73 98.6 5.67 97.0 4.79 97.4 4.18 99.7 28.3 58.8 10.1 90.5 6.83 92.8 8.43 91.6 3.00 DA V1 4.77 97.5 5.61 95.6 9.41 88.9 5.53 95.8 5.49 99.3 28.3 56.7 13.2 81.5 10.3 87.5 10.3 87.9 5.67 DA V2 5.03 97.3 7.23 93.7 6.12 95.5 4.32 97.9 4.38 99.3 23.0 65.2 14.7 78.0 7.95 90.0 9.09 89.6 4.06 Ours 3.44 98.4 4.25 97.8 3.36 98.9 3.46 97.0 1.47 100 19.3 73.4 9.17 90.5 4.89 94.7 6.17 93.8 1.62 Affine-invariant depth map Marigold 4.63 97.3 7.29 93.8 6.08 96.3 4.35 97.2 2.78 99.9 21.2 75.0 14.6 80.5 6.34 94.3 8.41 91.8 2.25 GeoWizard 4.69 97.4 8.14 92.5 6.90 94.0 4.50 97.1 2.00 99.9 17.8 76.2 16.5 75.7 7.03 92.7 8.44 90.7 2.69 Ours 2.92 98.6 3.94 98.0 2.69 99.2 2.74 97.9 0.94 100 13.0 83.2 8.40 92.1 3.16 97.5 4.72 95.8 1.00 Affine-invariant disparity map MiDaS V3.1 4.58 98.1 6.25 94.7 5.77 96.8 4.73 97.4 1.86 100 21.3 73.1 14.5 82.6 6.05 94.9 8.13 92.2 3.69 DA V1 4.20 98.4 5.40 97.0 4.68 98.2 4.18 97.6 1.54 100 20.1 77.6 12.7 86.9 5.69 95.7 7.31 93.9 2.31 DA V2 4.14 98.3 5.61 96.7 4.71 97.9 3.47 98.5 1.24 100 21.4 72.8 13.1 86.4 5.29 96.1 7.37 93.3 2.56 Ours 3.38 98.6 4.05 98.1 3.11 98.9 3.23 98.0 0.96 100 18.4 79.5 8.99 91.5 3.98 97.2 5.76 95.2 1.06 Table 2 : Quantitative results for depth map estimation. Gray numbers denote models trained on respective benchmarks and thus excluded from ranking. A more extensive comparison can be found in the suppl. materials .",
+      "images": []
+    },
+    {
+      "id": "S4.T4.fig1",
+      "text": "Method NYUv2 ETH3D iBims-1 Average Mean ↓ \\downarrow Med. ↓ \\downarrow Mean Med. ↓ \\downarrow Mean ↓ \\downarrow Med. ↓ \\downarrow Mean ↓ \\downarrow Med. ↓ \\downarrow Rank ↓ \\downarrow Perspective 5.38 4.39 13.6 11.9 10.6 9.30 9.86 8.53 5.00 WildCam 3.82 3.20 7.70 5.81 9.48 9.08 7.00 6.03 3.00 LeReS 19.4 19.6 8.26 7.19 18.4 17.5 15.4 14.8 5.53 DUSt3R 2.57 1.86 5.77 3.60 3.83 2.53 4.06 2.66 1.67 UniDepth 7.56 4.31 10.7 9.96 11.9 5.96 10.1 6.74 4.50 Ours 3.41 3.21 2.50 1.54 2.81 1.89 2.91 2.21 1.50 Table 3 : Evaluation results for camera FOV in degrees.",
+      "images": []
+    },
+    {
+      "id": "S4.T4.fig2",
+      "text": "Ablation Point Depth Disparity Scale-inv. Affine-inv. Local Scale-inv. Affine-inv. Affine-inv. Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel p ↓ \\downarrow δ 1 p \\delta_{1}^{\\text{p}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow SI-Log depth 11.2 88.7 9.09 90.6 9.19 91.2 8.94 90.1 7.27 92.6 8.23 92.1 Affine-inv. depth 29.9 51.4 29.0 52.7 12.2 86.0 28.9 52.7 6.18 93.9 15.9 76.6 ROE scale-inv. 10.3 89.8 8.34 91.6 8.59 91.9 8.27 90.9 6.73 93.2 7.90 92.6 L2 affine-inv. 13.5 84.2 10.3 88.2 9.48 91.0 11.1 85.7 8.03 91.2 9.37 90.5 Med. affine-inv. 10.9 89.0 8.97 90.7 9.44 90.7 9.10 89.8 7.50 92.4 8.74 91.8 ROE affine-inv. 9.84 90.3 7.88 92.1 7.62 93.3 7.91 91.2 6.29 93.7 7.43 93.2 Full w/o trunc. 9.81 90.5 7.91 91.7 7.12 93.8 7.92 91.3 6.31 93.5 7.45 93.1 Full w/o ℒ S \\mathcal{L}_{S} 9.98 90.3 7.94 92.1 7.47 93.4 7.94 91.2 6.30 93.6 7.47 93.2 Full 9.78 90.6 7.83 92.1 7.16 93.8 7.82 91.3 6.20 93.7 7.30 93.3 Table 4 : Quantitative ablation study results. All experiments are conducted with a ViT-Base encoder. The first six rows are trained with global loss only.",
+      "images": []
+    },
+    {
+      "id": "S4.F6",
+      "text": "Figure 6 : Qualitative ablation study results. All experiments use the ViT-Base backbone for the encoder. (a) Surface visualization of the impact of ℒ S \\mathcal{L}_{S} and ℒ N \\mathcal{L}_{N} . Removing either leads to noisy surfaces and poor geometry. (b) Depth visualization for the ablation of valid region mask prediction. Our method correctly predicts the sky regions, for which the predicted point values will be erroneous if the masks are removed. Supervising infinity regions by assigning a large distance label can negatively affect the foreground prediction accuracy.",
+      "images": [
+        {
+          "src": "2410.19115v3/ablation_v2.png",
+          "id": "S4.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/120;",
+          "width": "685",
+          "height": "120",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F7",
+      "text": "Figure 7 : Qualitative comparison of point and disparity maps. The first three cases are from our test datasets, while the last two rows are random “in-the-wild” images. *: for methods without camera intrinsics prediction, we use ground-truth camera intrinsics (and disparity shifts) to lift their results into 3D points when available, or use our intrinsics prediction for the “in-the-wild” images. Best view with zoom.",
+      "images": [
+        {
+          "src": "2410.19115v3/qualitative_comparison_v4.png",
+          "id": "S4.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:685/650;",
+          "width": "685",
+          "height": "650",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "alg2",
+      "text": "Algorithm 2 ROE alignment subproblem w/o truncation input: arrays X ^ [ 1 . . n ] \\hat{X}[1..n] , X [ 1 . . n ] X[1..n] , W [ 1 . . n ] W[1..n] output: optimal scale s ∗ s^{*} and objective value l ∗ l^{*} to Eq. 11 function SolveSubproblem ( X ^ \\hat{X} , X X , W W ) sort arrays X ^ \\hat{X} , X X , W W by X ​ [ i ] / X ^ ​ [ i ] X[i]/\\hat{X}[i] Q [ 1 . . n ] Q[1..n] ← \\leftarrow accumulated sum of W ∗ X ^ W*\\hat{X} D [ 0 . . n ] D[0..n] ← \\leftarrow { − Q ⁡ [ n ] } ∪ { 2 ⋅ Q ⁡ [ i ] − Q ⁡ [ n ] } i = 1 n \\{-Q[n]\\}\\cup\\{2\\cdot Q[i]-Q[n]\\}_{i=1}^{n} i ∗ i^{*} ← \\leftarrow the first i i s.t. D ⁡ [ i − 1 ] ≤ 0 ≤ D ⁡ [ i ] D[i-1]\\leq 0\\leq D[i] s ∗ s^{*} ← \\leftarrow X ⁡ [ i ∗ ] / X ^ ​ [ i ∗ ] X[i^{*}]/\\hat{X}[i^{*}] l ∗ l^{*} ← \\leftarrow objective function value at s ∗ s^{*} . return s ∗ s^{*} , l ∗ l^{*} . end function",
+      "images": []
+    },
+    {
+      "id": "alg3",
+      "text": "Algorithm 3 ROE alignment subproblem w/ truncation input: arrays X ^ [ 1 . . n ] \\hat{X}[1..n] , X [ 1 . . n ] X[1..n] , W [ 1 . . n ] W[1..n] , float τ \\tau output: the optimal scale s ∗ s^{*} , objective value l ∗ l^{*} to Eq. 13 function SolveSubproblem ( X ^ \\hat{X} , X X , W W , τ \\tau ) A [ 1 . . n ] A[1..n] ← \\leftarrow X / X ^ X/\\hat{X} B [ 1 . . n ] B[1..n] ← \\leftarrow ( W ∗ X − τ ) / ( W ∗ X ^ ) (W*X-\\tau)/(W*\\hat{X}) C [ 1 . . n ] C[1..n] ← \\leftarrow ( W ∗ X + τ ) / ( W ∗ X ^ ) (W*X+\\tau)/(W*\\hat{X}) for each array 𝒜 \\mathcal{A} in { A , B , C } \\{A,B,C\\} do sort 𝒜 \\mathcal{A} and obtain sorted indices I 𝒜 [ 1 . . n ] I_{\\mathcal{A}}[1..n] Q 𝒜 [ 1 . . n ] Q_{\\mathcal{A}}[1..n] ← \\leftarrow accumulated sum of { W ​ X ^ ​ [ I 𝒜 ​ [ i ] ] } i = 1 n \\{W\\hat{X}[I_{\\mathcal{A}}[i]]\\}_{i=1}^{n} end for Initialize I E I_{E} as empty set for i = 1 i=1 to n n do ⊳ \\triangleright parallel computation for each array 𝒜 \\mathcal{A} in { A , B , C } \\{A,B,C\\} do j 𝒜 − j_{\\mathcal{A}}^{-} ← \\leftarrow the last j j s.t. 𝒜 ​ [ j ] < X ​ [ i ] / X ^ ​ [ i ] \\mathcal{A}[j]<X[i]/\\hat{X}[i] j 𝒜 + j_{\\mathcal{A}}^{+} ← \\leftarrow the last j j s.t. 𝒜 ⁡ [ j ] ≤ X ⁡ [ i ] / X ^ ​ [ i ] \\mathcal{A}[j]\\leq X[i]/\\hat{X}[i] end for d − d^{-} ← \\leftarrow 2 ⋅ Q A ​ [ j A − ] − Q B ​ [ j B − ] − Q C ​ [ j C − ] 2\\cdot Q_{A}[j_{A}^{-}]-Q_{B}[j_{B}^{-}]-Q_{C}[j_{C}^{-}] d + d^{+} ← \\leftarrow 2 ⋅ Q A ​ [ j A + ] − Q B ​ [ j B + ] − Q C ​ [ j C + ] 2\\cdot Q_{A}[j_{A}^{+}]-Q_{B}[j_{B}^{+}]-Q_{C}[j_{C}^{+}] if d − < 0 ≤ d + d^{-}<0\\leq d^{+} then append i i to I E I_{E} end for Initialize l [ 1 . . N ] l[1..N] with ∞ \\infty for i i in I E I_{E} do ⊳ \\triangleright parallel computation s s ← \\leftarrow X ​ [ i ] / X ^ ​ [ i ] X[i]/\\hat{X}[i] l ⁡ [ i ] l[i] ← \\leftarrow objective function value at s s end for i ∗ i^{*} ← \\leftarrow index of the minimum in l ⁡ [ i ] , i ∈ I E l[i],i\\in I_{E} s ∗ s^{*} ← \\leftarrow X ⁡ [ i ∗ ] / X ^ ​ [ i ∗ ] X[i^{*}]/\\hat{X}[i^{*}] , l ∗ l^{*} ← \\leftarrow l ⁡ [ i ∗ ] l[i^{*}] return s ∗ s^{*} , l ∗ l^{*} end function",
+      "images": []
+    },
+    {
+      "id": "alg4",
+      "text": "Algorithm 4 ROE alignment w/ 1-D shift input: point arrays P ^ [ 1 . . N , 1..3 ] \\hat{P}[1..N,1..3] , P [ 1 . . N , 1..3 ] P[1..N,1..3] , weight array W [ 1 . . N ] W[1..N] output: the optimal scale s ∗ s^{*} , shift t z ∗ t_{z}^{*} , objective value l ∗ l^{*} to Eq. 18 or Eq. 19 W ⁡ [ 1..3 ​ N ] W[1..3N] ← \\leftarrow repeat each element in W W 3 times Initialize arrays s [ 1 . . N ] s[1..N] , l [ 1 . . N ] l[1..N] , t z [ 1 . . N ] t_{z}[1..N] for k = 1 k=1 to N N do ⊳ \\triangleright parallel computation X ^ ​ [ 1 ​ … ​ 3 ​ N ] \\hat{X}[1...3N] ← \\leftarrow Flatten ( P ^ [ 1 . . N , 1..3 ] − { 0 , 0 , P ^ [ k , 3 ] } \\hat{P}[1..N,1..3]-\\{0,0,\\hat{P}[k,3]\\} ) X ⁡ [ 1 ​ … ​ 3 ​ N ] X[1...3N] ← \\leftarrow Flatten ( P [ 1 . . N , 1..3 ] − { 0 , 0 , P [ k , 3 ] } P[1..N,1..3]-\\{0,0,P[k,3]\\} ) ( s ⁡ [ k ] , l ⁡ [ k ] ) (s[k],l[k]) ← \\leftarrow SolveSubproblem ( X ^ \\hat{X} , X X , W W ) t z ​ [ k ] t_{z}[k] ← \\leftarrow P ⁡ [ k , 3 ] − s ⁡ [ k ] ⋅ P ^ ​ [ k , 3 ] P[k,3]-s[k]\\cdot\\hat{P}[k,3] end for k ∗ k^{*} ← \\leftarrow index of the minimum in l [ 1 . . N ] l[1..N] s ∗ s^{*} ← \\leftarrow s ⁡ [ k ∗ ] s[k^{*}] , l ∗ l^{*} ← \\leftarrow l ⁡ [ k ∗ ] l[k^{*}] , t z ∗ t_{z}^{*} ← \\leftarrow t z ​ [ k ∗ ] t_{z}[k^{*}] return s ∗ s^{*} , t z ∗ t_{z}^{*} , l ∗ l^{*}",
+      "images": []
+    },
+    {
+      "id": "alg5",
+      "text": "Algorithm 5 ROE alignment w/ 3-D shift input: point arrays P ^ [ 1 . . N , 1..3 ] \\hat{P}[1..N,1..3] , P [ 1 . . N , 1..3 ] P[1..N,1..3] , weight array W [ 1 . . N ] W[1..N] output: the optimal scale s ∗ s^{*} , shift 𝐭 ∗ \\mathbf{t}^{*} , objective value l ∗ l^{*} to Eq. 22 W ⁡ [ 1..3 ​ N ] W[1..3N] ← \\leftarrow repeat each element in W W 3 times Initialize arrays s [ 1 . . N ] s[1..N] , l [ 1 . . N ] l[1..N] , 𝐭 [ 1 . . N , 3 ] \\mathbf{t}[1..N,3] for k = 1 k=1 to N N do ⊳ \\triangleright parallel computation X ^ ​ [ 1 ​ … ​ 3 ​ N ] \\hat{X}[1...3N] ← \\leftarrow Flatten ( P ^ [ 1 . . N , 1..3 ] − P ^ [ k , 1..3 ] \\hat{P}[1..N,1..3]-\\hat{P}[k,1..3] ) X ⁡ [ 1 ​ … ​ 3 ​ N ] X[1...3N] ← \\leftarrow Flatten ( P [ 1 . . N , 1..3 ] − P [ k , 1..3 ] P[1..N,1..3]-P[k,1..3] ) ( s ⁡ [ k ] , l ⁡ [ k ] ) (s[k],l[k]) ← \\leftarrow SolveSubproblem ( X ^ \\hat{X} , X X , W W ) 𝐭 ⁡ [ k ] \\mathbf{t}[k] ← \\leftarrow P ​ [ k ] − s ​ [ k ] ⋅ P ^ ​ [ k ] P[k]-s[k]\\cdot\\hat{P}[k] end for k ∗ k^{*} ← \\leftarrow index of the minimum in l [ 1 . . N ] l[1..N] s ∗ s^{*} ← \\leftarrow s ⁡ [ k ∗ ] s[k^{*}] , l ∗ l^{*} ← \\leftarrow l ⁡ [ k ∗ ] l[k^{*}] , 𝐭 ∗ \\mathbf{t}^{*} ← \\leftarrow 𝐭 ⁡ [ k ∗ ] \\mathbf{t}[k^{*}] return s ∗ s^{*} , 𝐭 ∗ \\mathbf{t}^{*} , l ∗ l^{*}",
+      "images": []
+    },
+    {
+      "id": "A2.T5",
+      "text": "Name Domain #Frames Type Weight A2D2 [ 21 ] Outdoor/Driving 196 196 K C 0.8% Argoverse2 [ 62 ] Outdoor/Driving 1.1 1.1 M C 7.4% ARKitScenes [ 3 ] Indoor 449 449 K B 8.6% DIML-indoor [ 14 ] Indoor 894 894 K D 4.8% BlendedMVS [ 69 ] In-the-wild 115 115 K B 12.0% MegaDepth [ 35 ] Outdoor/In-the-wild 92 92 K B 5.6% Taskonomy [ 74 ] Indoor 3.6 3.6 M B 14.1% Waymo [ 51 ] Outdoor/Driving 788 788 K C 6.4% GTA-SfM [ 57 ] Outdoor/In-the-wild 19 19 K A 2.8% Hypersim [ 45 ] Indoor 75 75 K A 5.0% IRS [ 58 ] Indoor 101 101 K A 5.6% KenBurns [ 40 ] In-the-wild 76 76 K A 1.6% MatrixCity [ 34 ] Outdoor/Driving 390 390 K A 1.3% MidAir [ 19 ] Outdoor/In-the-wild 423 423 K A 4.0% MVS-Synth [ 27 ] Outdoor/Driving 12 12 K A 1.2% Spring [ 37 ] In-the-wild 5 5 K A 0.7% Structured3D [ 76 ] Indoor 77 77 K A 4.8% Synthia [ 47 ] Outdoor/Driving 96 96 K A 1.2% TartanAir [ 60 ] In-the-wild 306 306 K A 5.0% UrbanSyn [ 25 ] Outdoor/Driving 7 7 K A 2.1% ObjaverseV1 [ 12 ] Object 167 167 K A 4.8% Type Label quality Applied losses Accuracy Range Density ℒ G \\mathcal{L}_{G} ℒ S 1 \\mathcal{L}_{S_{1}} ℒ S 2 \\mathcal{L}_{S_{2}} ℒ S 3 \\mathcal{L}_{S_{3}} ℒ N \\mathcal{L}_{N} ℒ M \\mathcal{L}_{M} A. Synthetic Perfect ∞ \\infty Dense ✓ ✓ ✓ ✓ ✓ ✓ B. SfM/MV Recon High ∞ \\infty Dense&Partial ✓ ✓ ✓ ✓ C. LiDAR/Laser High ∼ 100 \\sim 100 m Sparse ✓ ✓ ✓ D. Kinect Medium ∼ 10 \\sim 10 m Dense ✓ ✓ Table 5 : Datasets used for training and tailored loss combination.",
+      "images": []
+    },
+    {
+      "id": "A2.F8",
+      "text": "Figure 8 : Examples of evaluation data preprocessing: (a) Removing mirror and boundary artifacts from the ground truth depth in NYUv2. (b) Excluding sky regions in Sintel. (c) Removing boundary artifacts from the ground truth depth in DIODE.",
+      "images": [
+        {
+          "src": "2410.19115v3/dataset_processing.png",
+          "id": "A2.F8.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "style": "aspect-ratio:685/1012;",
+          "width": "685",
+          "height": "1012",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A3.T6",
+      "text": "Method NYUv2 KITTI ETH3D iBims-1 GSO Sintel DDAD DIODE Average Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel. ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel. ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rel d ↓ \\downarrow δ 1 d \\delta_{1}^{\\text{d}} ↑ \\uparrow Rank ↓ \\downarrow Scale-invariant depth LeReS 12.1 82.6 19.2 64.8 14.2 78.4 14.0 78.8 13.6 77.9 30.5 52.1 26.5 52.0 18.2 69.6 18.5 69.5 7.31 ZoeDepth 5.62 96.3 7.27 91.9 10.4 87.3 7.45 93.2 3.23 99.9 27.4 61.8 17.0 72.8 11.3 85.2 11.2 86.1 5.50 DUSt3R 4.40 97.1 7.81 90.6 6.04 95.7 4.98 95.8 3.27 99.5 31.1 57.2 18.6 73.3 8.91 88.8 10.6 87.2 5.00 Metric3D V2 4.69 97.4 4.00 98.5 3.84 98.5 4.23 97.7 2.46 99.9 20.7 69.8 7.41 94.6 3.29 98.4 6.33 94.3 2.07 UniDepth 3.86 98.4 3.73 98.6 5.67 97.0 4.79 97.4 4.18 99.7 28.3 58.8 10.1 90.5 6.83 92.8 8.43 91.6 3.00 DA V1 4.77 97.5 5.61 95.6 9.41 88.9 5.53 95.8 5.49 99.3 28.3 56.7 13.2 81.5 10.3 87.5 10.3 87.9 5.67 -metric indoor 4.77 97.5 15.4 73.6 9.41 88.9 5.53 95.8 5.49 99.3 28.3 56.7 24.2 57.4 10.3 87.5 12.9 82.1 - -metric outdoor 15.9 72.3 5.61 95.6 8.77 92.4 13.8 78.8 8.59 93.6 28.1 54.8 13.2 81.5 13.0 81.4 13.4 81.3 - DA V2 5.03 97.3 7.23 93.7 6.12 95.5 4.32 97.9 4.38 99.3 23.0 65.2 14.7 78.0 7.95 90.0 9.09 89.6 4.06 -metric indoor 5.03 97.3 7.61 90.9 6.12 95.5 4.32 97.9 4.38 99.3 23.0 65.2 16.6 73.4 7.95 90.0 9.38 88.7 - -metric outdoor 15.3 72.3 7.23 93.7 9.30 89.6 10.6 84.9 9.62 92.5 28.6 57.3 14.7 78.0 12.2 83.2 13.4 81.4 - Ours 3.44 98.4 4.25 97.8 3.36 98.9 3.46 97.0 1.47 100 19.3 73.4 9.17 90.5 4.89 94.7 6.17 93.8 1.62 Affine-invariant depth LeReS 6.21 95.4 8.28 90.3 8.95 90.8 6.68 94.5 4.03 99.4 24.0 64.8 16.2 75.8 9.99 88.1 10.5 87.4 8.81 ZoeDepth 4.76 97.3 5.59 95.1 7.27 94.2 5.85 95.7 2.54 99.9 21.8 69.2 14.2 80.1 7.80 90.9 8.73 90.3 7.33 DUSt3R 3.73 97.8 7.30 91.6 4.96 96.4 3.94 96.6 2.55 99.6 25.4 64.2 16.9 76.2 6.68 92.6 8.93 89.4 6.62 Metric3D V2 3.94 97.6 3.50 98.4 3.24 99.0 3.28 98.3 2.10 99.4 26.6 71.7 7.15 94.8 2.75 98.7 6.57 94.7 3.64 UniDepth V1 3.40 98.6 3.55 98.7 4.92 97.5 3.76 98.2 2.48 99.9 24.9 64.1 9.46 90.8 4.90 96.2 7.17 93.0 3.62 Marigold 4.63 97.3 7.29 93.8 6.08 96.3 4.35 97.2 2.78 99.9 21.2 75.0 14.6 80.5 6.34 94.3 8.41 91.8 5.69 Geowizard 4.69 97.4 8.14 92.5 6.90 93.9 4.50 97.1 2.00 99.9 17.8 76.2 16.5 75.7 7.03 92.7 8.45 90.7 6.44 DA V1 3.82 98.3 5.04 96.4 6.23 95.2 4.23 97.3 1.98 100 20.1 71.8 11.3 86.1 6.75 92.6 7.43 92.2 4.83 -metric indoor 3.82 98.3 9.95 86.5 6.23 95.2 4.23 97.3 1.98 100 20.1 71.8 17.0 74.0 6.75 92.6 8.76 89.5 - -metric outdoor 7.68 93.8 5.04 96.4 6.21 96.6 7.00 94.2 2.77 99.8 20.6 70.0 11.3 86.1 7.03 93.2 8.45 91.3 - DA V2 4.16 97.9 6.77 94.3 4.63 97.2 3.44 98.3 1.44 100 17.1 76.6 13.4 81.8 5.41 94.6 7.04 92.6 - -metric indoor 4.16 97.9 7.09 92.3 4.63 97.2 3.44 98.3 1.44 100 17.1 76.6 14.3 79.8 5.41 94.6 7.20 92.1 - -metric outdoor 8.65 91.0 6.77 94.3 7.24 93.5 6.80 93.5 2.29 100 22.4 67.1 13.4 81.8 8.19 90.7 9.47 89.0 2.94 Ours 2.92 98.6 3.94 98.0 2.69 99.2 2.74 97.9 0.94 100 13.0 83.2 8.40 92.1 3.16 97.5 4.72 95.8 1.56 Affine-invariant disparity LeReS 7.31 95.5 12.2 87.1 10.2 90.1 8.44 92.9 4.33 99.7 28.9 59.6 23.4 73.0 10.7 88.3 13.2 85.8 8.25 ZoeDepth 5.21 97.7 5.84 95.6 8.07 94.0 6.19 96.1 2.60 99.9 26.9 66.3 14.1 81.7 8.17 92.0 9.63 90.4 6.75 DUSt3R 4.24 98.1 7.72 92.1 5.60 96.2 4.49 96.6 2.63 99.8 40.0 56.7 17.4 76.2 7.10 92.8 11.1 88.6 6.75 Metric3D V2 13.4 81.5 3.76 98.2 4.30 97.7 8.55 92.3 1.80 100 21.8 72.4 7.35 94.1 7.70 90.2 8.58 90.8 5.29 UniDepth V1 3.78 98.7 3.64 98.7 5.34 97.2 4.06 98.1 2.56 99.9 28.6 60.7 9.94 89.1 5.95 95.5 7.98 92.2 3.62 MiDaS V3.1 4.58 98.1 6.25 94.7 5.77 96.8 4.73 97.4 1.86 100 21.3 73.1 14.5 82.6 6.05 94.9 8.13 92.2 5.00 DA V1 4.20 98.4 5.40 97.0 4.68 98.2 4.18 97.6 1.54 100 20.1 77.6 12.7 86.9 5.69 95.7 7.31 93.9 3.00 DA V2 4.14 98.3 5.61 96.7 4.71 97.9 3.47 98.5 1.24 100 21.4 72.8 13.1 86.4 5.29 96.1 7.37 93.3 3.12 Ours 3.38 98.6 4.05 98.1 3.11 98.9 3.23 98.0 0.96 100 18.4 79.5 8.99 91.5 3.98 97.2 5.76 95.2 1.44 Table 6 : Full table of comparison for depth map estimation. * methods have multiple model versions available for respective benchmarks, among which the best for each benchmark is chosen for ranking, followed by the detailed results in smaller text size for each version. Gray numbers denote models trained on respective benchmarks.",
+      "images": []
+    },
+    {
+      "id": "A4.F9",
+      "text": "Figure 9 : A failure case. Our model fails to capture the thin structure of the fence, leading to a flattened geometry.",
+      "images": [
+        {
+          "src": "2410.19115v3/figures/failure_case.jpg",
+          "id": "A4.F9.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/198;",
+          "width": "685",
+          "height": "198",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.F10",
+      "text": "Figure 10 : Additional qualitative comparisons from the evaluation datasets . *: for methods without camera intrinsics prediction, ground-truth camera intrinsics (and disparity shifts) were used to lift their results into 3D points. Best viewed with zoom.",
+      "images": [
+        {
+          "src": "2410.19115v3/more_qualitative_comparison_test.png",
+          "id": "A4.F10.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:685/780;",
+          "width": "685",
+          "height": "780",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.F11",
+      "text": "Figure 11 : Additional qualitative comparisons for in-the-wild images from the DIV2K dataset. *: for methods without camera intrinsics prediction, our camera intrinsics prediction were used to lift their results into 3D points. Supplementary videos contain more results. Best viewed with zoom.",
+      "images": [
+        {
+          "src": "2410.19115v3/more_qualitative_comparison_wild.png",
+          "id": "A4.F11.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:685/802;",
+          "width": "685",
+          "height": "802",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.F12",
+      "text": "Figure 12 : Additional visual results for open-domain images of our model (page 1 of 2). The columns from left to right are the input images, reconstructed disparity maps, reconstructed surface geometry viewed from the source view, and three novel-view images, respectively.",
+      "images": [
+        {
+          "src": "2410.19115v3/figures/more_results_1.jpg",
+          "id": "A4.F12.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "style": "aspect-ratio:603/853;",
+          "width": "603",
+          "height": "853",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.F13",
+      "text": "Figure 13 : Additional visual results for open-domain images of our model (page 2 of 2). The columns from left to right are the input images, reconstructed disparity maps, reconstructed surface geometry viewed from the source view, and three novel-view images, respectively.",
+      "images": [
+        {
+          "src": "2410.19115v3/figures/more_results_2.jpg",
+          "id": "A4.F13.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "style": "aspect-ratio:603/839;",
+          "width": "603",
+          "height": "839",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

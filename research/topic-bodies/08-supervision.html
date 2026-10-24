@@ -1,0 +1,25 @@
+<section id="question"><h2><span class="section-number">01 / QUESTION</span>几何知识来自哪里，监督成本被搬到了哪里？</h2><div class="prose"><p>模型训练不使用深度真值，仍可能依赖相机标定、SfM 配对、预训练匹配器、几何教师或合成数据。要比较监督路线，需要追踪整条知识来源，不能只读最后一阶段的 loss。</p><p>本章把跨视预训练、教师—学生、光度自监督和训练期特权信息放在同一张账本上。关注的是怎样把信息变成几何能力，以及如何设计实验分离数据、架构、初始化与目标函数的作用。</p><div class="contribution">“自监督”描述目标的构造方式；数据选择、权重初始化和评测条件仍需单独记录。</div></div></section>
+<section id="notation"><h2><span class="section-number">02 / MODEL</span>三种学习信号，三种捷径风险</h2><div class="prose"><div class="math">跨视补全：Î₁ = D(E(mask(I₁)), E(I₂))<br>教师监督：L = ℓ(Fθ(I), Teacher(I))<br>渲染闭环：L = ℓ(Render(Gθ(I<sub>C</sub>), Πθ(I<sub>C</sub>,I<sub>T</sub>)), I<sub>T</sub>)</div><p>第一种希望额外视图帮助推断被遮挡的内容；第二种将教师的几何知识与偏差一起迁移；第三种要求场景和相机共同解释目标图像。三者都可能出现捷径：单图纹理补全、拟合教师伪影、或把目标图像信息直接泄漏进场景表示。</p><details class="derivation"><summary>NAS3R 为什么需要非对称 attention mask？</summary><div class="inner"><p>训练时目标图像要参与预测目标相机，但生成 Gaussian 的 context 分支不能直接读取目标外观。否则网络可能把目标像素“抄”进场景再渲染回去，而不学习从 context 重建。NAS3R 令 context tokens 只看 context，target tokens 可看更广的视图；这是一道信息流约束。</p><p>该约束不自动保证几何唯一。深度、相机、颜色仍可能相互补偿，且有 gauge 与可见性歧义。用合法射线反投影正深度、控制相机参数和训练视角间隔，是额外的结构与课程设计。</p></div></details></div></section>
+<section id="comparison"><h2><span class="section-number">03 / DESIGN SPACE</span>监督来源账本</h2>{{table:路线|代表|直接目标|不能遗漏的上游信息
+跨视补全|CroCo / CroCo v2|被 mask 的 RGB patches|图像对共视筛选可能使用 mesh、LiDAR 或 SfM
+共视感知补全|Gekko|补全及由误差改善构造的共视代理|代理受 MAE 与跨视模型能力影响
+合成教师与真实伪标签|Depth Anything V2 / DA3|深度、ray 等几何目标|合成真值、教师训练成本和域偏差
+无几何标注渲染闭环|NAS3R|目标视角 RGB；同时预测相机|mask、初始化、相机假设、课程与感知度量
+带外部先验的自监督|Reliev3R|自监督几何/图像约束|预训练深度和匹配先验不是免费信息
+特权信息训练|Motion- and Gravity-Aware|运动与重力等训练期信号|部署不输入这些量，不代表训练没用}}
+<p>NAS3R 的随机初始化配置与使用 VGGT / MASt3R 先验的配置必须分开。LPIPS 是学习得到的图像感知度量；“无预训练几何先验”的论断，不宜扩张为整个训练系统完全不含任何外部学习组件。</p>{{studies}}</section>
+<section id="methods"><h2><span class="section-number">04 / METHODS</span>六项工作，沿知识来源组织</h2>{{methods}}</section>
+<section id="evidence"><h2><span class="section-number">05 / EVIDENCE</span>训练目标的贡献需要可比的预算</h2>{{table:证据入口|应固定的变量|主要归因风险
+CroCo v2 Table 1|数据、RoPE、encoder/decoder 规模逐项改变|把所有收益归为“跨视预训练”
+Gekko 同架构同数据对照|CroCo 基线容量、训练步数与配对|以共视代理探针成绩代替独立几何迁移
+NAS3R 随机初始化/先验配置|输入 K、视图数、目标位姿、模型大小|将有教师或已知 K 的结果写成完全无几何信息
+DA3 表示/头/教师消融|训练集、融合位姿及条件 token|跨行评测条件改变导致错误因果解释
+VGGT-Ω 数据与规模曲线|数据量与参数量分别固定|把更高训练预算的收益归为某一模块}}
+<div class="prose"><p>CroCo v2 的改善来自真实配对、相对位置编码、更大 encoder 与 decoder 的组合；下游 stereo/flow 仍使用任务监督。Gekko 用跨视补全相对单图 MAE 的误差改善构造共视代理，值得关注其数据效率，但部分探针阈值在评估像素上拟合，不能把该成绩当作独立概率校准。</p><p>NAS3R 的目标图像训练期可见，是为了估计相机与监督渲染；context-only 推理才是部署接口。实验报告必须清楚区分训练时用到的信息和实际重建时用到的信息。</p></div></section>
+<section id="discussion"><h2><span class="section-number">06 / DISCUSSION</span>数据质量可以比标签数量更关键</h2><div class="prose"><p>合成数据的几何精确，却可能缺少真实材质和成像噪声；真实传感器标注覆盖自然分布，却可能在薄结构、反光和边缘处失真。教师—学生路线用强教师连接两者，但教师在真实域的系统偏差也会被复制。</p><p>“零样本”也有层次：下游微调没见过该数据集，不表示预训练骨干、教师或图像来源完全没有相近内容。这里不据此否定结果，而是要求把可追溯的数据层级记录清楚。</p><p>从研究设计看，最有价值的比较是固定输入、模型、预算和数据，只改变监督源；其次是固定总成本，研究更贵标签与更多廉价图像如何交换。只比较最终最大模型，难以判断具体方法的作用。</p></div></section>
+<section id="hypotheses"><h2><span class="section-number">07 / RESEARCH</span>用受控迁移检验监督的作用</h2>{{table:假设|实验设计|反证信号
+共视代理增强真正的跨视关系|控制单图纹理难度，比较真实/错误配对下的几何迁移|错误配对仍获相同收益，可能主要是表征正则化
+教师细节改善来自精确标签|固定教师规模和训练图像，扰动边缘深度或提高标签分辨率|边界指标不随标签质量改变
+光度自监督能补强已有骨干而不破坏尺度|固定初始化比较微调前后未对齐和对齐几何、相机与 NVS|只改善 RGB，尺度与表面系统退化}}
+<p class="small muted">以上为本地图的研究延伸，不代表已完成的消融。</p></section>
+<section id="reading"><h2><span class="section-number">READING ROUTE</span>沿一条知识链追溯到源头</h2><ol class="reading-questions"><li>CroCo → CroCo v2 → DUSt3R：列出每阶段学习目标和新增几何信息。</li><li>Depth Anything V2 → DA3：区分数据清洗、教师能力与输出表示的改变。</li><li>NAS3R ↔ Reliev3R：完整填写初始化、相机、深度、匹配、图像监督五栏。</li><li>为每篇“无标签”结论补上准确限定：没有哪种标签，在哪个阶段、哪个配置？</li></ol><p>继续阅读：<a href="09-reliability.html">模型究竟学到了什么</a> · <a href="02-priors.html">单目先验与尺度</a>。</p></section>

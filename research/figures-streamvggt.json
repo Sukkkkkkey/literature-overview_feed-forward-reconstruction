@@ -1,0 +1,217 @@
+{
+  "id": "N07",
+  "slug": "streamvggt",
+  "name": "StreamVGGT",
+  "version": "2507.11539v2",
+  "pdf": "research/sources/2507.11539v2.pdf",
+  "url": "https://arxiv.org/pdf/2507.11539v2",
+  "sha256": "05dab6167a035af2f779464decb8f80f55b67821f606f620fa29717e84bc6f57",
+  "pages": 18,
+  "figures": [
+    {
+      "id": "S0.F1",
+      "text": "Figure 1: Overview. Unlike offline models that require reprocessing the entire sequence and reconstructing the entire scene upon receiving each new image, our StreamVGGT employs temporal causal attention and leverages cached token memory to support efficient incremental on-the-fly reconstruction, enabling interactive and low-latency online applications.",
+      "images": []
+    },
+    {
+      "id": "S1.F2",
+      "text": "Figure 2: Inference time and memory comparison for the current frame of varying sequence lengths between StreamVGGT and VGGT for the online setting.",
+      "images": []
+    },
+    {
+      "id": "S3.F3",
+      "text": "Figure 3: Framework of StreamVGGT. Our model consists of three main components: an image encoder, a spatio-temporal decoder, and multi-task prediction heads. During training, we utilize full-sequence inputs to provide the model with complete contextual information. To enforce temporal causality, we apply causal attention so the model can only attend to past frames at any given time step. This design encourages realistic temporal modeling suitable for streaming inference.",
+      "images": [
+        {
+          "src": "2507.11539v2/framework.png",
+          "id": "S3.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/200;",
+          "width": "548",
+          "height": "200",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F4",
+      "text": "Figure 4: Efficient inference of our model. During streaming inference, we cache the historical keys and values as implicit memory to store information from past frames. This memory allows the model to efficiently reuse previously computed representations, avoiding redundant computation and enabling consistent contextual understanding across time. Our model then processes input incrementally and achieves performance that is comparable to full-sequence inference.",
+      "images": [
+        {
+          "src": "2507.11539v2/inference.png",
+          "id": "S3.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/209;",
+          "width": "548",
+          "height": "209",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.T1",
+      "text": "Table 1: Quantitative 3D reconstruction results on 7-Scenes and NRGBD datasets. 7 scenes NRGBD Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow Method Type Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. DUSt3R-GA ( Wang et al., 2024a ) Pair-wise 0.146 0.077 0.181 0.067 0.736 0.839 0.144 0.019 0.154 0.018 0.870 0.982 MASt3R-GA ( Leroy et al., 2024 ) Pair-wise 0.185 0.081 0.180 0.069 0.701 0.792 0.085 0.033 0.063 0.028 0.794 0.928 MonST3R-GA ( Zhang et al., 2024 ) Pair-wise 0.248 0.185 0.266 0.167 0.672 0.759 0.272 0.114 0.287 0.110 0.758 0.843 VGGT ( Wang et al., 2025a ) Dense-view 0.088 0.039 0.091 0.039 0.787 0.890 0.073 0.018 0.077 0.021 0.910 0.990 Spann3R ( Wang and Agapito, 2024 ) Streaming 0.298 0.226 0.205 0.112 0.650 0.730 0.416 0.323 0.417 0.285 0.684 0.789 CUT3R ( Wang et al., 2025b ) Streaming 0.126 0.047 0.154 0.031 0.727 0.834 0.099 0.031 0.076 0.026 0.837 0.971 StreamVGGT Streaming 0.129 0.056 0.115 0.041 0.751 0.865 0.084 0.044 0.074 0.041 0.861 0.986",
+      "images": []
+    },
+    {
+      "id": "S3.T2",
+      "text": "Table 2: Quantitative 3D reconstruction results on ETH3D dataset. Method Type Acc. ↓ \\downarrow Comp. ↓ \\downarrow Overall ↓ \\downarrow DUSt3R ( Wang et al., 2024a ) Pair-wise 1.167 0.842 1.005 MASt3R ( Leroy et al., 2024 ) Pair-wise 0.968 0.684 0.826 VGGT ( Wang et al., 2025a ) Dense-view 0.928 0.443 0.686 CUT3R ( Wang et al., 2025b ) Streaming 1.426 1.395 1.411 StreamVGGT Streaming 0.609 0.545 0.577",
+      "images": []
+    },
+    {
+      "id": "S3.T3",
+      "text": "Table 3: Quantitative 4D reconstruction results on TUM-dynamics. Method Type Acc Mean ↓ \\downarrow Acc Med. ↓ \\downarrow Comp Mean ↓ \\downarrow Comp Med. ↓ \\downarrow NC Mean ↑ \\uparrow NC Med. ↑ \\uparrow VGGT ( Wang et al., 2025a ) Dense-view 0.050 0.008 0.055 0.017 0.622 0.695 CUT3R ( Wang et al., 2025b ) Streaming 0.105 0.012 0.060 0.007 0.582 0.624 StreamVGGT Streaming 0.085 0.011 0.058 0.007 0.617 0.690",
+      "images": []
+    },
+    {
+      "id": "S4.T4",
+      "text": "Table 4: Single-Frame Depth Evaluation. Sintel Bonn KITTI NYU-v2 (Static) Method Type Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow DUSt3R ( Wang et al., 2024a ) Pair-wise 0.424 58.7 0.141 82.5 0.112 86.3 0.080 90.7 MASt3R ( Leroy et al., 2024 ) Pair-wise 0.340 60.4 0.142 82.0 0.079 94.7 0.129 84.9 MonST3R ( Zhang et al., 2024 ) Pair-wise 0.358 54.8 0.076 93.9 0.100 89.3 0.102 88.0 VGGT ( Wang et al., 2025a ) Dense-view 0.276 67.5 0.055 97.1 0.072 93.8 0.060 95.1 Spann3R ( Wang and Agapito, 2024 ) Streaming 0.470 53.9 0.118 85.9 0.128 84.6 0.122 84.9 CUT3R ( Wang et al., 2025b ) Streaming 0.428 55.4 0.063 96.2 0.092 91.3 0.086 90.9 Point3R ( Wu et al., 2025 ) Streaming 0.395 56.8 0.061 95.4 0.087 93.7 0.079 92.0 StreamVGGT Streaming 0.254 68.5 0.052 97.1 0.072 94.7 0.055 95.9",
+      "images": []
+    },
+    {
+      "id": "S4.T5",
+      "text": "Table 5: Video Depth Evaluation. Sintel BONN KITTI Method Type Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow DUSt3R-GA ( Wang et al., 2024a ) Pair-wise 0.656 45.2 0.155 83.3 0.144 81.3 MASt3R-GA ( Leroy et al., 2024 ) Pair-wise 0.641 43.9 0.252 70.1 0.183 74.5 MonST3R-GA ( Zhang et al., 2024 ) Pair-wise 0.378 55.8 0.067 96.3 0.168 74.4 VGGT ( Wang et al., 2025a ) Dense-view 0.298 68.1 0.057 96.8 0.061 97.0 Spann3R ( Wang and Agapito, 2024 ) Streaming 0.622 42.6 0.144 81.3 0.198 73.7 CUT3R ( Wang et al., 2025b ) Streaming 0.421 47.9 0.078 93.7 0.118 88.1 Point3R ( Wu et al., 2025 ) Streaming 0.452 48.9 0.060 96.0 0.136 84.2 StreamVGGT Streaming 0.323 65.7 0.059 97.2 0.173 72.1",
+      "images": []
+    },
+    {
+      "id": "S4.T6",
+      "text": "Table 6: Camera Pose Estimation Evaluation on ScanNet, Sintel, and TUM-dynamics datasets. ScanNet Sintel TUM-dynamics Method Type ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow Robust-CVD ( Kopf et al., 2021 ) Pair-wise 0.227 0.064 7.374 0.360 0.154 3.443 0.153 0.026 3.528 CasualSAM ( Zhang et al., 2022 ) Pair-wise 0.158 0.034 1.618 0.141 0.035 0.615 0.071 0.010 1.712 DUSt3R-GA ( Wang et al., 2024a ) Pair-wise 0.081 0.028 0.784 0.417 0.250 5.796 0.083 0.017 3.567 MASt3R-GA ( Leroy et al., 2024 ) Pair-wise 0.078 0.020 0.475 0.185 0.060 1.496 0.038 0.012 0.448 MonST3R-GA ( Zhang et al., 2024 ) Pair-wise 0.077 0.018 0.529 0.111 0.044 0.869 0.098 0.019 0.935 VGGT ( Wang et al., 2025a ) Dense-view 0.035 0.015 0.377 0.169 0.064 0.474 0.012 0.010 0.307 Spann3R ( Wang and Agapito, 2024 ) Streaming 0.096 0.023 0.661 0.329 0.110 4.471 0.056 0.021 0.591 CUT3R ( Wang et al., 2025b ) Streaming 0.099 0.022 0.600 0.213 0.066 0.621 0.046 0.015 0.473 Point3R ( Wu et al., 2025 ) Streaming 0.106 0.035 1.946 0.351 0.128 1.822 0.075 0.029 0.642 StreamVGGT Streaming 0.048 0.019 0.557 0.219 0.103 1.041 0.026 0.012 0.316",
+      "images": []
+    },
+    {
+      "id": "S4.T7",
+      "text": "Table 7: The comparison of inference-time and memory consumption for the online setting. Method 1 frame 5 frames 10 frames 20 frames 30 frames 40 frames Acc ↓ \\downarrow / ms ↓ \\downarrow / GB ↓ \\downarrow Acc ↓ \\downarrow / ms ↓ \\downarrow / GB ↓ \\downarrow Acc ↓ \\downarrow / ms ↓ \\downarrow / GB ↓ \\downarrow Acc ↓ \\downarrow / ms ↓ \\downarrow / GB ↓ \\downarrow Acc ↓ \\downarrow / ms ↓ \\downarrow / GB ↓ \\downarrow Acc ↓ \\downarrow / ms ↓ \\downarrow / GB ↓ \\downarrow Spann3R ( Wang and Agapito, 2024 ) 0.039 / 500 / 5.3 0.038 / 87 / 5.4 0.046 / 82 / 5.5 0.036 / 120 / 5.5 0.043 / 192 / 5.6 0.068 / 125 / 5.7 CUT3R ( Wang et al., 2025b ) 0.035 / 101 / 3.4 0.038 / 102 / 3.5 0.039 / 99 / 3.6 0.031 / 101 / 3.8 0.027 / 102 / 4.0 0.023 / 102 / 4.2 StreamVGGT 0.028 / 63 / 2.1 0.024 / 88 / 2.7 0.024 / 120 / 3.2 0.021 / 152 / 4.3 0.021 / 184 / 5.5 0.021 / 216 / 6.6",
+      "images": []
+    },
+    {
+      "id": "S4.F5",
+      "text": "Figure 5: Qualitative comparisons with CUT3R .",
+      "images": [
+        {
+          "src": "2507.11539v2/Visualization.png",
+          "id": "S4.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/238;",
+          "width": "548",
+          "height": "238",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T8",
+      "text": "Table 8: Comparison of pruning strategies for online inference on a 200-frame sequence. Method Acc ↓ \\downarrow (Mean/Med.) Comp ↓ \\downarrow (Mean/Med.) NC ↑ \\uparrow (Mean/Med.) Inference Time (Frame 200) Peak Memory Spann3R ( Wang and Agapito, 2024 ) 0.225 / 0.176 0.070 / 0.015 0.538 / 0.557 221.054 ms 6.7 GB CUT3R ( Wang et al., 2025b ) 0.165 / 0.107 0.030 / 0.012 0.551 / 0.577 102.533 ms 7.6 GB Ours No Prunning 0.058 / 0.035 0.026 / 0.010 0.632 / 0.708 733.083 ms 25.3 GB Ours Window-based (50 frames) 0.054 / 0.030 0.023 / 0.009 0.636 / 0.712 219.454 ms 8.2 GB Ours Window-based (100 frames) 0.062 / 0.033 0.032 / 0.015 0.633 / 0.710 392.634 ms 14.0 GB Ours K-nearest-frames (K=50) 0.157 / 0.114 0.104 / 0.011 0.605 / 0.670 220.109 ms 8.4 GB Ours K-nearest-frames (K=100) 0.054 / 0.032 0.034 / 0.019 0.626 / 0.702 392.634 ms 14.0 GB",
+      "images": []
+    },
+    {
+      "id": "S4.T9",
+      "text": "Table 9: Effects of the distillation training strategy. 7 scenes NRGBD Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow Method Distillation Attention Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. VGGT ( Wang et al., 2025a ) Global 0.088 0.039 0.091 0.039 0.787 0.890 0.073 0.018 0.077 0.021 0.910 0.990 StreamVGGT (w/o KD) Causal 0.202 0.102 0.168 0.064 0.718 0.825 0.189 0.088 0.206 0.096 0.816 0.945 StreamVGGT (w/ KD) ✓ Causal 0.129 0.056 0.115 0.041 0.751 0.865 0.084 0.044 0.074 0.041 0.861 0.986",
+      "images": []
+    },
+    {
+      "id": "S4.T10",
+      "text": "Table 10: Effects of the cached memory token mechanism for the online setting. Method Inference Time (at Frame 5) Peak Memory w/o FlashAttn & Cache 1135.860 ms 5.4 GB w/ FlashAttn 850.699 ms 2.3 GB w/ FlashAttn & Cache 88.193 ms 2.7 GB",
+      "images": []
+    },
+    {
+      "id": "A1.F6",
+      "text": "Figure 6: Per-frame results on 7-Scenes ( > > 70 frames).",
+      "images": []
+    },
+    {
+      "id": "A1.T11",
+      "text": "Table 11: Camera pose estimation on 7-Scenes under loop-closure scenarios. Method Type Avg. Translational Error (m) ↓ \\downarrow Avg. Rotational Error ( ∘ ) ↓ \\downarrow CUT3R ( Wang et al., 2025b ) Streaming 0.0861 1.39 StreamVGGT Streaming 0.0080 0.48",
+      "images": []
+    },
+    {
+      "id": "A1.T12",
+      "text": "Table 12: Results on 7-Scenes when the video stream is interrupted. Method Type Acc Mean ↓ \\downarrow Acc Med. ↓ \\downarrow Comp Mean ↓ \\downarrow Comp Med. ↓ \\downarrow NC Mean ↑ \\uparrow NC Med. ↑ \\uparrow CUT3R ( Wang et al., 2025b ) Streaming 0.042 0.024 0.037 0.016 0.702 0.808 StreamVGGT Streaming 0.036 0.020 0.033 0.012 0.724 0.833",
+      "images": []
+    },
+    {
+      "id": "A1.T13",
+      "text": "Table 13: The robustness performance under noisy frames. Method Acc Mean ↓ \\downarrow Acc Med. ↓ \\downarrow Comp Mean ↓ \\downarrow Comp Med. ↓ \\downarrow NC Mean ↑ \\uparrow NC Med. ↑ \\uparrow 0% noise 0.034 0.021 0.015 0.007 0.666 0.760 10% noise 0.041 0.025 0.018 0.007 0.666 0.761 25% noise 0.054 0.031 0.023 0.006 0.655 0.747",
+      "images": []
+    },
+    {
+      "id": "A1.T14",
+      "text": "Table 14: Effects of the cached memory token. Method Input Type Acc. ↓ \\downarrow Comp. ↓ \\downarrow Overall ↓ \\downarrow Time ↓ \\downarrow StreamVGGT (W/ Causal Attention) Full-sequence 0.782 0.723 0.753 4.7 s StreamVGGT (W/ Cached Token) Streaming 0.782 0.723 0.753 0.07 s",
+      "images": []
+    },
+    {
+      "id": "A1.F7",
+      "text": "Figure 7: Visualization of the reconstruction results of StreamVGGT and CUT3R on 7-Scenes.",
+      "images": [
+        {
+          "src": "2507.11539v2/vis.png",
+          "id": "A1.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/269;",
+          "width": "548",
+          "height": "269",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F8",
+      "text": "Figure 8: Visualizations of failure cases.",
+      "images": [
+        {
+          "src": "2507.11539v2/failure_cases.png",
+          "id": "A1.F8.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/170;",
+          "width": "548",
+          "height": "170",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F9",
+      "text": "Figure 9: Visualizations of the pose estimation of StreamVGGT and CUT3R on Scannet.",
+      "images": [
+        {
+          "src": "2507.11539v2/pose_vis_comparison.png",
+          "id": "A1.F9.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:548/478;",
+          "width": "548",
+          "height": "478",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F10",
+      "text": "Figure 10: Visualizations of point map and camera pose estimation of StreamVGGT.",
+      "images": [
+        {
+          "src": "2507.11539v2/pose_pointmap_vis.png",
+          "id": "A1.F10.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/240;",
+          "width": "548",
+          "height": "240",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.T15",
+      "text": "Table 15: Quantitative 3D reconstruction results on 7-Scenes and NRGBD datasets. 7 scenes NRGBD Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow Acc ↓ \\downarrow Comp ↓ \\downarrow NC ↑ \\uparrow Method Type Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. STream3R ( Lan et al., 2025 ) Streaming 0.119 0.058 0.110 0.031 0.747 0.854 0.068 0.016 0.033 0.014 0.904 0.981 StreamVGGT Streaming 0.129 0.056 0.115 0.038 0.751 0.865 0.084 0.044 0.074 0.041 0.861 0.986",
+      "images": []
+    },
+    {
+      "id": "A1.T16",
+      "text": "Table 16: Single-Frame Depth Evaluation. Sintel Bonn KITTI NYU-v2 (Static) Method Type Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow STream3R ( Lan et al., 2025 ) Streaming 0.229 70.7 0.061 96.7 0.064 95.5 0.057 95.7 StreamVGGT Streaming 0.254 68.5 0.052 97.1 0.072 94.7 0.055 95.9",
+      "images": []
+    },
+    {
+      "id": "A1.T17",
+      "text": "Table 17: Quantitative 4D reconstruction results on TUM-dynamics. Method Type Acc Mean ↓ \\downarrow Acc Med. ↓ \\downarrow Comp Mean ↓ \\downarrow Comp Med. ↓ \\downarrow NC Mean ↑ \\uparrow NC Med. ↑ \\uparrow STream3R ( Lan et al., 2025 ) Streaming 0.087 0.012 0.040 0.007 0.604 0.665 StreamVGGT Streaming 0.085 0.011 0.058 0.007 0.617 0.690",
+      "images": []
+    }
+  ]
+}

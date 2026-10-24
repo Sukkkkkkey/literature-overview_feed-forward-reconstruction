@@ -1,0 +1,24 @@
+<section id="question"><h2><span class="section-number">01 / QUESTION</span>图像渲染得好，三维表面就正确吗？</h2><div class="prose"><p>点图把每个观测像素映射为三维位置，可渲染表示还要解释颜色、透明度、可见性和未观测视角。Gaussian、NeRF 或直接场景查询网络的目标都是让新视角看起来正确，但这些额外自由度也可能吸收几何误差。</p><p>本章以场景重建为主：两图或少量真实观测能否快速生成可复用的辐射场。物体的生成视图先验放在专题 10；动态可渲染模型在这里与静态场景并列，但单独标注相机和时间条件。</p><div class="contribution">渲染是几何的重要证据，也是不完全约束：需要同时检查表面、位姿和未见视图。</div></div></section>
+<section id="notation"><h2><span class="section-number">02 / MODEL</span>由像素到 Gaussian，增加了哪些自由度</h2><div class="prose"><div class="math">gᵢ = (μᵢ, Σᵢ, αᵢ, cᵢ)<br>μᵢ = Rᵥ(zᵢKᵥ⁻¹p̃ᵢ) + tᵥ<br>Ĉ(p) = Σᵢ Tᵢ(p) αᵢ(p) cᵢ(p)</div><p>μ 是中心、Σ 是协方差、α 是不透明度、c 可以是视角相关颜色系数。最后一式用 Tᵢ(p) 表示前面 splats 的累积透过率，与本地图相机位姿 T 的语义不同；这里只是 alpha compositing 的概念式。几何固定时可拟合外观，外观自由时也可能用浮动 splats 或拉长协方差解释有限视图。</p><details class="derivation"><summary>pixelSplat 与 MVSplat 都沿射线放点，为何方法不同？</summary><div class="inner"><p>pixelSplat 学习离散深度概率并采样 Gaussian 位置，将 opacity 与被采样桶的概率联系起来，缓解连续移动 Gaussian 穿越空区域时的局部极小值。其 epipolar encoder 将匹配位置与深度编码结合，以适应相机提供的场景尺度。</p><p>MVSplat 显式构造候选深度的 feature cost volume，先经匹配分布回归、细化深度，再反投影 Gaussian 中心。两者的区别在于深度搜索、优化路径和归纳偏置；并不是 Gaussian 与非 Gaussian 的比较。两者都依赖输入相机。</p></div></details></div></section>
+<section id="comparison"><h2><span class="section-number">03 / DESIGN SPACE</span>相机从哪里来，决定了任务边界</h2>{{table:输入设定|代表工作|关键设计|比较时的约束
+已知 K 与 pose|pixelSplat、MVSplat|epipolar/probabilistic depth 或 cost volume|相机尺度可任意，但几何必须与它一致
+不输入 pose、保留 K|NoPoSplat|canonical Gaussian 与姿态恢复|pose-free 不等于 uncalibrated
+从几何骨干接 Gaussian|Splatt3R、FLARE、AnySplat|点图/相机与外观预测结合|预训练几何知识与渲染微调要分开
+已知相机的动态渲染|4DGT|时间条件的可渲染表示|新时间与新相机是不同外推轴
+快速权重场景重建|tttLRM|将多视信息写入可查询表示|其已知相机条件与 ZipMap 的未知相机重建不同}}
+<p>“不用深度标签”只描述监督的一部分。相机、已训练匹配器或点图骨干也可能携带强几何信息，具体来源需和专题 08 一起检查。</p>{{studies}}</section>
+<section id="methods"><h2><span class="section-number">04 / METHODS</span>八条可渲染场景路线</h2>{{methods}}</section>
+<section id="evidence"><h2><span class="section-number">05 / EVIDENCE</span>把观感与几何放在同一页，分开评价</h2>{{table:证据层|建议保留的指标|容易隐藏的错误
+新视角 RGB|PSNR / SSIM / LPIPS，插值与外推分列|高外观质量可伴随浮点与错误深度
+表面几何|depth / normal / surface distance，固定对齐协议|只在输入视图评价会遗漏背面错误
+相机|pose AUC、ATE；预测与真值相机渲染对照|几何和位姿共同补偿会掩盖单项误差
+运行成本|编码、Gaussian 数、显存、逐视图渲染|500 FPS 的 rasterizer 不是 image-to-3D 全流程
+时间一致性|相同物理点的运动或动态表面一致性|视频观感平滑不等于正确 3D 轨迹}}
+<div class="prose"><p>MVSplat 在同一训练集和 256² 图像协议下比较 pixelSplat，并用去掉 cost volume 的消融定位其贡献。Figure 4 展示了 RGB 渲染之外的 Gaussian 与深度差异，这正是本章保留几何检查的理由。但图示表面更干净，不能替代所有域的定量表面测量。</p><p>渲染分数也依赖目标相机是否真实已知。NAS3R 默认用预测目标位姿渲染，评价同时包含相机误差；与用真值位姿的结果并排时必须保留输入和协议标记。</p></div></section>
+<section id="discussion"><h2><span class="section-number">06 / DISCUSSION</span>观察外推失败，才能判断场景表示</h2><div class="prose"><p>两视图之间的插值通常比大角度绕到背后容易。输入相机分布窄、纹理重复或反光强时，网络可以学会很好地重现训练分布，却没有稳定的表面解释。对不透明物体，沿视线拉长的 Gaussian 可能让邻近视图正常，而在远侧视角显露错误。</p><p>已知相机的 arbitrarily-scaled 场景与 metric 世界不同。pixelSplat 对 SfM 尺度的处理是让深度与给定相机尺度兼容，并不是从 RGB 恢复物理米制。NoPoSplat 的 unposed 输入也仍包含内参。</p><p>动态场景还增加了运动与颜色的补偿路径。需要拆开新时间、同时间新视角和跨时间跨视角三个测试，再讨论是否学到了真正的时变几何。</p></div></section>
+<section id="hypotheses"><h2><span class="section-number">07 / RESEARCH</span>把“看起来对”变成可检验的几何声明</h2>{{table:假设|控制实验|反证信号
+渲染提升来自更好的 Gaussian 中心|固定外观/opacity 头，只替换中心；再反向控制|只更换外观参数也可获得相同提升
+cost volume 改善域外几何|固定相机、训练数据和模型规模，跨域测 RGB 与表面距离|RGB 提高但几何持续变差
+动态表示可跨时空组合查询|训练中分开限制相机和时间覆盖，测试未见组合|只有时间内插成功，而跨时间新视角失效}}
+<p class="small muted">实验建议为本地图的研究延伸，未运行模型验证。</p></section>
+<section id="reading"><h2><span class="section-number">READING ROUTE</span>从显式深度线索读到相机自由度</h2><ol class="reading-questions"><li>精读 pixelSplat 的采样与 opacity 梯度路径，再与 MVSplat 的 cost volume 对照。</li><li>读 NoPoSplat / AnySplat，标出相机信息、几何初始化和渲染监督进入的位置。</li><li>用 4DGT 与 D4RT 对照，说明可渲染时间表示和身份持续轨迹的区别。</li><li>对任何速度数字，分别填写编码时间、渲染时间及输出规模。</li></ol><p>继续阅读：<a href="08-supervision.html">光度自监督与教师成本</a> · <a href="10-objects.html">完整物体资产与生成先验</a>。</p></section>

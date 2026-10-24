@@ -10,7 +10,7 @@ class Scan(HTMLParser):
   if 'id'in d:self.ids.append(d['id'])
   if 'href'in d:self.links.append(d['href'])
   if 'src'in d:self.assets.append(d['src'])
-pages=[R/'index.html',R/'review.html',R/'topics/01-geometry.html']+list((R/'papers').glob('*.html'));scans={};errors=[]
+pages=[R/'index.html',R/'review.html']+list((R/'topics').glob('*.html'))+list((R/'papers').glob('*.html'));scans={};errors=[]
 for p in pages:
  s=Scan();s.feed(p.read_text(encoding='utf-8'));scans[p]=s
  if len(s.ids)!=len(set(s.ids)):errors.append(f'Duplicate IDs {p.name}')
@@ -32,5 +32,6 @@ if note.exists():
  report['readonly_note_sha256']=hashlib.sha256(note.read_bytes()).hexdigest()
  report['readonly_note_unchanged']=report['readonly_note_sha256'].upper()=='89AF9576D17CC9CDDE050D8BA7203B5EF4B684AC45FA945101FEFE1D72E548D0'
  if not report['readonly_note_unchanged']:errors.append('Original note changed')
+(R/'research/qa').mkdir(exist_ok=True)
 (R/'research/qa/link-checks.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(report,ensure_ascii=False,indent=2));assert not errors

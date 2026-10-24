@@ -1,0 +1,222 @@
+{
+  "id": "C03",
+  "slug": "zipmap",
+  "name": "ZipMap",
+  "version": "2603.04385v3",
+  "pdf": "research/sources/2603.04385v3.pdf",
+  "url": "https://arxiv.org/pdf/2603.04385v3",
+  "sha256": "51ce3bac49a8aa44a0408214525af2d0e970b9384f2b4ecb2eb5005e9fabdd5e",
+  "pages": 18,
+  "figures": [
+    {
+      "id": "S0.F1",
+      "text": "Figure 1 : ZipMap is an efficient feed-forward 3D reconstruction model whose runtime scales linearly with the number of input views while maintaining or exceeding the reconstruction quality of state-of-the-art quadratic-time systems. Left : Given a long input sequence, ZipMap reconstructs image depths, dense 3D point clouds, and camera trajectory in a single forward pass. Right : Compared to quadratic-time models (VGGT and π 3 \\pi^{3} ), ZipMap matches or surpasses their prediction accuracy (lower ATE, top) while scaling linearly in runtime (bottom). At 750 frames, our method runs in under 10 seconds, over 20 × 20\\times faster than VGGT.",
+      "images": []
+    },
+    {
+      "id": "S3.F2",
+      "text": "Figure 2 : Method Overview. ZipMap is a stateful feed-forward model with local window attention and large-chunk TTT layers [ 65 , 86 ] . Given N N input images, a single linear-time pass predicts camera poses, depth maps, and point maps while storing a compact scene representation in TTT fast weights, which can be queried in real time at novel cameras to synthesize new-view point maps.",
+      "images": [
+        {
+          "src": "2603.04385v3/method_ttt_project.png",
+          "id": "S3.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/308;",
+          "width": "685",
+          "height": "308",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F3",
+      "text": "Figure 3 : Example reconstruction results A sparse subset of input images are shown on the left, and a visualization of the output 3D reconstructions are shown on the right. Note that our method performs well on challenging cases like long sequence inputs, dynamic scenes and internet photo collections.",
+      "images": [
+        {
+          "src": "2603.04385v3/qualitative_examples_v2.png",
+          "id": "S4.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:685/804;",
+          "width": "685",
+          "height": "804",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T1",
+      "text": "Table 1 : Camera Pose Estimation: RealEstate10K [ 89 ] and Co3Dv2 [ 48 ] . We report pose AUC under angular error thresholds of 5/15/30 degrees. All methods have seen Co3Dv2 during training. CUT3R and TTT3R additionally use RealEstate10K for training, while the remaining methods do not. Method RealEstate10K Co3Dv2 AUC@5 ↑ \\uparrow AUC@15 ↑ \\uparrow AUC@30 ↑ \\uparrow AUC@5 ↑ \\uparrow AUC@15 ↑ \\uparrow AUC@30 ↑ \\uparrow 𝒪 ⁡ ( N 2 ) \\mathcal{O}(N^{2}) Inference Speed Fast3R [ 79 ] 22.36 46.71 61.68 31.05 59.63 73.43 FLARE [ 85 ] 38.47 67.02 80.01 23.84 57.78 73.99 VGGT [ 68 ] 38.71 66.46 78.89 67.84 83.95 89.99 π 3 \\pi^{3} [ 75 ] 63.10 80.31 87.40 57.12 79.86 87.93 𝒪 ⁡ ( N ) \\mathcal{O}(N) Inference Speed CUT3R [ 76 ] 46.92 70.65 81.68 24.88 56.28 71.72 TTT3R [ 13 ] 46.37 70.33 81.51 22.61 53.49 69.46 Ours 53.34 74.97 84.30 62.46 81.64 88.76",
+      "images": []
+    },
+    {
+      "id": "S4.T2",
+      "text": "Table 2 : Camera Pose Estimation: Sintel [ 9 ] , TUM-dynamics [ 61 ] and ScanNet [ 14 ] . We measure the distance error of rotation/translation. All methods have seen ScanNet or ScanNet++ [ 83 ] in training. None has seen Sintel or TUM-dynamics. Method Sintel TUM-dynamics ScanNet (seen) ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow 𝒪 ⁡ ( N 2 ) \\mathcal{O}(N^{2}) Inference Speed Fast3R [ 79 ] 0.371 0.298 13.750 0.090 0.101 1.425 0.155 0.123 3.491 FLARE [ 85 ] 0.207 0.090 3.015 0.026 0.013 0.475 0.064 0.023 0.971 VGGT [ 68 ] 0.172 0.061 0.471 0.012 0.010 0.309 0.035 0.015 0.376 π 3 \\pi^{3} [ 75 ] 0.073 0.038 0.288 0.014 0.009 0.307 0.030 0.013 0.345 𝒪 ⁡ ( N ) \\mathcal{O}(N) Inference Speed CUT3R [ 76 ] 0.216 0.071 0.622 0.042 0.013 0.395 0.096 0.022 0.578 TTT3R [ 13 ] 0.204 0.085 0.690 0.028 0.012 0.361 0.065 0.021 0.617 Ours 0.132 0.066 0.438 0.012 0.010 0.310 0.034 0.015 0.385",
+      "images": []
+    },
+    {
+      "id": "S4.T3",
+      "text": "Table 3 : Point Map Estimation: 7-Scenes [ 58 ] and NRGBD [ 3 ] . Metrics are the same as in Table 4 . Keyframes are selected every 200 (sparse) and 40 (dense) frames for 7-Scenes, and every 500 (sparse) and 100 (dense) frames for NRGBD. Method 7-Scenes NRGBD Acc. ↓ \\downarrow Comp. ↓ \\downarrow NC. ↑ \\uparrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow NC. ↑ \\uparrow Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Sparse View Fast3R [ 79 ] 0.095 0.065 0.144 0.089 0.673 0.759 0.135 0.091 0.163 0.104 0.759 0.877 CUT3R [ 76 ] 0.080 0.055 0.102 0.066 0.711 0.811 0.098 0.038 0.075 0.029 0.830 0.974 TTT3R [ 13 ] 0.098 0.062 0.159 0.107 0.681 0.768 0.101 0.039 0.076 0.029 0.826 0.973 FLARE [ 85 ] 0.085 0.057 0.145 0.107 0.696 0.780 0.053 0.024 0.051 0.025 0.877 0.988 VGGT [ 68 ] 0.044 0.024 0.056 0.033 0.733 0.846 0.049 0.027 0.066 0.037 0.882 0.979 π 3 \\pi^{3} [ 75 ] 0.047 0.029 0.074 0.049 0.741 0.840 0.024 0.013 0.028 0.013 0.909 0.991 Ours 0.044 0.026 0.065 0.037 0.740 0.853 0.046 0.028 0.057 0.034 0.895 0.990 Dense View Fast3R [ 79 ] 0.040 0.017 0.056 0.018 0.644 0.725 0.072 0.030 0.050 0.016 0.790 0.934 CUT3R [ 76 ] 0.023 0.010 0.028 0.008 0.674 0.771 0.065 0.027 0.036 0.012 0.812 0.961 TTT3R [ 13 ] 0.035 0.016 0.032 0.010 0.666 0.760 0.074 0.033 0.037 0.014 0.803 0.957 FLARE [ 85 ] 0.019 0.007 0.026 0.013 0.684 0.785 0.023 0.011 0.018 0.008 0.882 0.986 VGGT [ 68 ] 0.022 0.008 0.026 0.012 0.667 0.760 0.015 0.008 0.015 0.006 0.871 0.982 π 3 \\pi^{3} [ 75 ] 0.016 0.007 0.022 0.011 0.689 0.792 0.013 0.007 0.014 0.006 0.874 0.981 Ours 0.018 0.008 0.030 0.012 0.680 0.780 0.016 0.009 0.017 0.007 0.870 0.983",
+      "images": []
+    },
+    {
+      "id": "S4.T4",
+      "text": "Table 4 : Point Map Estimation: DTU [ 26 ] and ETH3D [ 55 ] . Following π 3 \\pi^{3} [ 75 ] , we report the mean and median of accuracy (Acc.), completeness (Comp.), and normal-consistency (NC.) for keyframes selected every 5 images. Method DTU ETH3D Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. 𝒪 ⁡ ( N 2 ) \\mathcal{O}(N^{2}) Inference Speed Fast3R [ 79 ] 3.340 1.919 2.929 1.125 0.671 0.755 0.832 0.691 0.978 0.683 0.667 0.766 FLARE [ 85 ] 2.541 1.468 3.174 1.420 0.684 0.774 0.464 0.338 0.664 0.395 0.744 0.864 VGGT [ 68 ] 1.308 0.761 1.929 1.015 0.665 0.751 0.270 0.174 0.304 0.180 0.841 0.942 π 3 \\pi^{3} [ 75 ] 1.151 0.622 1.793 0.629 0.668 0.754 0.188 0.126 0.211 0.129 0.872 0.967 𝒪 ⁡ ( N ) \\mathcal{O}(N) Inference Speed CUT3R [ 76 ] 5.045 2.954 6.437 4.146 0.666 0.742 0.593 0.461 0.747 0.590 0.754 0.863 TTT3R [ 13 ] 5.337 3.261 6.593 4.236 0.666 0.743 0.763 0.633 0.881 0.617 0.739 0.840 Ours 1.228 0.671 1.649 0.663 0.675 0.764 0.254 0.171 0.249 0.159 0.865 0.965",
+      "images": []
+    },
+    {
+      "id": "S4.T5",
+      "text": "Table 5 : Video Depth Estimation: Sintel [ 9 ] , Bonn [ 41 ] and KITTI [ 20 ] . We report results under scale-only alignment; results using joint scale-and-shift alignment are provided in the Appendix. Sintel Bonn KITTI Method Params AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow 𝒪 ⁡ ( N 2 ) \\mathcal{O}(N^{2}) Inference Speed Fast3R [ 79 ] 648M 0.638 0.422 0.194 0.772 0.138 0.834 FLARE [ 85 ] 1.40B 0.729 0.336 0.152 0.790 0.356 0.570 VGGT [ 68 ] 1.26B 0.298 0.643 0.055 0.971 0.073 0.965 π 3 \\pi^{3} [ 75 ] 959M 0.228 0.672 0.051 0.975 0.038 0.986 𝒪 ⁡ ( N ) \\mathcal{O}(N) Inference Speed CUT3R [ 76 ] 793M 0.432 0.510 0.072 0.951 0.152 0.805 TTT3R [ 13 ] 793M 0.426 0.522 0.061 0.970 0.149 0.812 Ours 1.40B 0.248 0.695 0.059 0.973 0.057 0.974",
+      "images": []
+    },
+    {
+      "id": "S4.F4",
+      "text": "Figure 4 : Long-sequence camera evaluation on DL3DV. We evaluate camera pose accuracy (ATE ↓ \\downarrow ) on the DL3DV test set [ 37 ] under two protocols: Left : increasing scene scale by using the first N N frames of each sequence; Right : increasing view density by uniformly subsampling N N frames along a fixed trajectory. Our method maintains low error and matches quadratic-time baselines ( π 3 \\pi^{3} , VGGT) while other linear-time methods (CUT3R, TTT3R) degrade significantly as N N grows.",
+      "images": [
+        {
+          "src": "2603.04385v3/longseq_eval_dl3dv.png",
+          "id": "S4.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/264;",
+          "width": "685",
+          "height": "264",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T6",
+      "text": "Table 6 : Ablation Study for TTT key components. We evaluate point-map estimation on ETH3D [ 55 ] . All variants are trained with reduced compute and a smaller data scale. Method Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow Mean Med. Mean Med. Mean Med. Ours 0.337 0.224 0.357 0.217 0.810 0.918 Ours w/o gated unit 0.354 0.251 0.381 0.234 0.802 0.901 Ours w/o Newton–Schulz 0.408 0.283 0.430 0.249 0.787 0.898 Ours w/ global TTT lr (0.1) 0.411 0.303 0.490 0.317 0.779 0.886 Ours w/ global TTT lr (1.0) 0.464 0.366 0.537 0.343 0.782 0.890",
+      "images": []
+    },
+    {
+      "id": "S4.F5",
+      "text": "Figure 5 : Querying Unseen Structure. Left: input images (a), GT images at query poses (b), and our predicted depth at those poses (c). Middle: point cloud reconstructed from input images only. Right: point cloud after querying (right column), where the queried point cloud is merged with the input image point cloud. This demonstrates our model’s ability to infer common 3D structure (e.g., walls, floors, and ground) in the unseen regions, thereby indicating an understanding of basic 3D scene priors.",
+      "images": [
+        {
+          "src": "2603.04385v3/figures/images/query_unseen_structure.png",
+          "id": "S4.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/523;",
+          "width": "685",
+          "height": "523",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.T7",
+      "text": "Table 7 : Runtime evaluation. Inference time (in seconds) as a function of the number of input images N N . VGGT and π 3 \\pi^{3} scale quadratically with N N , resulting in slow speeds when N N is large. CUT3R, TTT3R, and our method scale linearly with N N , with ours being the fastest for dense input frames. Model Complexity Params Time to Reconstruct N N Frames (seconds) N = N= 5 10 25 50 100 200 300 400 500 750 VGGT [ 68 ] 𝒪 ⁡ ( N 2 ) \\mathcal{O}(N^{2}) 1.26B 0.102 0.194 0.569 1.524 4.689 16.040 34.022 58.842 90.389 200.364 π 3 \\pi^{3} [ 75 ] 𝒪 ⁡ ( N 2 ) \\mathcal{O}(N^{2}) 959M 0.087 0.157 0.450 1.186 3.604 12.190 25.765 44.464 68.255 151.159 CUT3R [ 76 ] 𝒪 ⁡ ( N ) \\mathcal{O}(N) 793M 0.206 0.413 1.018 2.056 4.088 8.222 12.430 16.618 21.025 31.246 TTT3R [ 13 ] 𝒪 ⁡ ( N ) \\mathcal{O}(N) 793M 0.206 0.411 1.033 2.036 4.128 8.267 12.435 16.511 20.767 31.197 Ours 𝒪 ⁡ ( N ) \\mathcal{O}(N) 1.40B 0.125 0.183 0.383 0.712 1.362 2.681 4.017 5.348 6.671 9.999",
+      "images": []
+    },
+    {
+      "id": "A1.F6",
+      "text": "Figure 6 : Qualitative comparison. Point cloud reconstructions of scenes from the ETH3D and DTU datasets.",
+      "images": [
+        {
+          "src": "2603.04385v3/qualitative_comparison.png",
+          "id": "A1.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/395;",
+          "width": "685",
+          "height": "395",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A2.F7",
+      "text": "Figure 7 : Querying the Scene State. The left panels show: input images (a), GT RGB at query poses (b), our RGB predictions (c), GT depth (d), and predicted depth (e). The middle panels visualize the 3D point clouds reconstructed from the input images. The right panels show point clouds attained solely by querying the scene state . The close visual match between these two point clouds indicates that the learned scene state faithfully captures the geometry and appearance of the input scene.",
+      "images": [
+        {
+          "src": "2603.04385v3/state_query_seen.png",
+          "id": "A2.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:617/387;",
+          "width": "617",
+          "height": "387",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.T8",
+      "text": "Table 8 : Monocular Depth Estimation. We evalute the frame-independent monocular depth estimation on the Sintel [ 9 ] , Bonn [ 41 ] , KITTI [ 20 ] and NYU-v2 [ 59 ] datasets. Sintel Bonn KITTI NYU-v2 Method AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow MASt3R [ 34 ] 0.413 0.569 0.123 0.833 0.077 0.948 0.110 0.865 MonST3R [ 84 ] 0.402 0.525 0.069 0.954 0.098 0.895 0.094 0.887 Fast3R [ 79 ] 0.544 0.509 0.169 0.796 0.120 0.861 0.093 0.898 CUT3R [ 76 ] 0.418 0.520 0.058 0.967 0.097 0.914 0.081 0.914 FLARE [ 85 ] 0.606 0.402 0.130 0.836 0.312 0.513 0.089 0.898 MoGe v1 [ 71 ] 0.273 0.695 0.050 0.976 0.054 0.977 0.055 0.952 MoGe v2 [ 72 ] 0.277 0.687 0.063 0.973 0.049 0.979 0.060 0.940 VGGT [ 68 ] 0.329 0.600 0.051 0.974 0.089 0.939 0.055 0.953 π 3 \\pi^{3} [ 75 ] 0.276 0.622 0.052 0.971 0.059 0.972 0.054 0.956 Ours 0.268 0.666 0.056 0.973 0.063 0.960 0.052 0.959",
+      "images": []
+    },
+    {
+      "id": "A4.T9",
+      "text": "Table 9 : Video Depth Estimation: Sintel [ 9 ] , Bonn [ 41 ] and KITTI [ 20 ] . We have reported results under scale-only alignment in the main paper. Here we further report results using joint scale-and-shift alignment. Sintel Bonn KITTI Method Params AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow 𝒪 ⁡ ( N 2 ) \\mathcal{O}(N^{2}) Inference Speed Fast3R [ 79 ] 648M 0.518 0.486 0.196 0.768 0.139 0.808 FLARE [ 85 ] 1.40B 0.791 0.358 0.142 0.797 0.357 0.579 VGGT [ 68 ] 1.26B 0.226 0.683 0.049 0.974 0.059 0.961 π 3 \\pi^{3} [ 75 ] 959M 0.206 0.735 0.045 0.976 0.036 0.986 𝒪 ⁡ ( N ) \\mathcal{O}(N) Inference Speed CUT3R [ 76 ] 793M 0.534 0.551 0.067 0.961 0.124 0.850 TTT3R [ 13 ] 793M 0.508 0.566 0.054 0.973 0.120 0.870 Ours 1.40B 0.198 0.731 0.052 0.973 0.050 0.972",
+      "images": []
+    },
+    {
+      "id": "A4.T12",
+      "text": "Table 10 : Ablation: Removing the Reference View (Camera pose estimation). Method Sintel TUM-dynamics ScanNet (seen) ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow Ours w/ ref 0.125 0.058 0.420 0.012 0.009 0.309 0.034 0.015 0.398 Ours w/o ref 0.132 0.066 0.438 0.012 0.010 0.310 0.034 0.015 0.385 Table 11 : Ablation: Removing the Reference View (Video depth estimation). We use “Joint Scale & Shift” alignment here. Sintel Bonn KITTI Method AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow Ours w/ ref 0.205 0.731 0.053 0.973 0.048 0.972 Ours w/o ref 0.198 0.731 0.052 0.973 0.050 0.972 Table 12 : Ablation: Removing the Reference View (Point Map Estimation). Method DTU ETH3D Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Ours w/ ref 1.584 0.901 1.558 0.667 0.687 0.779 0.202 0.138 0.413 0.278 0.852 0.953 Ours w/o ref 1.228 0.671 1.649 0.663 0.675 0.764 0.254 0.171 0.249 0.159 0.865 0.965",
+      "images": []
+    },
+    {
+      "id": "A4.F8",
+      "text": "Figure 8 : Long-sequence camera estimation. We evaluate camera ATE on the ScanNet-v2 and DL3DV datasets by taking the first N N frames of each test sequence and gradually increasing N N . We see that, when the input sequence length becomes long, removing the reference view and fine-tuning with the affine-invariant camera loss from π 3 \\pi^{3} [ 75 ] (“Ours w/o ref”) improves the camera pose estimation accuracy compared to the reference-based variant (“Ours w/ ref”).",
+      "images": [
+        {
+          "src": "2603.04385v3/ablation_ref_longseq.png",
+          "id": "A4.F8.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/267;",
+          "width": "685",
+          "height": "267",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.T13",
+      "text": "Table 13 : Streaming Video Depth Estimation. We report results under scale-only alignment on Sintel [ 9 ] , Bonn [ 41 ] and KITTI [ 20 ] . Sintel Bonn KITTI Method AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow AbsRel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow CUT3R [ 76 ] 0.432 0.510 0.072 0.951 0.152 0.805 TTT3R [ 13 ] 0.426 0.522 0.061 0.970 0.149 0.812 Ours-streaming 0.273 0.638 0.067 0.965 0.100 0.903",
+      "images": []
+    },
+    {
+      "id": "A4.T14",
+      "text": "Table 14 : Streaming Camera Pose Estimation: Sintel [ 9 ] and Co3Dv2 [ 48 ] . For Sintel, we report ATE and RPE translation/rotation errors. For Co3Dv2, we report pose AUC under angular error thresholds of 5/15/30 degrees. Method Sintel Co3Dv2 ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow AUC@5 ↑ \\uparrow AUC@15 ↑ \\uparrow AUC@30 ↑ \\uparrow CUT3R [ 76 ] 0.2160 0.0710 0.6220 24.88 56.28 71.72 TTT3R [ 13 ] 0.2040 0.0850 0.6900 22.61 53.49 69.46 Ours-Streaming 0.1593 0.0655 0.7508 45.38 72.58 83.12",
+      "images": []
+    },
+    {
+      "id": "A4.T15",
+      "text": "Table 15 : Streaming Point Map Reconstruction Comparison. We report the results on DTU [ 26 ] , ETH3D [ 55 ] , and NRGBD-dense. Method DTU ETH3D NRGBD-dense Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow CUT3R [ 76 ] 5.045 6.437 0.666 0.593 0.747 0.754 0.065 0.036 0.812 TTT3R [ 13 ] 5.337 6.593 0.666 0.763 0.881 0.739 0.074 0.037 0.803 Ours-streaming 4.091 3.495 0.693 0.614 0.941 0.750 0.038 0.028 0.836",
+      "images": []
+    },
+    {
+      "id": "A4.F9",
+      "text": "Figure 9 : Long-sequence video depth estimation. We evaluate on the ScanNet-v2 dataset by taking the first N N frames of each test sequence and gradually increasing N N .",
+      "images": [
+        {
+          "src": "2603.04385v3/longseq_eval_videodepth.png",
+          "id": "A4.F9.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:617/400;",
+          "width": "617",
+          "height": "400",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.F10",
+      "text": "Figure 10 : Long-sequence 3D point estimation. We evaluate on the 7-Scenes [ 58 ] dataset under two cases. Left : increasing scene scale by using the first N N frames of each sequence; Right : increasing view density by uniformly subsampling N N frames.",
+      "images": [
+        {
+          "src": "2603.04385v3/longseq_eval_7scenes.png",
+          "id": "A4.F10.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:699/271;",
+          "width": "699",
+          "height": "271",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.T16",
+      "text": "Table 16 : NVS Evaluation on Mip-NeRF360 [ 4 ] . Baseline results are taken from Tab. 1 of the AnySplat paper. ZipMap is competitive with several baselines. However, as noted in our Limitations, our query results are primarily designed to generate colored point clouds rather than high-fidelity novel view synthesis. Accordingly, NVS is not our main focus, and we do not claim state-of-the-art performance compared with explicit 3DGS-based methods. Method 6 Views 16 Views PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow NoPoSplat [ 82 ] 15.92 0.416 0.541 15.47 0.361 0.606 Flare [ 85 ] 15.35 0.407 0.573 13.21 0.348 0.695 AnySplat [ 28 ] 18.32 0.524 0.329 21.85 0.670 0.250 Ours 15.60 0.414 0.486 17.65 0.459 0.374",
+      "images": []
+    }
+  ]
+}

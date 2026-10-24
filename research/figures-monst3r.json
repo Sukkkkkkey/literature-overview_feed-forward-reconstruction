@@ -1,0 +1,227 @@
+{
+  "id": "E01",
+  "slug": "monst3r",
+  "name": "MonST3R",
+  "version": "2410.03825v2",
+  "pdf": "research/sources/2410.03825v2.pdf",
+  "url": "https://arxiv.org/pdf/2410.03825v2",
+  "sha256": "97788e6ea21c760ad97ed70adcf3393f4937f36e058cfcda5df47a97612a8564",
+  "pages": 24,
+  "figures": [
+    {
+      "id": "S0.F1",
+      "text": "Figure 1: MonST3R processes a dynamic video to produce a time-varying dynamic point cloud, along with per-frame camera poses and intrinsics, in a predominantly feed-forward manner. This representation then enables the efficient computation of downstream tasks, such as video depth estimation and dynamic/static scene segmentation.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig1_teaser.png",
+          "id": "S0.F1.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:548/243;",
+          "width": "548",
+          "height": "243",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S1.F2",
+      "text": "Figure 2: Limitation of DUSt3R on dynamic scenes. Left: DUSt3R aligns the moving foreground subject and misaligns the background points as it is only trained on static scenes. Right: DUSt3R fails to estimate the depth of a foreground subject, placing it in the background.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig2_limitation.png",
+          "id": "S1.F2.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:548/227;",
+          "width": "548",
+          "height": "227",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.T1",
+      "text": "Table 1: Training datasets used fine-tuning on dynamic scenes. All datasets provide both camera pose and depth, and most of them include dynamic objects. Dataset Domain Scene type # \\# of frames # \\# of Scenes Dynamics Ratio PointOdyssey ( Zheng et al., 2023 ) Synthetic Indoors & Outdoors 200k 131 Realistic 50% TartanAir ( Wang et al., 2020 ) Synthetic Indoors & Outdoors 1000k 163 None 25% Spring ( Mehl et al., 2023 ) Synthetic Outdoors 6k 37 Realistic 5% Waymo Perception ( Sun et al., 2020 ) Real Driving 160k 798 Driving 20%",
+      "images": []
+    },
+    {
+      "id": "S3.F3",
+      "text": "Figure 3: Dynamic global point cloud and camera pose estimation. Given a fixed sized of temporal window, we compute pairwise pointmap for each frame pair with MonST3R and optical flow from off-the-shelf method. These intermediates then serve as inputs to optimize a global point cloud and per-frame camera poses. Video depth can be directly derived from this unified representation.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig3_system.png",
+          "id": "S3.F3.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:548/181;",
+          "width": "548",
+          "height": "181",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T2",
+      "text": "Table 2: Video depth evaluation on Sintel, Bonn, and KITTI datasets. We evaluate for both scale-and-shift-invariant and scale-invariant depth. The best and second best results in each category are bold and underlined , respectively. Sintel Bonn KITTI Alignment Category Method Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Per-sequence scale & shift Single-frame depth Marigold 0.532 51.5 0.091 93.1 0.149 79.6 Depth-Anything-V2 0.367 55.4 0.106 92.1 0.140 80.4 Video depth NVDS 0.408 48.3 0.167 76.6 0.253 58.8 ChronoDepth 0.687 48.6 0.100 91.1 0.167 75.9 DepthCrafter (Sep. 2024) 0.292 69.7 0.075 97.1 0.110 88.1 Joint video depth & pose Robust-CVD 0.703 47.8 - - - - CasualSAM 0.387 54.7 0.169 73.7 0.246 62.2 MonST3R 0.335 58.5 0.063 96.4 0.104 89.5 Per-sequence scale Video depth DepthCrafter (Sep. 2024) 0.692 53.5 0.217 57.6 0.141 81.8 Joint depth & pose MonST3R 0.345 56.2 0.065 96.3 0.106 89.3",
+      "images": []
+    },
+    {
+      "id": "S4.T3",
+      "text": "Table 3: Single-frame depth evaluation. We report the performance on Sintel, Bonn, KITTI, and NYU-v2 (static) datasets. MonST3R achieves overall comparable results to DUSt3R. Sintel Bonn KITTI NYU-v2 (static) Method Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow Abs Rel ↓ \\downarrow δ \\delta < 1.25 ↑ 1.25\\uparrow DUSt3R 0.424 58.7 0.141 82.5 0.112 86.3 0.080 90.7 MonST3R 0.345 56.5 0.076 93.9 0.101 89.3 0.091 88.8",
+      "images": []
+    },
+    {
+      "id": "S4.T4",
+      "text": "Table 4: Evaluation on camera pose estimation on the Sintel, TUM-dynamic, and ScanNet. The best and second best results are bold and underlined , respectively. MonST3R achieves competitive and even better results than pose-specific methods, even without ground truth camera intrinsics. Sintel TUM-dynamics ScanNet (static) Category Method ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow Pose only DROID-SLAM ∗ 0.175 0.084 1.912 - - - - - - DPVO ∗ 0.115 0.072 1.975 - - - - - - ParticleSfM 0.129 0.031 0.535 - - - 0.136 0.023 0.836 LEAP-VO ∗ 0.089 0.066 1.250 0.046 0.027 0.385 0.070 0.018 0.535 Robust-CVD 0.360 0.154 3.443 0.189 0.071 3.681 0.227 0.064 7.374 Joint depth CasualSAM 0.141 0.035 0.615 0.045 0.020 0.841 0.158 0.034 1.618 & pose DUSt3R w/ mask † 0.417 0.250 5.796 0.127 0.062 3.099 0.081 0.028 0.784 MonST3R 0.108 0.042 0.732 0.074 0.019 0.905 0.068 0.017 0.545 ∗ requires ground truth camera intrinsics as input, † unable to estimate the depth of foreground object.",
+      "images": []
+    },
+    {
+      "id": "S4.F4",
+      "text": "Figure 4: Qualitative comparison. Compared to CasualSAM and DUSt3R, our method outputs both reliable camera trajectories and geometry of dynamic scenes. Refer to Fig. A5 for more results.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig4_quali_compare.png",
+          "id": "S4.F4.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:551/443;",
+          "width": "551",
+          "height": "443",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T5",
+      "text": "Table 5: Ablation study on Sintel dataset. For each category, the default setting is underlined , and the best performance is bold . Camera pose estimation Video depth estimation Variants ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow Abs Rel ↓ \\downarrow δ \\delta <1.25 ↑ \\uparrow Training dataset No finetune (DUSt3R weights) 0.354 0.167 0.996 0.482 56.5 w/ PO 0.220 0.129 0.901 0.378 53.7 w/ PO+TA 0.158 0.054 0.886 0.362 56.7 w/ PO+TA+Spring 0.121 0.046 0.777 0.329 58.1 w/ TA+Spring+Waymo 0.167 0.107 1.136 0.462 54.0 w/ all 4 datasets 0.108 0.042 0.732 0.335 58.5 Training strategy Full model finetune 0.181 0.110 0.738 0.352 55.4 Finetune decoder & head 0.108 0.042 0.732 0.335 58.5 Finetune head 0.185 0.128 0.860 0.394 55.7 Inference w/o flow loss 0.140 0.051 0.903 0.339 57.7 w/o static region mask 0.132 0.049 0.899 0.334 58.7 w/o smoothness loss 0.127 0.060 1.456 0.333 58.4 Full 0.108 0.042 0.732 0.335 58.5",
+      "images": []
+    },
+    {
+      "id": "A1.F1",
+      "text": "Figure A1: Video depth estimation comparison on Bonn dataset. Evaluation protocol is per-sequence scale & shift. We visualize the prediction result after alignment. Note, in the first row, our depth estimation is more aligned with the GT depth ( e.g . , the wall) compared to DepthCrafter’s.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig5_depth_bonnv2.png",
+          "id": "A1.F1.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:548/430;",
+          "width": "548",
+          "height": "430",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F2",
+      "text": "Figure A2: Video depth estimation comparison on KITTI dataset. Evaluation protocol is per-sequence scale & shift. For each case, the upper row is for input frame and depth prediction; the lower row is for ground truth depth annotation and error map. Prediction result is after alignment.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig5_depth_kittiv2.png",
+          "id": "A1.F2.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:548/515;",
+          "width": "548",
+          "height": "515",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F3",
+      "text": "Figure A3: Camera pose estimation comparison on the Sintel dataset. The trajectories are plotted along the two axes with the highest variance to capture the most significant motion. The predicted trajectory (solid blue line) is aligned to match the ground truth trajectory (dashed gray line). Our MonST3R is more robust at challenging scenes, “temple_3” and “cave_2” (the last two rows).",
+      "images": [
+        {
+          "src": "2410.03825v2/fig6_pose_sintel.png",
+          "id": "A1.F3.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:548/214;",
+          "width": "548",
+          "height": "214",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F4",
+      "text": "Figure A4: Camera pose estimation comparison on the Scannet dataset. The trajectories are plotted along the two axes with the highest variance to capture the most significant motion.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig7_pose_scannet.png",
+          "id": "A1.F4.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:521/552;",
+          "width": "521",
+          "height": "552",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F5",
+      "text": "Figure A5: Qualitative comparison on Davis. Compared to CasualSAM and DUSt3R, our method outputs both reliable camera trajectories and geometry of dynamic scenes.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig8_additional_davis.png",
+          "id": "A1.F5.g1",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:548/707;",
+          "width": "548",
+          "height": "707",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F6",
+      "text": "Figure A6: Qualitative comparison of feed-forward pairwise pointmaps prediction.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig9_pairwise.png",
+          "id": "A1.F6.g1",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:576/776;",
+          "width": "576",
+          "height": "776",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F7",
+      "text": "Figure A7: Qualitative comparison of static/dynamic mask. We visualize both the continuous error map (upper row) and binary static/dynamic mask (lower row). The threshold α \\alpha is fixed.",
+      "images": [
+        {
+          "src": "2410.03825v2/fig10_motion_mask.png",
+          "id": "A1.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:521/630;",
+          "width": "521",
+          "height": "630",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A2.T1",
+      "text": "Table A1: Ablation study on different training/inference window sizes on the Sintel dataset. Each cell displays two values: ATE ↓ \\downarrow / Abs Rel ↓ \\downarrow , corresponding to camera pose and video depth estimation, respectively. The cells where the inference window size exceeds the training window size are highlighted in grey . The default setup is underlined , and the best results are in bold . GPU memory consumption for each inference setup is listed in the leftmost column. Training window size Memory (GB) Inference video graph Size 5 Size 7 Size 9 17.3 Window size 3 0.191 / 0.442 0.182 / 0.413 0.163 / 0.383 20.1 Window size 4 0.178 / 0.431 0.166 / 0.406 0.148 / 0.362 17.2 Window size 5 (stride 2) 0.145 / 0.439 0.140 / 0.411 0.137 / 0.367 23.5 Window size 5 0.139 / 0.406 0.132 / 0.399 0.133 / 0.355 19.9 Window size 7 (stride 2) 0.180 / 0.409 0.140 / 0.372 0.121 / 0.359 29.5 Window size 7 0.174 / 0.389 0.136 / 0.351 0.113 / 0.346 23.2 Window size 9 (stride 2) 0.177 / 0.380 0.156 / 0.387 0.108 / 0.345",
+      "images": []
+    },
+    {
+      "id": "A2.T2",
+      "text": "Table A2: Ablation study on loss weight sensitivity. The table shows the effect of varying the loss weights w smooth w_{\\text{smooth}} and w flow w_{\\text{flow}} on camera pose and video depth estimation. The default setup is underlined , and the best results are in bold . Camera pose estimation Video depth estimation w smooth w_{\\text{smooth}} w flow w_{\\text{flow}} ATE ↓ \\downarrow RPE trans ↓ \\downarrow RPE rot ↓ \\downarrow Abs Rel ↓ \\downarrow δ \\delta <1.25 ↑ \\uparrow 0.01 0.001 0.118 0.045 0.716 0.335 58.2 0.01 0.005 0.109 0.042 0.715 0.336 58.2 0.01 0.01 0.108 0.042 0.732 0.335 58.5 0.01 0.05 0.115 0.044 0.831 0.329 59.5 0.01 0.1 0.118 0.049 0.838 0.330 59.3 0.001 0.01 0.110 0.048 0.869 0.332 58.4 0.005 0.01 0.109 0.044 0.844 0.334 58.3 0.01 0.01 0.108 0.042 0.732 0.335 58.5 0.05 0.01 0.127 0.045 0.779 0.342 57.9 0.1 0.01 0.138 0.049 0.799 0.346 57.3",
+      "images": []
+    },
+    {
+      "id": "A3.F8",
+      "text": "Figure A8: Real-time reconstruction result. By aligning all the frames to the middle frame, MonST3R enables real-time reconstruction from monocular video input. More video results at our webpage: https://monst3r-paper.github.io/page0.html .",
+      "images": [
+        {
+          "src": "2410.03825v2/fig10_realtime_v2pdf.png",
+          "id": "A3.F8.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:548/511;",
+          "width": "548",
+          "height": "511",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "id": "F01",
+  "slug": "pixelsplat",
+  "name": "pixelSplat",
+  "version": "2312.12337v4",
+  "pdf": "research/sources/2312.12337v4.pdf",
+  "url": "https://arxiv.org/pdf/2312.12337v4",
+  "sha256": "606933b1f086ad92b5863b1b8d21a8af565bfb02b71ac47fb8c8f850d987f5b5",
+  "pages": 16,
+  "figures": [
+    {
+      "id": "S1.F1",
+      "text": "Figure 1 : Overview. Given a pair of input images, pixelSplat reconstructs a 3D radiance field parameterized via 3D Gaussian primitives. This yields an explicit 3D representation that is renderable in real time, remains editable, and is cheap to train.",
+      "images": [
+        {
+          "src": "2312.12337v4/teaser_bigger_text.png",
+          "id": "S1.F1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/346;",
+          "width": "685",
+          "height": "346",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F2",
+      "text": "Figure 2 : Scale ambiguity. SfM does not reconstruct camera poses in real-world, metric scale—poses are scaled by an arbitrary scale factor that is different for each scene. To render correct views, our model’s 3D reconstruction needs to be consistent with this arbitrary scale. We illustrate how our epipolar encoder solves this problem. Features belonging to the ray’s corresponding pixel on the left are compared with features sampled along the epipolar line on the right. Epipolar samples are augmented with their positionally-encoded depths along the ray, which allows our encoder to record correct depths. Recorded depths are later used for depth prediction.",
+      "images": [
+        {
+          "src": "2312.12337v4/scale_ambiguity_fig.png",
+          "id": "S4.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:617/323;",
+          "width": "617",
+          "height": "323",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F3",
+      "text": "Figure 3 : Proposed probabilistic prediction of pixel-aligned Gaussians. For every pixel feature 𝐅 ⁡ [ 𝐮 ] \\mathbf{F}[\\mathbf{u}] in the input feature map, a neural network f f predicts Gaussian primitive parameters 𝚺 \\boldsymbol{\\Sigma} and 𝐒 \\mathbf{S} . Gaussian locations 𝝁 \\boldsymbol{\\mu} and opacities 𝜶 \\boldsymbol{\\alpha} are not predicted directly, which would lead to local minima. Instead, f f predicts per-pixel discrete probability distributions over depths p ϕ ​ ( z ) p_{{\\boldsymbol{\\phi}}}(z) , parameterized by ϕ {\\boldsymbol{\\phi}} . Sampling then yields the locations of Gaussian primitives. The opacity of each Gaussian is set to the probability of the sampled depth bucket. The final set of Gaussian primitives can then be rendered from novel views using the splatting algorithm proposed by Kerbl et al. [ 19 ] . Note that for brevity, we use h h to represent the function that computes depths from bucket indices (see equations 6 and 7 ).",
+      "images": [
+        {
+          "src": "2312.12337v4/sampling_v2.png",
+          "id": "S4.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:698/280;",
+          "width": "698",
+          "height": "280",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F4",
+      "text": "Figure 4 : 3D Gaussians (top) and corresponding depth maps (bottom) predicted by our method. In contrast to light field rendering methods like GPNR [ 47 ] and that of Du et al. [ 10 ] , our method produces an explicit 3D representation. Here, we show zoomed-out views of the Gaussians our method produces along with rendered depth maps, as viewed from the two reference viewpoints.",
+      "images": [
+        {
+          "src": "2312.12337v4/point_clouds_fig.png",
+          "id": "S4.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/217;",
+          "width": "685",
+          "height": "217",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "alg1",
+      "text": "Algorithm 1 Probabilistic Prediction of a Pixel-Aligned Gaussian. 1: Depth buckets 𝐛 ∈ ℝ Z \\mathbf{b}\\in\\mathbb{R}^{Z} , feature 𝐅 ⁡ [ 𝐮 ] \\mathbf{F}[\\mathbf{u}] at pixel coordinate 𝐮 \\mathbf{u} , camera origin of reference view 𝐨 \\mathbf{o} , ray direction 𝐝 𝐮 \\mathbf{d}_{\\mathbf{u}} . 2: ( ϕ , 𝜹 , 𝚺 , 𝐒 ) = f ⁡ ( 𝐅 ⁡ [ 𝐮 ] ) ({\\boldsymbol{\\phi}},\\boldsymbol{\\delta},\\boldsymbol{\\Sigma},\\mathbf{S})=f(\\mathbf{F}[\\mathbf{u}]) ⊳ \\triangleright predict depth probabilities ϕ {\\boldsymbol{\\phi}} and offsets 𝜹 \\boldsymbol{\\delta} , covariance 𝚺 \\boldsymbol{\\Sigma} , spherical harmonics coefficients 𝐒 \\mathbf{S} 3: z ∼ p ϕ ​ ( z ) z\\sim p_{{\\boldsymbol{\\phi}}}(z) ⊳ \\triangleright Sample depth bucket index z z from discrete probability distribution parameterized by ϕ {\\boldsymbol{\\phi}} 4: 𝝁 = 𝐨 + ( 𝐛 z + 𝜹 z ) ​ 𝐝 𝐮 \\boldsymbol{\\mu}=\\mathbf{o}+(\\mathbf{b}_{z}+\\boldsymbol{\\delta}_{z})\\mathbf{d}_{\\mathbf{u}} ⊳ \\triangleright Compute Gaussian mean 𝝁 \\boldsymbol{\\mu} by unprojecting with depth 𝐛 z \\mathbf{b}_{z} adjusted by bucket offset 𝜹 z \\boldsymbol{\\delta}_{z} 5: 𝜶 = ϕ z \\boldsymbol{\\alpha}={\\boldsymbol{\\phi}}_{z} ⊳ \\triangleright Set Gaussian opacity 𝜶 \\boldsymbol{\\alpha} according to probability of sampled depth ( Sec. 4.2 ). 6: return ( 𝝁 , 𝚺 , 𝜶 , 𝐒 ) (\\boldsymbol{\\mu},\\boldsymbol{\\Sigma},\\boldsymbol{\\alpha},\\mathbf{S})",
+      "images": []
+    },
+    {
+      "id": "S4.T1",
+      "text": "ACID RealEstate10k Inference Time (s) Memory (GB) PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow Encode ↓ \\downarrow Render ↓ \\downarrow Training ↓ \\downarrow Inference ↓ \\downarrow Ours 28.27 0.843 0.146 26.09 0.863 0.136 0.102 0.002 14.4 3.002 Du et al. [ 10 ] 26.88 0.799 0.218 24.78 0.820 0.213 0.016 1.309 314.3 19.604 GPNR [ 46 ] 25.28 0.764 0.332 24.11 0.793 0.255 N/A 13.340 3789.9 19.441 pixelNeRF [ 58 ] 20.97 0.547 0.533 20.43 0.589 0.550 0.005 5.294 436.7 3.962 Table 1: Quantitative comparisons. We outperform all baseline methods in terms PSNR, LPIPS, and SSIM for novel view synthesis on the real-world RealEstate10k and ACID datasets. In addition, our method requires less memory during both inference and training and renders images about 650 times faster than the next-fastest baseline. In the memory column, we report memory usage for a single scene and 256 × 256 256\\times 256 rays, extrapolating from the smaller number of rays per batch used to train the baselines where necessary. Note that we report GPNR’s encoding time as N/A because it has no encoder. We bold first-place results and underline second-place results in each column.",
+      "images": []
+    },
+    {
+      "id": "S5.F5",
+      "text": "Figure 5 : Qualitative comparison of novel views on the RealEstate10k (top) and ACID (bottom) test sets. Compared to the baselines, our approach not only produces more accurate and perceptually appealing images, but also generalizes better to out-of-distribution examples like the creek in the bottom row.",
+      "images": [
+        {
+          "src": "2312.12337v4/x1.png",
+          "id": "S5.F5.pic1.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "width:100%;height:100%;object-fit:contain",
+          "width": "706",
+          "height": "654",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.F6",
+      "text": "Figure 6 : Attention visualization. We visualize the epipolar cross-attention weights between the rays on the left and the corresponding epipolar lines on the right to confirm that our model learns to find the correct correspondence along each ray.",
+      "images": [
+        {
+          "src": "2312.12337v4/attention_fig.png",
+          "id": "S5.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/338;",
+          "width": "685",
+          "height": "338",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.F7",
+      "text": "Figure 7 : Ablations. Without the epipolar transformer, our model is unable to resolve scale ambiguity, leading to ghosting artifacts. Without our sampling approach, our model falls into local minima that manifest themselves as speckling artifacts. Regularizing our model’s predicted depths minimally affects rendering quality.",
+      "images": [
+        {
+          "src": "2312.12337v4/x2.png",
+          "id": "S5.F7.pic1.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "width:100%;height:100%;object-fit:contain",
+          "width": "685",
+          "height": "542",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.T2",
+      "text": "Method PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow Ours 26.09 0.863 0.136 No Epipolar Encoder 19.89 0.639 0.295 No Depth Encoding 24.97 0.830 0.158 No Probabilistic Sampling 24.62 0.828 0.171 Plus Depth Regularization 25.94 0.862 0.137 Table 2: Ablations. Both our epipolar encoder and our probabilistic sampling scheme are essential for high-quality novel view synthesis. Depth regularization slightly impacts rendering quality.",
+      "images": []
+    },
+    {
+      "id": "A1.F8",
+      "text": "Figure 8 : Architecture diagram.",
+      "images": [
+        {
+          "src": "2312.12337v4/architecture_pdf.png",
+          "id": "A1.F8.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/384;",
+          "width": "685",
+          "height": "384",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A2.F9",
+      "text": "Figure 9 : Qualitative comparison of novel views given 2 and 3 reference views. Our method can be extended to use an arbitrary, fixed number of reference views as input. Here, we compare the results from a 3-view model with those from the original 2-view model. The 2-view model uses the top and bottom reference views as input, while the 3-view model uses all three.",
+      "images": [
+        {
+          "src": "2312.12337v4/x3.png",
+          "id": "A2.F9.pic1.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "width:100%;height:100%;object-fit:contain",
+          "width": "744",
+          "height": "650",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A2.T3",
+      "text": "Method PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow Ours 26.09 0.863 0.136 Ours (3 Views) 28.31 0.908 0.100 Table 3 : Quantitative comparison of 2 and 3 view Real Estate 10k results. Given a third reference view located halfway between the two existing reference views, a 3-view variant of pixelSplat produces slightly better results.",
+      "images": []
+    },
+    {
+      "id": "A4.F10",
+      "text": "Figure 10 : More results on the Real Estate 10k dataset.",
+      "images": [
+        {
+          "src": "2312.12337v4/x4.png",
+          "id": "A4.F10.pic1.g1",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "width:100%;height:100%;object-fit:contain",
+          "width": "706",
+          "height": "910",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.F11",
+      "text": "Figure 11 : More results on the ACID dataset.",
+      "images": [
+        {
+          "src": "2312.12337v4/x5.png",
+          "id": "A4.F11.pic1.g1",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "width:100%;height:100%;object-fit:contain",
+          "width": "706",
+          "height": "910",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

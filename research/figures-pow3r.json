@@ -1,0 +1,307 @@
+{
+  "id": "A07",
+  "slug": "pow3r",
+  "name": "Pow3R",
+  "version": "2503.17316v1",
+  "pdf": "research/sources/2503.17316v1.pdf",
+  "url": "https://arxiv.org/pdf/2503.17316v1",
+  "sha256": "803a0d9087eef61b28f5f3488f415031d7934d59fdd210a132d527d24e833bac",
+  "pages": 26,
+  "figures": [
+    {
+      "id": "S0.F1",
+      "text": "Figure 1 : Qualitative comparison of raw 3D reconstructions between DUSt3R and Pow3R for the image pair on the left. DUSt3R cannot leverage auxiliary information potentially available at test time, resulting in noisy and low-resolution estimates, whereas Pow3R allows to inject such priors at test time in a versatile manner, enabling new capabilities such as high-resolution processing as a direct by-product.",
+      "images": []
+    },
+    {
+      "id": "S2.F2",
+      "text": "Figure 2 : Overview of the model architecture. Following DUSt3R [ 105 ] , images are encoded then decoded with a ViT backbone into pointmaps, from which focals, depthmaps and relative pose can be extracted. Pow3R introduces optional inputs to guide the regression with prior knowledge about the camera intrinsics and depth (fed into the encoder) and the pose (into the decoder).",
+      "images": [
+        {
+          "src": "2503.17316v1/pow3r_overview.png",
+          "id": "S2.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/305;",
+          "width": "685",
+          "height": "305",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F3",
+      "text": "Figure 3 : Architecture for injecting auxiliary modalities. Top: injection of optional intrinsics and depth into the encoder. Intrinsics are encoded into ray patches, sparse depth is patchified. Each of these modalities goes into a block-specific MLP and are token-wise added in the middle of the transformer block. Bottom: injection of optional relative pose into the decoder. The relative pose is fed to a first embedding layer followed by an MLP. This token is added to the CLS token of the decoder after the self-attention (SA) and cross-attention (CA), but before the MLP. Experiments show that injection in the first block only suffices.",
+      "images": []
+    },
+    {
+      "id": "S3.F4",
+      "text": "Figure 4 : Native resolution example. Methods like DUSt3R require centered principal point and would thus downscale the image to its training resolution, leading to blurry prediction (top). With camera intrinsics input, we can process any crop in the image leading to native resolution prediction (bottom row), for example by dividing the image into 4 crops, that are independently process as the first input image, while the second input image of the network is set to the downscaled image.",
+      "images": [
+        {
+          "src": "2503.17316v1/highres.png",
+          "id": "S3.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/197;",
+          "width": "685",
+          "height": "197",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T1",
+      "text": "aux. modalities focal depth rel. pose K1 K2 D1 D2 RT acc@1.015 τ \\tau @1.03 RRA@2 ∘ RTA@2 ∘ DUSt3R × \\times × \\times × \\times × \\times × \\times 36.6 77.6 69.2 49.7 Pow3R × \\times × \\times × \\times × \\times × \\times 39.4 79.4 71.9 53.8 ✓ × \\times × \\times × \\times × \\times 75.4 (+36.0) 80.6 (+1.2) 77.1 (+5.3) 62.8 (+8.9) × \\times ✓ × \\times × \\times × \\times 67.3 (+27.9) 80.3 (+0.9) 74.5 (+2.6) 59.1 (+5.2) ✓ ✓ × \\times × \\times × \\times 98.0 (+58.6) 81.4 (+2.0) 80.3 (+8.5) 74.2 (+20.3) × \\times × \\times ✓ × \\times × \\times 48.9 (+9.5) 89.1 (+9.7) 82.5 (+10.6) 64.9 (+11.0) × \\times × \\times × \\times ✓ × \\times 49.5 (+10.1) 91.0 (+11.7) 83.4 (+11.5) 64.8 (+10.9) × \\times × \\times ✓ ✓ × \\times 58.2 (+18.9) 95.4 (+ 16.0 ) 89.6 (+17.7) 77.6 (+23.8) × \\times × \\times × \\times × \\times ✓ 48.6 (+9.2) 81.6 (+2.2) 92.3 (+20.5) 77.0 (+23.1) ✓ ✓ ✓ ✓ × \\times 99.2 (+59.8) 95.4 (+ 16.0 ) 95.7 (+23.9) 94.3 (+40.5) ✓ ✓ × \\times × \\times ✓ 98.1 (+58.7) 82.9 (+3.6) 95.1 (+23.2) 87.3 (+33.5) × \\times × \\times ✓ ✓ ✓ 68.6 (+29.2) 95.4 (+ 16.0 ) 98.1 (+26.2) 91.3 (+37.5) ✓ ✓ ✓ ✓ ✓ 99.3 (+ 59.9 ) 95.4 (+ 16.0 ) 99.0 (+ 27.2 ) 98.1 (+ 44.3 ) Table 1 : Impact of guiding at test time for models trained at 224 × 224 224{\\times}224 resolution. We report performances on Habitat for DUSt3R, which cannot handle auxiliary modalities, and our single model with different sets of modalities; we show in green the absolute improvement w.r.t. the results without auxiliary modality.",
+      "images": []
+    },
+    {
+      "id": "S4.F5",
+      "text": "Figure 5 : Depth completion performance on NYUd for various input depth sparsity.",
+      "images": []
+    },
+    {
+      "id": "S4.T2",
+      "text": "aux. mod. High- KITTI T&T Time Ks RT Res. rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow (sec) ↓ \\downarrow DUSt3R512 × \\times × \\times × \\times 5.4 49.5 3.3 75.1 0.13 Pow3R512 ✓ \\checkmark ✓ \\checkmark × \\times 5.3 48.7 3.2 78.2 0.13 Pow3R512 ✓ \\checkmark ✓ \\checkmark (n) 7.5 34.4 3.9 68.0 0.48 Pow3R512 ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark 4.6 53.5 2.5 82.3 0.40 Table 2 : Multi-view depth estimation results in high-resolution using a sliding-window scheme and providing the crop intrinsics to Pow3R. (n): naively inputting high-resolution images without downsampling to Pow3R.",
+      "images": []
+    },
+    {
+      "id": "S4.F6",
+      "text": "Figure 6 : Controllability study . We study how the model reacts when presented with false focal (top) and false relative pose (bottom). We plot the input vs. predicted camera parameters in the left column and the average confidence in the right column. Interestingly, the model seems to not take the input information at face value and instead makes an informed decision whether to use it or not, in which latter case the confidence becomes low.",
+      "images": []
+    },
+    {
+      "id": "S4.T3",
+      "text": "Method GT KITTI ScanNet ETH3D DTU T&T Average range rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow COLMAP [ 82 , 83 ] (K+RT) × \\times 12.0 58.2 14.6 34.2 16.4 55.1 0.7 96.5 2.7 95.0 9.3 67.8 COLMAP Dense [ 82 , 83 ] (K+RT) × \\times 26.9 52.7 38.0 22.5 89.8 23.2 20.8 69.3 25.7 76.4 40.2 48.8 MVSNet [ 113 ] (K+RT) ✓ \\checkmark 18.6 30.7 22.7 20.9 21.6 35.6 (1.8) ( 86.7 ) (86.7) 6.5 74.6 14.2 49.7 Vis-MVSNet [ 122 ] (K+RT) ✓ \\checkmark 9.5 55.4 8.9 33.5 10.8 43.3 (1.8) (87.4) 4.1 87.2 7.0 61.4 MVS-Former++ [ 13 ] (K+RT) ✓ \\checkmark 29.2 15.2 15.2 21.9 21.4 32.5 (1.2) ( 91.9) 7.6 71.5 14.9 46.6 CER-MVS [ 59 ] (K+RT) × \\times 14.3 32.2 21.1 24.3 11.7 47.5 4.1 71.3 6.4 82.1 11.5 51.5 DUSt3R [ 105 ] × \\times 5.4 49.5 (3.1) (71.8) 3.0 76.0 3.9 68.6 3.3 75.1 3.7 68.2 Pow3R × \\times 5.7 45.7 (3.2) (68.8) 3.0 74.7 3.0 74.3 3.3 76.6 3.6 68.0 Pow3R w/ RT × \\times 5.7 45.8 (3.2) (69.7) 2.9 75.6 3.3 71.6 3.2 77.9 3.7 68.1 Pow3R w/ K × \\times 5.3 48.3 ( 3.1 ) (70.8) 2.9 76.0 1.6 89.9 3.2 77.3 3.2 72.5 Pow3R w/ K+RT × \\times 5.3 48.7 ( 3.1 ) ( 71.4 ) 2.8 77.1 1.5 91.1 3.2 78.2 3.2 73.3 Table 3 : Multi-view depth evaluation: Pow3R with both pose and intrinsics performs better than DUSt3R. More comparisons with the state of the art can be found in the supplementary material. (Parentheses) denote training on data from the same domain.",
+      "images": []
+    },
+    {
+      "id": "S4.T4",
+      "text": "Method Acc. ↓ \\downarrow Comp. ↓ \\downarrow Overall ↓ \\downarrow DUSt3R † [ 105 ] 2.677 0.805 1.741 DUSt3R (repr.) 2.191 1.598 1.894 Pow3R 2.116 1.370 1.743 Pow3Rw/ K 1.722 1.119 1.420 Pow3Rw/ Rt 2.205 1.429 1.817 Pow3Rw/ K+RT 1.384 0.846 1.115 Table 4 : MVS results with the accuracy, completeness and their average (in mm) on the DTU dataset. DUSt3R † means results from the original paper, and ‘repr.’ means reproduced with the official public codebase and checkpoint.",
+      "images": []
+    },
+    {
+      "id": "S4.T5",
+      "text": "Method GT Co3Dv2 RealEstate10K Speed intrinsics RRA@15 RTA@15 mAA(30) mAA(30) (fps) (a) Colmap+SG [ 79 ] ✓ 36.1 27.3 25.3 45.2 - PixSfM [ 52 ] ✓ 33.7 32.9 30.1 49.4 - RelPose [ 124 ] × \\times 57.1 - - - - PoseDiff [ 102 ] × \\times 80.5 79.8 66.5 48.0 - RelPose++ [ 49 ] × \\times 85.5 - - - - RayDiff [ 125 ] × \\times 93.3 - - - - (b) DUSt3R (PnP) [ 105 ] × \\times 94.3 88.4 77.2 61.7 3.2 Pow3R (PnP) × \\times 94.8 89.9 78.5 62.5 3.2 Pow3R (Pro) × \\times 94.6 90.3 78.1 66.3 30.9 Pow3R w/ K (Pro) ✓ 95.0 92.1 82.2 72.5 30.1 Table 5 : Multiview pose estimation on the CO3Dv2 and RealEstate10K. (a) denotes multiview methods, while (b) denotes pairwise methods. Pow3R with Procrustes alignment (Pro) performs better than DUSt3R (PnP) and other multi-view based pose estimation approaches, and even more so with known intrinsics, while being much faster. RealEstate10K is not in the training set.",
+      "images": []
+    },
+    {
+      "id": "S4.T6",
+      "text": "Method with Single Focal Depth RRA@2 RTA@2 Avg. X 2 , 2 X^{2,2} Forward acc@1.015 τ \\tau @1.03 (Pro) (PnP) (Pro) (PnP) DUSt3R × \\times × \\times 36.8 85.4 69.2 72.4 49.8 57.3 60.5 DUSt3R-ft ✓ × \\times 38.9 79.1 71.7 74.4 52.9 59.2 62.7 ✓ ✓ 38.3 78.5 73.1 74.4 56.3 59.2 63.3 Pow3R × \\times × \\times 66.0 85.7 81.9 83.8 68.6 73.3 76.5 ✓ × \\times 67.2 86.1 82.9 84.7 70.0 74.6 77.6 ✓ ✓ 64.8 85.0 84.2 84.7 73.0 74.6 77.7 Table 6 : Impact of regressing X 2 , 2 X^{2,2} . Metrics (in %) on Habitat are averaged over all combinations of input modalities. The ‘with X 2 , 2 X^{2,2} ’ column denotes methods trained to predict it. ‘Single forward’ denotes evaluations of models based on X 2 , 2 X^{2,2} prediction, i.e . , in a single forward pass, instead of forwarding image pairs and their swapped versions. The top part shows the original DUSt3R, or finetune (-ft) with X 2 , 2 X^{2,2} prediction.",
+      "images": []
+    },
+    {
+      "id": "S4.T7",
+      "text": "Arch. Extra Focal Depth RRA@2 RTA@2 Avg. Params acc@1.015 τ \\tau @1.03 (Pro) (PnP) (Pro) (PnP) Embed 16.0M 64.7 84.7 84.1 84.5 72.8 73.8 77.4 Inject1 22.6M 64.8 85.0 84.2 84.7 73.0 74.6 77.7 Inject4 42.3M 65.9 85.1 84.8 85.2 73.7 75.4 78.3 Table 7 : Architecture ablation . Results (in %), on Habitat, are averaged over all combinations of input modalities. We compare the injection architecture for different number of blocks with the ‘embed’ architecture in which the extra signals are added before the transformer blocks. ‘Inject1’ offers a good compromise between performance and number of extra parameters.",
+      "images": []
+    },
+    {
+      "id": "A0.F1",
+      "text": "Figure A : Qualitative Result in terms of predicted depthmaps. We compare Pow3R with DUSt3R on one of the Megadepth [ 48 ] outdoor scenes (from the validation set). For this evaluation, we feed camera intrinsics, pose as well as 2048 sparse point clouds. The figure clearly demonstrates that DUSt3R fails to accurately capture the statue, while Pow3R reconstructs it correctly.",
+      "images": []
+    },
+    {
+      "id": "A1.T1",
+      "text": "aux. modalities focal depth rel. pose K1 K2 D1 D2 RT acc@1.015 τ \\tau @1.03 RRA@2 ∘ RTA@2 ∘ DUSt3R × \\times × \\times × \\times × \\times × \\times 28.4 75.9 64.6 27.2 Pow3R × \\times × \\times × \\times × \\times × \\times 29.8 75.1 66.5 30.4 ✓ × \\times × \\times × \\times × \\times 60.7 (+30.9) 75.5 (+0.4) 70.3 (+3.8) 35.2 (+4.8) × \\times ✓ × \\times × \\times × \\times 60.5 (+30.7) 75.8 (+0.7) 70.9 (+4.4) 37.0 (+6.6) ✓ ✓ × \\times × \\times × \\times 89.8 (+60.0) 76.2 (+1.1) 73.7 (+7.2) 50.0 (+19.6) × \\times × \\times ✓ × \\times × \\times 34.3 (+4.5) 87.9 (+12.8) 70.9 (+4.4) 35.3 (+4.9) × \\times × \\times × \\times ✓ × \\times 34.3 (+4.5) 88.3 (+13.2) 71.0 (+4.5) 35.3 (+4.9) × \\times × \\times ✓ ✓ × \\times 40.9 (+11.0) 94.9 (+19.8) 74.6 (+8.1) 46.5 (+16.1) × \\times × \\times × \\times × \\times ✓ 34.9 (+5.1) 76.0 (+0.9) 86.6 (+20.1) 54.3 (+23.9) ✓ ✓ ✓ ✓ × \\times 98.0 (+68.1) 95.4 (+ 20.3 ) 82.2 (+15.7) 71.0 (+40.6) ✓ ✓ × \\times × \\times ✓ 90.6 (+60.8) 77.0 (+1.9) 91.1 (+24.7) 72.2 (+41.8) × \\times × \\times ✓ ✓ ✓ 50.2 (+20.4) 95.0 (+19.9) 93.0 (+26.5) 70.5 (+40.1) ✓ ✓ ✓ ✓ ✓ 98.5 (+ 68.6 ) 95.4 (+ 20.3 ) 97.4 (+ 30.9 ) 90.2 (+ 59.8 ) Table A : Impact of guiding at test time for models trained at 224 × 224 224{\\times}224 resolution. We report performances on InfiniGen for DUSt3R, which cannot handle auxiliary modalities, and our single model with different sets of modalities; we show in green the absolute improvement w.r.t. the results without auxiliary modality.",
+      "images": []
+    },
+    {
+      "id": "A2.T2",
+      "text": "Methods GT GT GT Align KITTI ScanNet ETH3D DTU T&T Average Pose Range Intrinsics rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow time (s) ↓ \\downarrow COLMAP [ 82 , 83 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 12.0 58.2 14.6 34.2 16.4 55.1 0.7 96.5 2.7 95.0 9.3 67.8 ≈ \\approx 3 min COLMAP Dense [ 82 , 83 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 26.9 52.7 38.0 22.5 89.8 23.2 20.8 69.3 25.7 76.4 40.2 48.8 ≈ \\approx 3 min MVSNet [ 113 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 22.7 36.1 24.6 20.4 35.4 31.4 (1.8) ( 86.0 ) (86.0) 8.3 73.0 18.6 49.4 0.07 MVSNet Inv. Depth [ 113 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 18.6 30.7 22.7 20.9 21.6 35.6 (1.8) ( 86.7 ) (86.7) 6.5 74.6 14.2 49.7 0.32 Vis-MVSNet [ 122 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 9.5 55.4 8.9 33.5 10.8 43.3 (1.8) (87.4) 4.1 87.2 7.0 61.4 0.70 MVS2D ScanNet [ 112 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 21.2 8.7 (27.2) (5.3) 27.4 4.8 17.2 9.8 29.2 4.4 24.4 6.6 0.04 MVS2D DTU [ 112 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 226.6 0.7 32.3 11.1 99.0 11.6 (3.6) (64.2) 25.8 28.0 77.5 23.1 0.05 MVS-Former++ DTU [ 13 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 29.2 15.2 15.2 21.9 21.4 32.5 ( 1.2 ) ( 91.9 ) 7.6 71.5 14.9 46.6 0.05 DeMon [ 98 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 16.7 13.4 75.0 0.0 19.0 16.2 23.7 11.5 17.6 18.3 30.4 11.9 0.08 DeepV2D KITTI [ 96 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times (20.4) (16.3) 25.8 8.1 30.1 9.4 24.6 8.2 38.5 9.6 27.9 10.3 1.43 DeepV2D ScanNet [ 96 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 61.9 5.2 (3.8) (60.2) 18.7 28.7 9.2 27.4 33.5 38.0 25.4 31.9 2.15 MVSNet [ 113 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 14.0 35.8 1568.0 5.7 507.7 8.3 (4429.1) (0.1) 118.2 50.7 1327.4 20.1 0.15 MVSNet Inv. Depth [ 113 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 29.6 8.1 65.2 28.5 60.3 5.8 (28.7) (48.9) 51.4 14.6 47.0 21.2 0.28 Vis-MVSNet [ 122 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 10.3 54.4 84.9 15.6 51.5 17.4 (374.2) (1.7) 21.1 65.6 108.4 31.0 0.82 MVS2D ScanNet [ 112 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 73.4 0.0 (4.5) (54.1) 30.7 14.4 5.0 57.9 56.4 11.1 34.0 27.5 0.05 MVS2D DTU [ 112 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 93.3 0.0 51.5 1.6 78.0 0.0 (1.6) (92.3) 87.5 0.0 62.4 18.8 0.06 CER-MVS [ 59 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 14.3 32.2 21.1 24.3 11.7 47.5 4.1 71.3 6.4 82.1 11.5 51.5 5.3 Robust MVD Baseline [ 85 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 7.1 41.9 7.4 38.4 9.0 42.6 2.7 82.0 5.0 75.1 6.3 56.0 0.06 DeMoN [ 98 ] × \\times × \\times ✓ \\checkmark ‖ 𝐭 ‖ \\|\\mathbf{t}\\| 15.5 15.2 12.0 21.0 17.4 15.4 21.8 16.6 13.0 23.2 16.0 18.3 0.08 DeepV2D KITTI [ 96 ] × \\times × \\times ✓ \\checkmark med (3.1) (74.9) 23.7 11.1 27.1 10.1 24.8 8.1 34.1 9.1 22.6 22.7 2.07 DeepV2D ScanNet [ 96 ] × \\times × \\times ✓ \\checkmark med 10.0 36.2 (4.4) (54.8) 11.8 29.3 7.7 33.0 8.9 46.4 8.6 39.9 3.57 DUSt3R † 224-NoCroCo × \\times × \\times × \\times med 15.14 21.16 7.54 40.00 9.51 40.07 3.56 62.83 11.12 37.90 9.37 40.39 0.05 DUSt3R † 224 [ 105 ] × \\times × \\times × \\times med 15.39 26.69 (5.86) (50.84) 4.71 61.74 2.76 77.32 5.54 56.38 6.85 54.59 0.05 DUSt3R(repr.) 224 [ 105 ] × \\times × \\times × \\times med 9.2 32.9 (4.2) (58.2) 4.7 61.9 2.8 77.3 5.5 56.5 5.27 57.35 0.05 Pow3R 224 × \\times × \\times × \\times med 7.0 39.7 (4.2) (58.2) 4.5 62.5 2.9 75 5.4 57.4 4.80 58.56 0.05 Pow3R 224 w/ RT ✓ \\checkmark × \\times × \\times med 7.0 39.5 (4.2) (58.7) 4.4 63 2.9 75 5.2 58.8 4.74 59.00 0.05 Pow3R 224 w/ K × \\times × \\times ✓ \\checkmark med 6.4 45 (4.2) (57.7) 4.5 63.3 2.5 77.4 5.5 55.3 4.62 59.74 0.05 Pow3R 224 w/ K+RT ✓ \\checkmark × \\times ✓ \\checkmark med 6.4 44.6 (4.1) (58.1) 4.5 63.2 2.3 80.8 5.2 57.6 4.50 60.86 0.05 DUSt3R † 512 [ 105 ] × \\times × \\times × \\times med 9.11 39.49 (4.93) (60.20) 2.91 76.91 3.52 69.33 3.17 76.68 4.73 64.52 0.13 DUSt3R(repr.) 512 [ 105 ] × \\times × \\times × \\times med 5.4 49.5 (3.1) (71.8) 3.0 76 3.9 68.6 3.3 75.1 3.73 68.19 0.13 Pow3R 512 × \\times × \\times × \\times med 5.7 45.7 (3.2) (68.8) 3.0 74.7 3.0 74.3 3.3 76.6 3.64 68.02 0.13 Pow3R 512 w/ RT ✓ \\checkmark × \\times × \\times med 5.7 45.8 (3.2) (69.7) 2.9 75.6 3.3 71.6 3.2 77.9 3.66 68.12 0.13 Pow3R 512 w/ K × \\times × \\times ✓ \\checkmark med 5.3 48.3 ( 3.1 ) (70.8) 2.9 76 1.6 89.9 3.2 77.3 3.22 72.46 0.13 Pow3R 512 w/ K+RT ✓ \\checkmark × \\times ✓ \\checkmark med 5.3 48.7 ( 3.1 ) (71.4) 2.8 77.1 1.5 91.1 3.2 78.2 3.18 73.3 0.13 Table B : Multi-view depth evaluation: Pow3R, when using both pose and intrinsics, outperforms DUSt3R as well as most other approaches, including both classical methods and learning-based techniques that utilize poses and depth ranges. DUSt3R † refers to the results reported in the original DUSt3R paper, while ‘DUSt3R (repr.)’ denotes our re-implementation.",
+      "images": []
+    },
+    {
+      "id": "A2.F2",
+      "text": "Figure B : High-resolution with Pow3R: We adopt the asymmetric sliding approach as in the Figure 4 of the main paper to increase the resolution of pointmaps of a single image. Please refer to the attached video for more detailed information.",
+      "images": [
+        {
+          "src": "2503.17316v1/kitti.png",
+          "id": "A2.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/318;",
+          "width": "685",
+          "height": "318",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.F3",
+      "text": "Figure C : Controllability test on rotation: We provide incorrect camera rotation by -40 degree and 40 degree along y axis each in addition to the ground truth rotation, and render all of scenes from the same location. The quality of reconstruction decreases as the camera rotation deviates from the ground-truth.",
+      "images": [
+        {
+          "src": "2503.17316v1/rot_test.png",
+          "id": "A4.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/183;",
+          "width": "685",
+          "height": "183",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.F4",
+      "text": "Figure D : Controllability test on focal: We feed incorrect focal length on K 1 K^{1} , while providing the second camera with the ground-truth K 2 K^{2} . The model fails to generate accurate pointmaps for blatantly false input focals, e.g . when the focal f 1 f^{1} is set to 0.1 ​ f g ​ t 1 0.1f^{1}_{gt} . The network starts to recover in this case when f 1 ≳ 0.5 ​ f g ​ t 1 f^{1}\\gtrsim 0.5f^{1}_{gt} .",
+      "images": [
+        {
+          "src": "2503.17316v1/focal_test.png",
+          "id": "A4.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/169;",
+          "width": "685",
+          "height": "169",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F5",
+      "text": "Figure E : Noise in the Ground-Truth Annotations in NYUd Dataset: Red contours in input and ground truth show areas where the error is above the threshold. Sparse depth indicates that these inaccurate annotations are not provided as the input to the network. Errors are in log scale, and Pow3R is tested on zero-shot setting.",
+      "images": [
+        {
+          "src": "2503.17316v1/nyud2.png",
+          "id": "A5.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/466;",
+          "width": "685",
+          "height": "466",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A6.F6",
+      "text": "Figure F : Qualitative Result on depthmap. We validate Pow3R with DUSt3R on a Megadepth [ 48 ] indoor scene. Here, we provide camera intrinsics, pose and 2048 sparse point clouds. The result shows that Pow3R can reconstruct the gate properly and smoother than the ground point clouds. In contrast, DUSt3R struggles to generate the gate properly.",
+      "images": [
+        {
+          "src": "2503.17316v1/megadepth-gate.png",
+          "id": "A6.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:480/407;",
+          "width": "480",
+          "height": "407",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A7.F7",
+      "text": "Figure G : Qualitative Result on depthmap. We compare Pow3R with DUSt3R on one of the BlendedMVS [ 114 ] scenes. For Pow3R, we provide camera intrinsics, extrinsic and 2048 sparse point clouds. While DUSt3R is able to capture the overall scene, it fails to correctly reconstruct the head of the horse. In contrast, Pow3R delivers a more precise reconstruction.",
+      "images": [
+        {
+          "src": "2503.17316v1/blendedmvs.png",
+          "id": "A7.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/347;",
+          "width": "685",
+          "height": "347",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A7.F8",
+      "text": "Figure H : Qualitative Result on depthmap. We evaluate Pow3R against DUSt3R on an indoor scene from the ARKit [ 8 ] dataset.We feed to Pow3R camera intrinsics, pose and 2048 sparse depthmap. While DUSt3R generally builds a good depthmap, but Pow3R faithfully reconstructs the glass window of the door and small objects on the fridge.",
+      "images": [
+        {
+          "src": "2503.17316v1/arkit.png",
+          "id": "A7.F8.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/437;",
+          "width": "548",
+          "height": "437",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A7.F9",
+      "text": "Figure I : Qualitative Result on depthmap. We conduct a comparison on an outdoor scene from the Waymo [ 90 ] dataset. We provide to Pow3R the camera intrinsics, pose and 2048 sparse point clouds from LiDAR. While DUSt3R generates a good depthmap from RGB images only, Pow3R shows better performance at capturing details of cars in the parking lot and trees.",
+      "images": [
+        {
+          "src": "2503.17316v1/waymo.png",
+          "id": "A7.F9.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/325;",
+          "width": "685",
+          "height": "325",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A7.F10",
+      "text": "Figure J : Qualitative Result on 3D reconstruction and camera estimations. We evaluate our model on one of the Megadepth [ 48 ] outdoor scenes. Inputs include camera pose, intrinsics as well as 2048 sparse point clouds. While DUSt3R attempts to reconstruct the scene from two extreme viewpoints, it struggles with scale ambiguity and improper camera registration. In contrast, Pow3R achieves better reconstruction as well as accurate camera registration.",
+      "images": [
+        {
+          "src": "2503.17316v1/megadepth_figure.png",
+          "id": "A7.F10.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/386;",
+          "width": "685",
+          "height": "386",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A7.F11",
+      "text": "Figure K : Qualitative Result on 3D reconstruction and camera estimations. We evaluate our model on one of theBlendedMVS [ 114 ] indoor scene. We provide camera intrinsics, extrinsic and 2048 sparse depthmap. While DUSt3R incorrectly predicts the depth of field and struggles with the statue, Pow3R generates the 3D scene along with cameras accurately.",
+      "images": [
+        {
+          "src": "2503.17316v1/blendedmvs_figure.png",
+          "id": "A7.F11.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/386;",
+          "width": "685",
+          "height": "386",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A7.F12",
+      "text": "Figure L : Qualitative Result on 3D reconstruction and camera estimation on an outdoor scene from the Megadepth [ 48 ] dataset. We feed camera intrinsics, pose and 2048 sparse depths. Pow3R excels at reconstructing the depth of field and the camera locations, contrary to DUSt3R.",
+      "images": [
+        {
+          "src": "2503.17316v1/megadepth_figure2.png",
+          "id": "A7.F12.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/386;",
+          "width": "685",
+          "height": "386",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A7.F13",
+      "text": "Figure M : Qualitative Result on 3D reconstruction and camera estimation on an indoor scene from RealEstate10K [ 128 ] dataset. In this evaluation, we only provide the camera intrinsics and extrinsic, as RealEstate10K dataset does not have point clouds or depthmaps. Both Pow3R and DUSt3R produce faithful 3D reconstructions from two diverging viewpoints, Pow3R demonstrates better performance at predicting camera locations than DUSt3R.",
+      "images": [
+        {
+          "src": "2503.17316v1/re10k_figure.png",
+          "id": "A7.F13.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/386;",
+          "width": "685",
+          "height": "386",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A7.F14",
+      "text": "Figure N : Qualitative Result on 3D reconstruction and camera estimation on an indoor scene from ARKit [ 8 ] dataset. We provide to Pow3R camera intrinsics, pose and 2048 sparse depth points. Both Pow3R and DUSt3R generate a reasonable 3D scene from two almost non-overlapping viewpoints, Pow3R providing more accurate camera locations than DUSt3R.",
+      "images": [
+        {
+          "src": "2503.17316v1/arkit_figure.png",
+          "id": "A7.F14.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/386;",
+          "width": "685",
+          "height": "386",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

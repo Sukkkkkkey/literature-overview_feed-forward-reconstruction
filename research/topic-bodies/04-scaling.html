@@ -1,0 +1,23 @@
+<section id="question"><h2><span class="section-number">01 / QUESTION</span>图像变多时，保留哪些交互，舍弃哪些信息？</h2><div class="prose"><p>长序列与大图像集合共有一个成本问题，却不一定需要同一种算法。在线机器人关心新帧延迟；离线无序集合关心整体吞吐与全局一致性；已有地图上的定位则关心一次新查询的成本。本章分别讨论稀疏交互、快速权重压缩和分块系统。</p><div class="contribution">“线性”必须说明相对于什么变量、固定了哪些超参数，以及统计的是编码、查询还是整个系统。</div></div></section>
+<section id="notation"><h2><span class="section-number">02 / MODEL</span>从 attention 的存取，理解 fast weights</h2><div class="prose"><p>设 N 幅图，每幅 P 个 tokens，通道维数 d。全局注意力的 token 交互项约为 O((NP)²d)。KV 缓存避免重复投影，但第 t 帧仍读取此前 tP 个 tokens；没有剪枝时，总交互量仍可随 N² 增长。</p><div class="math">L<sub>inner</sub>(W) = Σᵢ ‖f<sub>W</sub>(kᵢ) − vᵢ‖²<br>W′ = Update(W, ∇L<sub>inner</sub>)，　oᵢ = f<sub>W′</sub>(qᵢ)</div><p>这是快速权重层的共同概念，不是各论文完整更新公式。K→V 的关联被写入小网络参数 W′；查询 Q 不再与每个历史 token 逐个交互。外层几何损失训练特征、投影和更新规则，内层虚拟损失负责当前场景的信息写入。</p><details class="derivation"><summary>为什么内层学习不需要测试场景的深度真值？</summary><div class="inner"><p>kᵢ、vᵢ 来自当前输入特征，是网络自己生成的关联目标。测试时的梯度并不对真实深度或相机误差下降，而是让 fast weights 记住这些特征关系。只有外层训练才将这个记忆机制与几何任务联系起来。因此“测试时训练”不等于部署时用几何标注微调整个模型。</p><p>若更新步数 S、网络宽度和 P 固定，写入与查询的主要项随 N 线性增长。但 S 若随场景大小增加、或者还存在全局匹配/PGO，完整成本需要重新计算。固定维度状态也不保证任意大场景都能无损压缩。</p></div></details></div></section>
+<section id="comparison"><h2><span class="section-number">03 / DESIGN SPACE</span>减少交互与压缩场景，是不同的取舍</h2>{{table:路线|代表|保留的信息|必须明确的成本条件
+稀疏化或压缩 token 交互|Speed3R；关联 VGGT-Ω|仍在 token 图中传播关系|稀疏率随 N 怎样变化；部分层替换不等于整体线性
+离线快速权重转换|VGG-T³|每层 MLP 存储 KV 关联|内层步数、CPU offload、多 GPU 通信
+可查询场景权重|ZipMap|大块 TTT 聚合全场景；raymap 读取|双向主模型、流式变体和查询微调分别评测
+多尺度/分块扩展|Scal3R-TTT|局部块几何与跨块组织|块内前馈、块间对齐、可选 PGO 的完整耗时}}
+<p>VGG-T³ 的 novel-image localization 查询输入是图像；ZipMap 的 novel-view geometry 查询输入是目标相机 raymap。都能“查询状态”，却不是相同任务。一个在地图中定位新观察，一个根据已知新相机读取场景。</p>{{studies}}</section>
+<section id="methods"><h2><span class="section-number">04 / METHODS</span>四种扩展策略</h2>{{methods}}</section>
+<section id="evidence"><h2><span class="section-number">05 / EVIDENCE</span>把渐近复杂度与实测曲线一起读</h2><div class="prose"><p>VGG-T³ 的关键证据不仅是总耗时：L2 normalization 与 ShortConv2D 的消融解释了为什么直接替换 attention 不够；对更大场景增加内层更新步数，又显示了计算与容量的实际交换。ZipMap 的长序列实验区分扩大轨迹范围和增加同一路径的采样密度，这比只增加 N 更能诊断压缩能力。</p></div>{{table:应记录的项目|原因
+N、P、图像分辨率、精度模式与设备|避免将减少像素数或更换硬件解释为结构改进
+编码时间、每查询时间、Q 个查询总时间|小查询成本不能隐藏昂贵的首次场景编码
+状态、激活、输出地图和 CPU 内存|固定 fast weights 不代表全部工作内存固定
+内层步数、块尺寸、缓存策略|这些参数可能随 N 改变实际复杂度
+同一视图集上的误差—时间曲线|速度比较需与质量和有效观察范围配对}}
+<div class="protocol">ZipMap 的主实验是双向重建，流式更新在附录单独评测。VGGT-Ω 仅替换部分全局层，其训练资源节省、推理显存与推理速度也不是同一指标。各方法原文图表见独立精读页。</div></section>
+<section id="discussion"><h2><span class="section-number">06 / DISCUSSION</span>容量瓶颈可能只是被移到了参数里</h2><div class="prose"><p>全量 KV 将场景证据保留为长列表，快速权重将其压缩为固定参数。压缩带来较低查询成本，却可能在重复纹理、多个相似房间或大范围视角变化下产生关联冲突。增加优化步数可以帮助拟合，但无法保证解决固定容量不足。</p><p>TTT 的内层损失下降也不必然意味着三维误差下降。过度拟合 K→V、改变归一化或积累数值误差，都可能破坏外层训练时学到的读出规律。应同时记录 inner loss 与最终 geometry error。</p><p>Scal3R 有两个不同工作：本章 C04 指 <strong>2604.08542</strong> 的 TTT 扩展；专题 05 的 D04 指 <strong>2609.04201</strong> 的多相对位姿查询。它们不可按名字合并。</p></div></section>
+<section id="hypotheses"><h2><span class="section-number">07 / RESEARCH</span>用固定场景复杂度拆解压缩误差</h2>{{table:假设|控制实验|可证伪条件
+fast weights 瓶颈主要受场景复杂度而非帧数影响|同 N 比较重复视图和新增房间；同房间扫描 N|错误仅随 N 增长而不随新内容增长
+更好的 inner fitting 改善最终几何|固定模型扫描步数，联合画 inner loss 与外部几何误差|inner loss 下降而几何误差上升
+新视图查询不需要重新写入场景|冻结已建场景状态，逐步增大查询视角与遮挡差异|查询质量必须依靠加入新 RGB 才能保持，说明原状态支持范围有限}}
+<p class="small muted">这些是本地图的研究假设，需要实测；不从复杂度表达式直接推断精度。</p></section>
+<section id="reading"><h2><span class="section-number">READING ROUTE</span>从复杂度账本读到容量边界</h2><ol class="reading-questions"><li>先读 VGG-T³，解释 L2 normalization 和 ShortConv2D 分别修复什么问题。</li><li>读 ZipMap，区分双向重建、流式状态更新和目标 raymap 查询。</li><li>比较 Speed3R 与 VGGT-Ω，计算保留全局 attention 的层对总复杂度的影响。</li><li>读 Scal3R-TTT，画出局部推理和几何后端的完整流程，分别计时。</li></ol><p>继续阅读：<a href="03-streaming.html">在线状态</a> · <a href="05-backends.html">分块与优化后端</a>。</p></section>

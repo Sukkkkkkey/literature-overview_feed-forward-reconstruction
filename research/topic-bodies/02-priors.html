@@ -1,0 +1,21 @@
+<section id="question"><h2><span class="section-number">01 / QUESTION</span>模型给出了米，图像就提供了米吗？</h2><div class="prose"><p>单张图像能提供透视、遮挡、纹理梯度和物体语义，却通常不能唯一确定绝对尺度。把一间房及相机位置同时放大，投影图像可以完全相同。因此本章区分三类能力：从数据学到的尺度先验、由多视视差约束的相对形状，以及由真实尺度测量确定的 metric 几何。</p><p>阅读单目模型时，先问输出是 inverse depth、z-depth、相机系点图还是射线距离；再问评测允许 scale、shift 或相似变换中的哪些对齐。一个在 affine disparity 协议上表现好的模型，不一定给出形状正确的三维点云。</p><div class="contribution">本章主线：先确定不可观测自由度，再看表示如何减少歧义、条件输入如何补充约束。</div></div></section>
+<section id="notation"><h2><span class="section-number">02 / MODEL</span>深度、焦距与尺度，是三个不同的变量</h2><div class="prose"><p>采用 camera-to-world 的 Tᵢ=[Rᵢ,tᵢ]。令像素齐次坐标为 p̃，z-depth 为 z，射线单位向量为 r，则：</p><div class="math">Xᶜ = z K⁻¹p̃ = d r，　d = z ‖K⁻¹p̃‖<br>Xʷ = RᵢXᶜ + tᵢ</div><p>将所有 Xʷ 与相机中心乘同一个正尺度，图像投影不变；但固定相机中心只改变深度，不是同一 gauge 变换。已知内参使射线方向确定，通常仍不能恢复绝对尺度；已知 metric baseline 或可信深度则可以约束尺度。</p><details class="derivation"><summary>为什么 inverse-depth 的 shift 会改变三维形状？</summary><div class="inner"><p>如果预测逆深度 q 满足 q′=a q+b，则深度为 z′=1/(a/z+b)=z/(a+bz)。b≠0 时，近点与远点受到的缩放不同，不能用一个整体尺度恢复原形状。相反，MoGe 先在点坐标中允许共同 scale 与 shift，再通过投影关系求相机焦距及 z 方向偏移；两种“affine-invariant”不是同一个输出空间。</p><p>MoGe 的训练表示也不意味着可以自由旋转、剪切物体。该模型保持图像与 X/Y 轴方向关系，并在中心主点、方形像素假设下求 f 与 t_z。详见 <a href="../papers/moge.html#method">MoGe 方法推导</a>。</p></div></details><div class="protocol"><strong>尺度评测阶梯。</strong>每帧分别对齐 → 全序列共用一个尺度 → 只允许刚体对齐 → 完全不对齐。越靠后越能检验尺度一致性；前一层的优良结果不能代替后一层的实验。</div></div></section>
+<section id="comparison"><h2><span class="section-number">03 / DESIGN SPACE</span>三条路线怎样分工</h2>{{table:输出空间|代表方法|信息从哪里来|应检查的代价
+相对深度先验|Depth Anything / V2|大规模图像、教师与合成几何|局部细节不等于跨帧一致或绝对尺度
+单目三维形状|MoGe / MoGe-2|点图监督、局部几何损失；后者增加 metric 属性|焦距假设、形状与尺度预测误差需分列
+条件式重建|Pow3R / MapAnything / MetricAnything|可选相机、深度或稀疏测量|条件准确性、缺失模式、单位与尺度归一化}}
+<p>Pow3R 将条件加入两图 pointmap 框架，MapAnything 将其扩展到因子化多视 metric 重建。MetricAnything 从稀疏 metric 提示学习泛化的尺度恢复。它们不能仅用“支持额外输入”合为一类：需要具体查看训练时见过的提示分布、输入是否归一化，以及模型是软融合还是严格满足约束。</p>{{studies}}</section>
+<section id="methods"><h2><span class="section-number">04 / METHODS</span>六个方法，各解决哪一种歧义</h2>{{methods}}</section>
+<section id="evidence"><h2><span class="section-number">05 / EVIDENCE</span>先对齐协议，再比较改善</h2>{{table:证据入口|真正检验的内容|不能直接推出
+MoGe §4.1 / §4.3|多种点图、深度和 FoV 协议；ROE 与局部损失消融|affine 对齐后好，就能无尺度测量给出真实米制
+Depth Anything V2 §6–7|教师、合成标注和真实伪标签对细节及泛化的贡献|相对逆深度版本等价于 metric 微调版本
+Pow3R Table 1 / Figure 6|同一模型下条件子集的收益；错误 focal / pose 的响应|软条件网络始终严格遵从输入或可靠拒绝任意错误输入
+MapAnything Figure 4 / Table 5|多视数量、条件信息与表示分解的影响|额外真值几何带来的提高全属于骨干设计}}
+<div class="evidence-pair"><div><h4>已有实验能支持</h4><p>训练目标与表示对单目三维形状很关键；准确的附加几何通常能改善重建；不同输入组合可以共享模型，而不必每种条件都单独训练。</p></div><div><h4>仍需单独验证</h4><p>混合相机设备、错误单位、运动物体深度和偏移后的主点，可能超出条件训练分布。平均误差改善不能证明每个条件都被安全使用，也不能证明尺度在长视频里一致。</p></div></div></section>
+<section id="discussion"><h2><span class="section-number">06 / DISCUSSION</span>把先验、测量与模型信任分开</h2><div class="prose"><p><strong>场景与物体。</strong>常见物体的尺寸可能给单目模型提供较强统计线索；房间、街道和未知物体尺度跨度更大。用物体类别先验猜中尺寸，与用传感器约束真实尺度有不同的失效方式。</p><p><strong>条件并非总是越多越好。</strong>深度和位姿来源可能相关，例如同一个 SfM 系统产生两者。把相关误差当作两条独立证据，会造成过度信任。裁剪图像时若不更新主点，正确内参也会变成错误条件。</p><p><strong>建议的拆分。</strong>同时记录未对齐 metric error、仅尺度对齐 shape error、焦距误差、边界质量和条件残差。这样才能判断改进来自形状、相机还是整体尺度校正。</p></div></section>
+<section id="hypotheses"><h2><span class="section-number">07 / RESEARCH</span>可证伪的三个问题</h2>{{table:假设|控制与干预|若出现什么结果则削弱假设
+稀疏深度的位置比数量更重要|固定测量数和噪声，比较均匀、边界、远近分层采样；报告未对齐误差|策略差异在多域重复实验中小于随机方差
+软条件融合能识别跨模态冲突|分别扰动 K、pose、depth，并加入联合相关偏差；同时看条件残差和置信度|错误条件导致大幅偏差但分数不降低
+metric 提升主要是尺度而非局部形状|对同一预测分别计算未对齐、scale-only 与 scale+shift 指标|对齐后的局部误差仍显著降低，则不能仅归因于尺度}}
+<p class="small muted">以上是本阅读地图提出的实验设计，不是论文已验证的结论。</p></section>
+<section id="reading"><h2><span class="section-number">READING ROUTE</span>从输出自由度读到条件融合</h2><ol class="reading-questions"><li>先读 MoGe 的表示与损失，再对照 Depth Anything V2 的教师数据路线。</li><li>画出 Pow3R 三张点图所在坐标系，说明它如何一次求两张深度和相对位姿。</li><li>回到 MapAnything / DA3，检查自己是否能区分 ray-distance、z-depth 与 metric scale。</li><li>用一张表记录每篇的输入条件、训练标签、评测对齐和下游求解步骤。</li></ol><p>继续阅读：<a href="08-supervision.html">监督与数据质量</a> · <a href="09-reliability.html">可靠性与条件失效</a>。</p></section>

@@ -1,0 +1,1028 @@
+{
+  "id": "N09",
+  "slug": "d4rt",
+  "name": "D4RT",
+  "version": "2512.08924v2",
+  "pdf": "research/sources/2512.08924v2.pdf",
+  "url": "https://arxiv.org/pdf/2512.08924v2",
+  "sha256": "b8bb0a667a7c4e6d4206585adaca6711e1d900678e8fa0a80061e4c2535bc452",
+  "pages": 17,
+  "figures": [
+    {
+      "id": "S1.F1",
+      "text": "Figure 1 : D4RT is a unified, efficient, feedforward method for D ynamic 4 D R econstruction and T racking , unlocking a variety of outputs including point cloud ( ), point tracks ( ), camera parameters ( ) through a single interface.",
+      "images": [
+        {
+          "src": "2512.08924v2/teaser_v8.png",
+          "id": "S1.F1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:685/584;",
+          "width": "685",
+          "height": "584",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/darts/orange_down.png",
+          "id": "S1.F1.g5",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:16/16;",
+          "width": "16",
+          "height": "16",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/darts/blue_down.png",
+          "id": "S1.F1.g6",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:16/16;",
+          "width": "16",
+          "height": "16",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/darts/pink_down.png",
+          "id": "S1.F1.g7",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:16/16;",
+          "width": "16",
+          "height": "16",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S1.F2",
+      "text": "Figure 2 : D4RT model overview – A global self-attention encoder first transforms the input video into the latent Global Scene Representation F F , which is passed to a lightweight decoder. The decoder can be independently queried for the 3D position 𝐏 \\mathbf{P} of any given 2D point ( u u , v v ) from the source timestep t src t_{\\text{src}} at target timestep t tgt t_{\\text{tgt}} in camera coordinate t cam t_{\\text{cam}} , unlocking full decoding at any point in space and time. The query also contains an embedding of the local video patch centered around ( u u , v v ), providing additional spatial context.",
+      "images": [
+        {
+          "src": "2512.08924v2/method_v6.png",
+          "id": "S1.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/163;",
+          "width": "685",
+          "height": "163",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S2.T1",
+      "text": "Task Query u u v v t s ​ r ​ c t_{src} t t ​ g ​ t t_{tgt} t c ​ a ​ m t_{cam} Point Track Fixed Fixed Fixed 1 1 … T T Point Cloud 1 1 … W W 1 1 … H H 1 1 … T T Fixed Depth Map 1 1 … W W 1 1 … H H 1 1 … T T Extrinsics 1 ​ … ​ h 1...h 1 ​ … ​ w 1...w Fixed 1 1 … T T Intrinsics 1 ​ … ​ h 1...h 1 ​ … ​ w 1...w 1 1 … T T Table 1 : Unified decoding – A diverse set of geometry-related tasks can be inferred by querying the Cartesian product of the respective entries. Note that for intrinsics and extrinsics, we only query a coarse ( h , w ) (h,w) grid for faster inference.",
+      "images": [
+        {
+          "src": "2512.08924v2/imgs/darts/blue_down.png",
+          "id": "S2.T1.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:16/16;",
+          "width": "16",
+          "height": "16",
+          "alt": "[Uncaptioned image]"
+        },
+        {
+          "src": "2512.08924v2/imgs/darts/orange_down.png",
+          "id": "S2.T1.g2",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:16/16;",
+          "width": "16",
+          "height": "16",
+          "alt": "[Uncaptioned image]"
+        },
+        {
+          "src": "2512.08924v2/imgs/darts/red_down.png",
+          "id": "S2.T1.g3",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:16/16;",
+          "width": "16",
+          "height": "16",
+          "alt": "[Uncaptioned image]"
+        },
+        {
+          "src": "2512.08924v2/imgs/darts/pink_down.png",
+          "id": "S2.T1.g4",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:16/16;",
+          "width": "16",
+          "height": "16",
+          "alt": "[Uncaptioned image]"
+        },
+        {
+          "src": "2512.08924v2/imgs/darts/white_down.png",
+          "id": "S2.T1.g5",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:16/16;",
+          "width": "16",
+          "height": "16",
+          "alt": "[Uncaptioned image]"
+        }
+      ]
+    },
+    {
+      "id": "alg1",
+      "text": "1: Input video V V , model encoder ℰ \\mathcal{E} and decoder 𝒟 \\mathcal{D} . 2: F ← ℰ ⁡ ( V ) F\\leftarrow\\mathcal{E}(V) ⊳ \\triangleright Compute Global Scene Representation 3: G ← { false } T × H × W G\\leftarrow\\{\\textbf{false}\\}^{T\\times H\\times W} ⊳ \\triangleright Initialize Occupancy Grid 4: 𝒯 ← ∅ \\mathcal{T}\\leftarrow\\emptyset ⊳ \\triangleright Initialize Set of Dense Tracks 5: while any ( G = false G=\\textbf{false} ) do 6: Sample a batch B B of unvisited source points from G G 7: for each ( u , v , t src ) ∈ B (u,v,t_{\\text{src}})\\in B do ⊳ \\triangleright Process batch in parallel 8: Q ← { u , v , t src , t tgt = t cam = k } k = 1 T Q\\leftarrow\\{u,v,t_{\\text{src}},{t_{\\text{tgt}}{=}t_{\\text{cam}}}{=}k\\}_{k=1}^{T} ⊳ \\triangleright Get Track Queries 9: P ← { 𝒟 ⁡ ( 𝐪 k , F ) } k = 1 T P\\leftarrow\\{\\mathcal{D}(\\mathbf{q}_{k},F)\\}_{k=1}^{T} ⊳ \\triangleright Run the decoder 10: G ← Visible ​ ( P ) G\\leftarrow\\text{Visible}(P) ⊳ \\triangleright Set visible track pixels as visited 11: 𝒯 ← 𝒯 ∪ P \\mathcal{T}\\leftarrow\\mathcal{T}\\cup P ⊳ \\triangleright Add new track to the output 12: end for 13: end while 14: return 𝒯 \\mathcal{T} Algorithm 1 Efficient Dense Tracking of All Pixels.",
+      "images": []
+    },
+    {
+      "id": "S2.T2",
+      "text": "Model Task Functionality Architecture 3D Recon- Dynamic Cor- Flexible Sparse Global Single struction respondence Ref. Frames Decoding Context Decoder MegaSaM [ 29 ] ✓ ✗ ✗ ✗ ✗ ✗ DUSt3R [ 51 ] ✓ ✗ ✗ ✗ ✗ ✗ VGGT [ 48 ] ✓ ✗ ✗ ✗ ✓ ✗ π 3 \\pi^{3} [ 54 ] ✓ ✗ ✓ ✗ ✓ ✗ St4RTrack [ 11 ] ✓ ✓ ✗ ✗ ✗ ✗ STv2 [ 56 ] ✓ ✓ ✗ ✓ ✓ ✗ D4RT (Ours) ✓ ✓ ✓ ✓ ✓ ✓ Table 2: Model capabilities – We highlight both the tasks our model executes but also its comprehensive functionality and simple model architecture.",
+      "images": []
+    },
+    {
+      "id": "S2.F3",
+      "text": "Figure 3 : Pose accuracy vs . speed – We compare pose accuracy vs . throughput against recent state-of-the-art methods. Pose accuracy is 1 – error , averaged over ATE/RTE/RPE on Sintel and ScanNet. Throughput is measured in FPS on an A100 GPU. D4RT achieves 200+ FPS pose estimation, 9 × \\times faster than VGGT, and 100 × \\times faster than MegaSaM, while delivering superior accuracy.",
+      "images": []
+    },
+    {
+      "id": "S3.F4",
+      "text": "Input video MegaSaM [ 29 ] π 3 \\pi^{3} [ 54 ] SpatialTrackerV2 [ 56 ] D4RT (Ours) Figure 4: Reconstruction results across methods – Pure reconstruction methods (MegaSaM and π 3 \\pi^{3} ) are only able to accumulate point clouds of all pixels; exhibiting clear failure cases in dynamic scenes. For example, the swan is repeated in MegaSaM’s reconstruction, and π 3 \\pi^{3} is failing entirely to reconstruct the flower. SpatialTrackerV2, a state-of-the-art tracking method, successfully captures dynamics, however its design only allows tracking points from one frame, leaving gaps in the reconstruction (behind the swan and train). D4RT is the only method that successfully reconstructs a full 4D representation of the scene including all pixels of the video.",
+      "images": [
+        {
+          "src": "2512.08924v2/qualitative_vis_draft_v9.png",
+          "id": "S3.F4.g1",
+          "class": "ltx_graphics ltx_figure_panel ltx_img_landscape",
+          "style": "aspect-ratio:672/271;",
+          "width": "672",
+          "height": "271",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F5",
+      "text": "Figure 5 : Visualizations on in-the-wild videos – D4RT demonstrates accurate reconstructions on static (top row) and dynamic scenes (bottom row). In the presence of motion, D4RT additionally produces robust 3D point trajectories.",
+      "images": [
+        {
+          "src": "2512.08924v2/main_qualitative_vis_v2.png",
+          "id": "S3.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/220;",
+          "width": "685",
+          "height": "220",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T3",
+      "text": "Method Max. Track Count @ Target FPS 60 FPS 24 FPS 10 FPS 1 FPS DELTA [ 32 ] 0 5 408 5,770 SpatialTrackerV2 [ 56 ] 29 84 219 2,290 D4RT (Ours) 550 1,570 3,890 40,180 Table 3 : 3D tracking throughput – We measure the maximum number of full-video 3D point tracks that different model can produce while maintaining a given FPS target on a single A100 GPU. Note that for D4RT , each track consists of T T independent queries processed by the decoder. D4RT is 18–300 × \\times faster than others.",
+      "images": []
+    },
+    {
+      "id": "S4.T4",
+      "text": "w/ GT intrin. Method TAPVid-3D Camera Coordinate 3D tracking World Coordinate 3D tracking DriveTrack ADT PStudio DriveTrack ADT AJ ↑ \\uparrow APD 3 ​ D \\text{APD}_{3D} ↑ \\uparrow OA ↑ \\uparrow AJ ↑ \\uparrow APD 3 ​ D \\text{APD}_{3D} ↑ \\uparrow OA ↑ \\uparrow AJ ↑ \\uparrow APD 3 ​ D \\text{APD}_{3D} ↑ \\uparrow OA ↑ \\uparrow APD 3 ​ D \\text{APD}_{3D} ↑ \\uparrow L1 ↓ \\downarrow APD 3 ​ D \\text{APD}_{3D} ↑ \\uparrow L1 ↓ \\downarrow ✗ St4RTrack [ 11 ] - - - - - - - - - 0.020 0.499 0.062 0.839 CoTracker3 [ 23 ] + UniDepthV2 [ 36 ] 0.038 0.062 0.856 0.102 0.146 0.937 0.119 0.176 0.862 - - - - CoTracker3 [ 23 ] + VGGT [ 48 ] 0.129 0.189 0.856 0.132 0.190 0.937 0.045 0.070 0.862 0.205 0.170 0.192 0.736 SpatialTrackerV2 [ 56 ] 0.064 0.100 0.865 0.260 0.342 0.936 0.097 0.152 0.805 0.101 0.139 0.336 0.238 D4RT (Ours) 0.257 0.345 0.875 0.240 0.319 0.926 0.138 0.186 0.897 0.373 0.020 0.319 0.096 ✓ CoTracker3 [ 23 ] + UniDepthV2 [ 36 ] 0.147 0.225 0.856 0.173 0.254 0.937 0.205 0.311 0.862 - - - - CoTracker3 [ 23 ] + VGGT [ 48 ] 0.245 0.342 0.856 0.175 0.250 0.937 0.215 0.318 0.862 0.292 0.160 0.234 0.755 DELTA [ 32 ] 0.170 0.238 0.874 0.199 0.258 0.879 0.175 0.261 0.760 - - - - SpatialTrackerV2 [ 56 ] 0.195 0.275 0.865 0.303 0.404 0.936 0.175 0.270 0.805 0.201 0.117 0.378 0.263 D4RT (Ours) 0.304 0.410 0.875 0.307 0.408 0.926 0.372 0.498 0.897 0.470 0.017 0.398 0.093 Table 4: 4D reconstruction and tracking – We evaluate 3D tracking capability on dynamic videos, with tracks predicted in both local camera coordinates (left) and world coordinates (right). Our model achieves superior performance compared to the prior state-of-the-art.",
+      "images": []
+    },
+    {
+      "id": "S4.T5",
+      "text": "Method Point Cloud Video Depth Sintel Scannet Sintel ScanNet KITTI Bonn L1 ↓ \\downarrow L1 ↓ \\downarrow AbsRel (S) ↓ \\downarrow AbsRel (SS) ↓ \\downarrow AbsRel (S) ↓ \\downarrow AbsRel (SS) ↓ \\downarrow AbsRel (S) ↓ \\downarrow AbsRel (SS) ↓ \\downarrow AbsRel (S) ↓ \\downarrow AbsRel (SS) ↓ \\downarrow MegaSaM [ 29 ] 1.531 0.072 0.342 0.249 0.050 0.047 0.109 0.101 0.056 0.056 VGGT [ 48 ] 1.582 0.063 0.318 0.247 0.044 0.040 0.094 0.067 0.055 0.051 MapAnything [ 24 ] 1.718 0.064 0.397 0.306 0.043 0.035 0.096 0.090 0.076 0.049 SpatialTrackerV2 [ 56 ] 1.375 0.036 0.209 0.175 0.027 0.025 0.075 0.064 0.042 0.978 π 3 \\pi^{3} [ 54 ] 1.139 0.030 0.241 0.163 0.021 0.019 0.055 0.053 0.033 0.032 D4RT (Ours) 0.768 0.028 0.171 0.148 0.020 0.018 0.055 0.051 0.036 0.036 Table 5: Video depth and point map estimation – Quantitative results for both video depth and point map estimation across four benchmarks. D4RT achieves top-tier performance on the depth estimation task under both scale-only (S) and scale-and-shift (SS) alignments.",
+      "images": []
+    },
+    {
+      "id": "S4.T6",
+      "text": "Method Sintel ScanNet Re10K ATE ↓ \\downarrow RPE-T ↓ \\downarrow RPE-R ↓ \\downarrow ATE ↓ \\downarrow RPE-T ↓ \\downarrow RPE-R ↓ \\downarrow Pose AUC ↑ \\uparrow MegaSaM [ 29 ] 0.074 0.030 0.126 0.029 0.016 0.839 71.0 VGGT [ 48 ] 0.168 0.056 0.428 0.016 0.012 0.316 70.2 MapAnything [ 24 ] 0.202 0.089 2.383 0.023 0.016 0.438 68.7 SpatialTrackerV2 [ 56 ] 0.126 0.053 1.052 0.018 0.012 0.324 75.7 π 3 \\pi^{3} [ 54 ] 0.086 0.039 0.248 0.015 0.010 0.291 78.7 D4RT (Ours) 0.065 0.024 0.126 0.014 0.010 0.302 83.5 Table 6: Camera pose estimation – We evaluate D4RT against state-of-the-art methods on static indoor scenes (ScanNet, Re10K) and dynamic outdoor scenes (Sintel).",
+      "images": []
+    },
+    {
+      "id": "S4.F6",
+      "text": "input video w/o local patch w/ local patch zoom (w/o) zoom (w/) Figure 6: Preservation of low-level details – We ablate the effect of including local patch information into the model’s queries, visualizing the resulting depth maps on an example from the Sintel dataset. We find that the local RGB patches help preserve fine-grained details and produce sharper object boundaries.",
+      "images": [
+        {
+          "src": "2512.08924v2/imgs/patch/rgb_5.png",
+          "id": "S4.F6.pic1.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:223/96;",
+          "width": "223",
+          "height": "96",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/patch/rgb_5.png",
+          "id": "S4.F6.pic1.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:223/95;",
+          "width": "223",
+          "height": "95",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/patch/lp_5.png",
+          "id": "S4.F6.pic2.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:455/194;",
+          "width": "455",
+          "height": "194",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/patch/np_5.png",
+          "id": "S4.F6.pic2.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:455/194;",
+          "width": "455",
+          "height": "194",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/patch/np_5.png",
+          "id": "S4.F6.pic3.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:339/146;",
+          "width": "339",
+          "height": "146",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/patch/lp_5.png",
+          "id": "S4.F6.pic3.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:339/146;",
+          "width": "339",
+          "height": "146",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T7",
+      "text": "w/ local appear. patch Video Depth Camera Pose AbsRel (S) ↓ \\downarrow AbsRel (SS) ↓ \\downarrow ATE ↓ \\downarrow RPE-T ↓ \\downarrow RPE-R ↓ \\downarrow ✗ 0.366 0.306 0.173 0.031 0.262 ✓ 0.302 0.257 0.091 0.028 0.245 Table 7: Local RGB patch – We evaluate a ViT-L model, trained with and without the appearance patch as input to the decoder, on Sintel video depth and camera pose estimation.",
+      "images": []
+    },
+    {
+      "id": "S4.T8",
+      "text": "Losses Video Depth Camera Pose AbsRel(S) ↓ \\downarrow AbsRel(SS) ↓ \\downarrow ATE ↓ \\downarrow RPE-T ↓ \\downarrow RPE-R ↓ \\downarrow D4RT 0.302 0.257 0.091 0.028 0.245 w/o 2D position +0.071 +0.063 +0.002 +0.002 -0.028 w/o normal +0.043 +0.026 +0.003 +0.003 -0.022 w/o displacement +0.011 +0.007 +0.011 +0.003 +0.007 w/o visibility -0.003 -0.025 +0.012 +0.011 +0.022 w/o confidence +0.002 -0.025 +0.126 +0.061 +0.115 Table 8: Auxiliary losses – We remove auxiliary losses individually to evaluate their impact on model performance. A slight trade-off between depth and camera estimation pose is observed, though we find that all auxiliary losses improve overall performance.",
+      "images": []
+    },
+    {
+      "id": "S4.T9",
+      "text": "Backbone size Video Depth Camera Pose AbsRel (S) ↓ \\downarrow AbsRel (SS) ↓ \\downarrow ATE ↓ \\downarrow RPE-T ↓ \\downarrow RPE-R ↓ \\downarrow ViT-B 0.319 0.232 0.145 0.034 0.266 ViT-L 0.256 0.214 0.073 0.027 0.191 ViT-H 0.226 0.173 0.070 0.028 0.186 ViT-g 0.191 0.168 0.078 0.026 0.160 Table 9: Backbone size – We examine how D4RT’s performance scales with the size of the pretrained ViT encoder backbone, evaluating video depth and camera pose estimation performance on Sintel. We observe a clear improvement as the backbone size increases from ViT-B to ViT-g.",
+      "images": []
+    },
+    {
+      "id": "A1.F7",
+      "text": "Figure 7 : Full D4RT model overview – We provide a holistic overview of the model together with its inputs and outputs. FC corresponds to a fully connected layer, and PE for positional encoding. See Sec. 2 of the main paper for reference.",
+      "images": [
+        {
+          "src": "2512.08924v2/method_full_supp_mat.png",
+          "id": "A1.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/215;",
+          "width": "685",
+          "height": "215",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A2.F8.sf1",
+      "text": "(a) Visualization of reconstruction of 1000 frames from KITTI sequence 00.",
+      "images": [
+        {
+          "src": "2512.08924v2/imgs/kitti_1k_frames.png",
+          "id": "A2.F8.sf1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/183;",
+          "width": "548",
+          "height": "183",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A2.F8.sf2",
+      "text": "(b) Comparison of raw chunked prediction alignment results against VGG-T and π 3 \\pi^{3} baselines (no loop closure).",
+      "images": [
+        {
+          "src": "2512.08924v2/kitti.png",
+          "id": "A2.F8.sf2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/375;",
+          "width": "548",
+          "height": "375",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A3.T10",
+      "text": "Config. Encoder Resolution RGB Patch Output Resolution RGB patch Resolution Scale Scale and Shift AbsRel ↓ \\downarrow ϵ PDBE acc \\epsilon^{\\text{acc}}_{\\text{PDBE}} ↓ \\downarrow AbsRel ↓ \\downarrow ϵ PDBE acc \\epsilon^{\\text{acc}}_{\\text{PDBE}} ↓ \\downarrow \\scriptsize1⃝ 256 × 256 256{\\times}256 ✗ 256 × 256 256{\\times}256 256 × 256 256{\\times}256 0.254 3.323 0.219 3.307 \\scriptsize2⃝ 256 × 256 256{\\times}256 ✓ 256 × 256 256{\\times}256 256 × 256 256{\\times}256 0.218 2.254 0.179 2.243 \\scriptsize3⃝ 256 × 256 256{\\times}256 ✓ Original 256 × 256 256{\\times}256 0.217 2.266 0.178 2.258 \\scriptsize4⃝ 256 × 256 256{\\times}256 ✓ Original Original 0.220 2.193 0.176 2.185 Table 10: Quantitative impact of query density and patch fidelity – Feeding RGB patches from the high-resolution video into the decoder (Config \\scriptsize4⃝ ) yields significantly sharper edges in depth maps as measured by ϵ PDBE acc \\epsilon^{\\text{acc}}_{\\text{PDBE}} .",
+      "images": []
+    },
+    {
+      "id": "A3.F9",
+      "text": "Input video Config \\scriptsize1⃝ Config \\scriptsize2⃝ Config \\scriptsize3⃝ Config \\scriptsize4⃝ GT Depth Figure 9 : Visualizing sub-pixel detail recovery – We propose a visual comparison of the different high-res configurations. Config \\scriptsize4⃝ achieves the highest fidelity, it preserves sharp edges and recovers fine details—such as the hair in the bottom row—without increasing the computational cost or memory requirements of the overall model.",
+      "images": [
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_rgb.png",
+          "id": "A3.F9.pic1.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg1.png",
+          "id": "A3.F9.pic2.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg2.png",
+          "id": "A3.F9.pic3.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg3.png",
+          "id": "A3.F9.pic4.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg4.png",
+          "id": "A3.F9.pic5.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_gt.png",
+          "id": "A3.F9.pic6.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_rgb.png",
+          "id": "A3.F9.pic7.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_rgb.png",
+          "id": "A3.F9.pic7.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg1.png",
+          "id": "A3.F9.pic8.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg1.png",
+          "id": "A3.F9.pic8.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg2.png",
+          "id": "A3.F9.pic9.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg2.png",
+          "id": "A3.F9.pic9.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg3.png",
+          "id": "A3.F9.pic10.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg3.png",
+          "id": "A3.F9.pic10.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg4.png",
+          "id": "A3.F9.pic11.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_cfg4.png",
+          "id": "A3.F9.pic11.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_gt.png",
+          "id": "A3.F9.pic12.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/3_gt.png",
+          "id": "A3.F9.pic12.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_rgb.png",
+          "id": "A3.F9.pic13.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg1.png",
+          "id": "A3.F9.pic14.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg2.png",
+          "id": "A3.F9.pic15.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg3.png",
+          "id": "A3.F9.pic16.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg4.png",
+          "id": "A3.F9.pic17.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_gt.png",
+          "id": "A3.F9.pic18.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_rgb.png",
+          "id": "A3.F9.pic19.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_rgb.png",
+          "id": "A3.F9.pic19.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg1.png",
+          "id": "A3.F9.pic20.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg1.png",
+          "id": "A3.F9.pic20.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg2.png",
+          "id": "A3.F9.pic21.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg2.png",
+          "id": "A3.F9.pic21.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg3.png",
+          "id": "A3.F9.pic22.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg3.png",
+          "id": "A3.F9.pic22.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg4.png",
+          "id": "A3.F9.pic23.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_cfg4.png",
+          "id": "A3.F9.pic23.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_gt.png",
+          "id": "A3.F9.pic24.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/2_gt.png",
+          "id": "A3.F9.pic24.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_rgb.png",
+          "id": "A3.F9.pic25.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg1.png",
+          "id": "A3.F9.pic26.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg2.png",
+          "id": "A3.F9.pic27.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg3.png",
+          "id": "A3.F9.pic28.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg4.png",
+          "id": "A3.F9.pic29.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_gt.png",
+          "id": "A3.F9.pic30.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_rgb.png",
+          "id": "A3.F9.pic31.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_rgb.png",
+          "id": "A3.F9.pic31.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg1.png",
+          "id": "A3.F9.pic32.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg1.png",
+          "id": "A3.F9.pic32.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg2.png",
+          "id": "A3.F9.pic33.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg2.png",
+          "id": "A3.F9.pic33.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg3.png",
+          "id": "A3.F9.pic34.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg3.png",
+          "id": "A3.F9.pic34.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg4.png",
+          "id": "A3.F9.pic35.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_cfg4.png",
+          "id": "A3.F9.pic35.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_gt.png",
+          "id": "A3.F9.pic36.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/sintel_highres_ablation_v2/8_gt.png",
+          "id": "A3.F9.pic36.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:112/48;",
+          "width": "112",
+          "height": "48",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A4.T11",
+      "text": "Model weight initialization Video Depth Estimation Camera Pose Estimation AbsRel (S) ↓ \\downarrow AbsRel (SS) ↓ \\downarrow ATE ↓ \\downarrow RPE-T ↓ \\downarrow RPE-R ↓ \\downarrow None 0.738 0.520 0.334 0.139 1.126 VideoMAE [ 49 ] 0.302 0.257 0.091 0.028 0.245 Table 11: Model initialization – Initializing the model with VideoMAE [ 49 ] weights leads to significant improvements.",
+      "images": []
+    },
+    {
+      "id": "A4.F10",
+      "text": "0 0 3 3 6 6 9 9 12 12 15 15 0 0 0.1 0.1 0.2 0.2 0.3 0.3 RGB Patch Size Average Error (Lower is better) Average Error vs. RGB Patch Size Avg. Depth Error (S, SS) Avg. Pose Error (ATE, RPE-T, RPE-R) Figure 10 : Ablation study on RGB patch size – The plot shows the average error for depth and pose estimation on Sintel. A patch size between 9 and 12 yields the best performance for both tasks.",
+      "images": []
+    },
+    {
+      "id": "A5.F11",
+      "text": "Figure 11 : Additional visualizations of D4RT – D4RT produces accurate reconstructions for both static environments (top three rows) and dynamic sequences (bottom three rows).",
+      "images": [
+        {
+          "src": "2512.08924v2/sup_qualitative_vis_v5.png",
+          "id": "A5.F11.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:685/761;",
+          "width": "685",
+          "height": "761",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F12",
+      "text": "Input video MegaSaM [ 29 ] π 3 \\pi^{3} [ 54 ] SpatialTrackerV2 [ 56 ] D4RT (Ours) Figure 12: Additional reconstruction results across methods – Pure reconstruction methods (MegaSaM and π 3 \\pi^{3} ) are visualized as accumulated point clouds. For SpatialTrackerV2, we visualize sparse tracks on a representative frame. In contrast, D4RT reconstructs a complete 4D scene representation, tracking all pixels across the entire video.",
+      "images": [
+        {
+          "src": "2512.08924v2/sup_qualitative_vis_side_by_side_v4.png",
+          "id": "A5.F12.g1",
+          "class": "ltx_graphics ltx_figure_panel ltx_img_landscape",
+          "style": "aspect-ratio:685/385;",
+          "width": "685",
+          "height": "385",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A5.F13",
+      "text": "Input video MegaSaM π 3 \\pi^{3} SpatialTrackerV2 D4RT (Ours) Figure 13 : Qualitative depth comparison across methods – D4RT is able to perform dense depth estimation with finer details than current state-of-the-art methods, preserving geometric accuracy even in scenarios with large motion blur.",
+      "images": [
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/bus_rgb_40.png",
+          "id": "A5.F13.pic1.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/bus_megasam_40.png",
+          "id": "A5.F13.pic2.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/bus_pi3_40.png",
+          "id": "A5.F13.pic3.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/bus_stv2_40.png",
+          "id": "A5.F13.pic4.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/bus_ours_40.png",
+          "id": "A5.F13.pic5.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/orchid_rgb_15.png",
+          "id": "A5.F13.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/orchid_megasam_15.png",
+          "id": "A5.F13.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/orchid_pi3_15.png",
+          "id": "A5.F13.g3",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/orchid_stv2_15.png",
+          "id": "A5.F13.g4",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/orchid_ours_15.png",
+          "id": "A5.F13.g5",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/libby_rgb_16.png",
+          "id": "A5.F13.g6",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/libby_megasam_16.png",
+          "id": "A5.F13.g7",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/libby_pi3_16.png",
+          "id": "A5.F13.g8",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/libby_stv2_16.png",
+          "id": "A5.F13.g9",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/libby_ours_16.png",
+          "id": "A5.F13.g10",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/mtb-race_rgb_21.png",
+          "id": "A5.F13.g11",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/mtb-race_megasam_21.png",
+          "id": "A5.F13.g12",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/mtb-race_pi3_21.png",
+          "id": "A5.F13.g13",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/mtb-race_stv2_21.png",
+          "id": "A5.F13.g14",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2512.08924v2/imgs/davis17_depth_comparison/mtb-race_ours_21.png",
+          "id": "A5.F13.g15",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:135/76;",
+          "width": "135",
+          "height": "76",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

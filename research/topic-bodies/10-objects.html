@@ -1,0 +1,24 @@
+<section id="question"><h2><span class="section-number">01 / QUESTION</span>完整资产的背面，究竟由谁决定？</h2><div class="prose"><p>场景几何主线通常恢复已观测表面和相机关系。单图物体模型却被期待输出完整可旋转资产，包括从未出现的背面、底部和遮挡区域。这个任务必须借助跨物体先验，或先生成多视图，再用重建器整合成三维表示。</p><p>因此本章将 fidelity to observation 与 plausible completion 分开：输入图像是否被准确解释，未见表面是否合理，以及完整资产是否便于编辑、渲染或网格使用，是三个相关但不同的标准。</p><div class="contribution">生成视图可以补充先验，却不会增加真实观测；完整物体也不等于 metric 场景。</div></div></section>
+<section id="notation"><h2><span class="section-number">02 / MODEL</span>单图到三维先验，两种组织方式</h2><div class="prose"><div class="math">直接重建：I → F → triplanes → (σ(x), c(x)) → mesh<br>生成后重建：I → {Ĩᵥ, Πᵥ}<sub>generated</sub> → G / SDF → mesh</div><p>LRM 用可学习 triplane queries 从图像 tokens 读取形状与外观，三平面通过坐标投影查询，再由 MLP 解码辐射场。后者先让多视扩散模型选定一个可能的完整物体，再由 LGM 或 InstantMesh 等模块将视图整合。输入的多个生成视图往往相关，不能按真实多视三角化的独立证据处理。</p><details class="derivation"><summary>为什么相机归一化会影响形状，而不仅是摆放方向？</summary><div class="inner"><p>单张图像无法独立确定焦距、物距和尺度。LRM 在训练中归一化相机并用相机特征调制 decoder，测试时对任意输入假设固定相机。如果裁剪改变主点或焦距，而模型仍使用原假设，物体纵深和比例可能变形；这不仅是刚体旋转即可修正的问题。</p><p>物体评测常将网格平移、缩放到标准盒，再比较 Chamfer / F-score。它检验归一化形状，不检验物理尺寸。InstantMesh 的 F-score 阈值也应在其归一化坐标中解释。</p></div></details></div></section>
+<section id="comparison"><h2><span class="section-number">03 / DESIGN SPACE</span>从 LRM 到生成视图与可微网格</h2>{{table:方法|输入与先验|三维输出接口|阅读时的关键区别
+LRM|单图；大规模物体/视频监督|triplane-NeRF，另行提取网格|推理相机假设；未见区域为确定性先验
+PF-LRM|少量 unposed 物体图像，已知 K|triplane 与点对应、可微 PnP|联合相机与形状；pose-free 仍有 K
+TripoSR|单图，不显式输入相机|triplane-NeRF → mesh|数据、训练和渲染改进；不是消除单图歧义
+LGM|多视生成或四张观测，给定相机布局|pixel-aligned Gaussian|重建吞吐与扩散生成耗时分开
+InstantMesh|生成六视图与固定相机|triplane → FlexiCubes mesh|两阶段训练、显式 depth/normal 监督}}
+<p>场景中的两张照片可能只覆盖一部分表面；物体数据常预先居中、去背景和缩放。将这两种分布混成“从少量图像重建”会掩盖任务难度和输入处理成本。</p>{{studies}}</section>
+<section id="methods"><h2><span class="section-number">04 / METHODS</span>五项物体重建工作</h2>{{methods}}</section>
+<section id="evidence"><h2><span class="section-number">05 / EVIDENCE</span>拆开背面合理性与三维精度</h2>{{table:评测层|该看什么|避免什么误读
+输入一致性|输入视角 RGB、轮廓、可见表面误差|只看背面生成美观度
+完整几何|归一化 CD / F-score、法线与拓扑|把标准盒距离当作真实厘米误差
+未见外观|多视图 LPIPS / SSIM / PSNR 与视角范围|感知质量提高等价于像素忠实度提高
+工程输出|网格可用性、面数、孔洞、纹理和提取成本|Gaussian 可渲染等价于高质量 watertight mesh
+全流程速度|背景处理、扩散、重建、网格提取分项|用前馈重建时间代表整个 image-to-3D}}
+<div class="prose"><p>LRM 的许多定量设计分析在附录，不能只看主文示例。InstantMesh 的 GSO / OmniObject3D 评测使用筛选子集、坐标对齐和标准盒缩放。原文明确观察到 Mesh 变体更平滑、训练渲染更方便，但部分数值略低于 NeRF 变体；“直接网格”并不代表所有指标全面提高。</p><p>同样，InstantMesh 的 SSIM / LPIPS 与 PSNR 可能给出不同结论。作者偏好生成外观的感知合理性，本地图保留这种目标选择，但不会把它直接转译为观测重建的精度优势。</p></div></section>
+<section id="discussion"><h2><span class="section-number">06 / DISCUSSION</span>物体先验的作用，应在不可见部分承认</h2><div class="prose"><p>确定性单图重建器面对多种可能背面，可能输出平均形状或模糊纹理；扩散生成器可选择一个模式，却仍可能产生前后不一致、重复把手或不正确的薄结构。二者的错误都不能通过“多生成几张图”自动解决。</p><p>网格提取又增加了一层误差。NeRF 密度阈值、FlexiCubes 网格分辨率、Gaussian 到表面的转换，都影响最终几何。评测归因时应固定提取器或同时报告原始表示与网格。</p><p>若目标是实测物体尺寸或工程部件，必须加入标定、多视观测或外部测量。这里的完整资产主线与场景 metric 几何互有借鉴，但评测目标不同。</p></div></section>
+<section id="hypotheses"><h2><span class="section-number">07 / RESEARCH</span>测出生成先验究竟帮助了哪里</h2>{{table:假设|控制实验|可证伪条件
+生成多视主要改善未见表面|对同一物体分可见/不可见区域评估，固定重建器|输入可见几何也大幅改变，说明生成误差在反向影响观测
+网格监督主要改善表面正则性|共享初始化，比较 NeRF/Mesh 的表面噪声、薄结构、CD 与渲染|更平滑只是丢失细节，任务相关几何并未改善
+相机扰动增强能提升真实照片鲁棒性|控制裁剪、FoV、主点误差，固定生成模型|只在标准合成相机有效，域外几何仍退化}}
+<p class="small muted">以上为本地图的可检验假设，不是论文已完成的实验。</p></section>
+<section id="reading"><h2><span class="section-number">READING ROUTE</span>先拆任务，再比较资产</h2><ol class="reading-questions"><li>精读 LRM，说明 image tokens、camera modulation、triplane queries 各负责什么。</li><li>用 PF-LRM 对照 LRM，区分未知 pose 与未知 intrinsics。</li><li>读 InstantMesh / LGM，给生成、重建和网格提取分别计时。</li><li>为结果写两句独立结论：观测区域有多忠实；未见区域有多合理。</li></ol><p>回到：<a href="../index.html#topics">完整专题地图</a> · <a href="07-rendering.html">场景可渲染表示</a>。</p></section>

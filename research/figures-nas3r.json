@@ -1,0 +1,202 @@
+{
+  "id": "G02",
+  "slug": "nas3r",
+  "name": "NAS3R / From None to All: Self-Supervised 3D Reconstruction via Novel View Synthesis",
+  "version": "2603.27455v2",
+  "pdf": "research/sources/2603.27455v2.pdf",
+  "url": "https://arxiv.org/pdf/2603.27455v2",
+  "sha256": "57e2dbe0683a50329fff048922eeff62599443584cc0a744b8c6170f3b3c2def",
+  "pages": 16,
+  "figures": [
+    {
+      "id": "S0.F1",
+      "text": "Figure 1 : NAS3R is a self-supervised framework that requires no ground-truth annotations and no pretrained priors during training, and jointly infers 3D Gassian parameters, camera intrinsics and extrinsics and depth maps, also enabling high-quality novel view synthesis.",
+      "images": []
+    },
+    {
+      "id": "S2.T1",
+      "text": "Table 1 : Training and inference requirements of different methods. Training columns indicate the need for ground-truth camera poses and intrinsics, while inference columns indicate whether context-view camera parameters are required as model inputs. Method Priors Training Inference Pose Intrinsics Pose Intrinsics Supervised pixelSplat DINO [ 6 ] ✓ ✓ ✓ ✓ MVSplat UniMatch [ 68 ] ✓ ✓ ✓ ✓ NoPoSplat MASt3R [ 34 ] ✓ ✓ ✗ ✓ Self-Supervised SelfSplat CrocoV2 [ 66 ] ✗ ✓ ✗ ✓ PF3plat Mixed ✗ ✓ ✗ ✓ SPFSplat MASt3R [ 34 ] ✗ ✓ ✗ ✓ SPFSplatV2 MASt3R [ 34 ] ✗ ✓ ✗ ✓ SPFSplatV2-L VGGT [ 60 ] ✗ ✓ ✗ ✓ NAS3R (Ours) ✗ ✗ ✗ ✗ ✗",
+      "images": []
+    },
+    {
+      "id": "S3.F2",
+      "text": "Figure 2 : Training pipeline of NAS3R. Subscripts “ C C ” and “ T T ” denote context and target views, respectively. Unconstrained images are patchified into visual tokens and concatenated with a learnable camera token for camera prediction. A masked decoder regulates cross-view interactions and prevents target-to-context leakage. Refined context tokens are then processed by the Gaussian head to predict Gaussian parameters, while a depth head estimates depth maps that are lifted into 3D Gaussian centers using the predicted context poses. The predicted target poses are finally used to render novel views, providing photometric supervision for end-to-end training.",
+      "images": [
+        {
+          "src": "2603.27455v2/framework_cvpr.png",
+          "id": "S3.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/172;",
+          "width": "685",
+          "height": "172",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T2",
+      "text": "Table 2 : Performance comparison of in-domain and out-of-domain two-view novel view synthesis for models trained with no supervised 3D priors . The best results among self-supervised methods are highlighted. ∗ \\ast indicates the variants with random initialization. Method Training Data RE10K ACID DL3DV DTU PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow Supervised pixelSplat RE10K 23.859 0.808 0.184 25.477 0.770 0.207 21.370 0.713 0.250 15.067 0.539 0.341 MVSplat 24.012 0.812 0.175 25.525 0.773 0.199 20.344 0.673 0.258 14.542 0.537 0.324 NoPoSplat ∗ 21.382 0.709 0.266 23.193 0.667 0.274 18.235 0.518 0.364 15.113 0.455 0.450 Self-Supervised SelfSplat RE10K 19.152 0.680 0.328 22.204 0.686 0.316 17.159 0.538 0.400 13.249 0.434 0.441 SPFSplat ∗ 21.306 0.693 0.248 23.354 0.662 0.260 18.091 0.480 0.358 14.042 0.432 0.426 NAS3R (Ours) 23.130 0.764 0.193 25.030 0.734 0.209 19.507 0.573 0.293 15.229 0.524 0.317 Self-Supervised SelfSplat DL3DV 19.371 0.682 0.379 22.410 0.678 0.348 18.685 0.585 0.417 12.765 0.442 0.500 NAS3R (Ours) 21.351 0.693 0.245 24.178 0.697 0.229 20.069 0.588 0.281 15.511 0.519 0.319",
+      "images": []
+    },
+    {
+      "id": "S4.F3",
+      "text": "Figure 3 : Comparison of NVS results across different methods. The leftmost column shows the two-view context images. From top to bottom, the settings are RE10K, RE10K → \\rightarrow ACID, RE10K → \\rightarrow DTU, and RE10K → \\rightarrow DL3DV.",
+      "images": [
+        {
+          "src": "2603.27455v2/paper_images_camera_ready.png",
+          "id": "S4.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/518;",
+          "width": "685",
+          "height": "518",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.F4",
+      "text": "Figure 4 : Visual comparison of pose trajectories on RE10K. Camera frustums for ground-truth and predicted poses are shown in black and orange , respectively. The top two examples correspond to 5-view reconstruction, while the bottom example corresponds to 10-view reconstruction.",
+      "images": [
+        {
+          "src": "2603.27455v2/pose_trajectory.png",
+          "id": "S4.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/474;",
+          "width": "685",
+          "height": "474",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T3",
+      "text": "Table 3 : Performance comparison of two-view pose estimation (AUC, %) on RE10K, ACID and DL3DV datasets. All NVS models are trained on RE10K with no supervised 3D priors . ∗ \\ast indicates the SPFSplat variant trained with random initialization. Method RE10K ACID DL3DV Rotation Translation Overall Rotation Translation Overall Rotation Translation Overall 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow SfM-based SP + SG 62.7 73.3 42.0 58.5 40.6 56.9 62.3 72.4 38.0 51.6 36.3 50.0 47.8 56.1 40.2 52.6 37.2 49.2 NVS-based SelfSplat 48.7 62.7 19.2 32.8 18.4 31.8 64.5 75.2 26.4 40.5 25.8 39.6 21.0 34.4 8.9 22.4 6.1 16.8 SPFSplat ∗ 54.9 67.7 24.8 40.9 23.9 39.8 50.6 65.3 19.5 36.3 18.2 34.4 16.6 32.7 8.8 12.2 7.1 15.2 NAS3R 69.9 78.4 52.7 66.3 51.0 64.9 66.0 76.6 37.9 51.9 36.4 50.1 38.5 51.8 25.1 42.1 20.5 34.2",
+      "images": []
+    },
+    {
+      "id": "S4.T4",
+      "text": "Method rel ↓ \\downarrow τ \\tau ↑ \\uparrow Supervised MVSplat 0.405 54.0 NoPoSplat 0.508 34.1 Self-Supervised SPFSplat ∗ 0.255 60.3 NAS3R (Ours) 0.206 71.4 Table 4 : Comparison of two-view depth estimation results on BlendedMVS dataset.",
+      "images": []
+    },
+    {
+      "id": "S4.F5",
+      "text": "Figure 5 : Examples of 3D Gaussians and rendered RGB and depth results on RE10K.",
+      "images": [
+        {
+          "src": "2603.27455v2/gs_vis.png",
+          "id": "S4.SS2.g1",
+          "class": "ltx_graphics ltx_centering ltx_figure_panel ltx_img_landscape",
+          "style": "aspect-ratio:425/127;",
+          "width": "425",
+          "height": "127",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T5",
+      "text": "Table 5 : Performance comparison of two-view NVS when using supervised priors . Best and second-best results are highlighted. Method RE10K RE10K → \\rightarrow ACID PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow Supervised NoPoSplat 25.061 0.839 0.161 25.765 0.776 0.199 Self-Supervised PF3plat 21.042 0.739 0.233 20.726 0.610 0.308 SPFSplat 25.484 0.847 0.153 25.965 0.781 0.190 SPFSplatV2 25.693 0.853 0.149 26.220 0.789 0.185 SPFSplatV2-L 25.668 0.855 0.137 26.361 0.796 0.169 NAS3R(MASt3R) 25.814 0.856 0.149 26.492 0.800 0.183 NAS3R(VGGT) 25.888 0.861 0.136 26.663 0.807 0.166",
+      "images": []
+    },
+    {
+      "id": "S4.T6",
+      "text": "Table 6 : Performance comparison of two-view pose estimation when using supervised priors . “-I” indicates using GT intrinsics. Method RE10K RE10K → \\rightarrow ACID 5 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 5 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow SfM-based DUSt3R 33.6 54.1 70.2 11.8 27.9 47.0 MASt3R 28.1 49.4 67.1 13.8 31.2 50.7 VGGT 25.7 47.4 65.8 14.2 30.4 48.6 NVS-based NoPoSplat 57.2 72.8 83.3 33.5 49.7 64.5 PF3plat 18.7 39.8 61.3 6.0 16.5 34.0 SPFSplat 61.7 75.5 84.5 36.4 52.0 66.2 SPFSplatV2 63.8 77.6 86.3 38.7 54.1 67.2 SPFSplatV2-L 64.5 78.0 86.4 37.9 53.9 67.1 NAS3R(MASt3R) 63.8 77.6 86.4 35.8 53.3 67.7 NAS3R(VGGT) 62.4 77.2 86.6 33.6 52.2 67.1 NAS3R-I (MASt3R) 68.3 80.3 87.8 43.8 58.4 70.7 NAS3R-I (VGGT) 67.7 80.3 88.1 44.0 58.4 70.4",
+      "images": []
+    },
+    {
+      "id": "S4.T7",
+      "text": "Table 7 : Performance on NVS and pose estimation (ScanNet++) and depth estimation (BlendedMVS) with increasing training data. Training Data NVS Pose Depth PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow rel ↓ \\downarrow τ \\tau ↑ \\uparrow RE10K 15.146 0.520 0.442 19.2 34.1 0.206 71.4 DL3DV 16.171 0.542 0.431 19.1 33.2 0.175 71.9 RE10K+DL3DV 16.316 0.552 0.420 24.5 41.6 0.145 79.1",
+      "images": []
+    },
+    {
+      "id": "S4.T8",
+      "text": "Table 8 : Performance on novel view synthesis and pose estimation with varying number of input views. Num of Views NVS Pose PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow 5 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow 2 views 23.130 0.764 0.193 32.6 51.0 64.9 3 views 25.384 0.829 0.141 37.9 57.6 72.0 5 views 25.983 0.844 0.131 38.9 58.5 72.8 10 views 27.093 0.872 0.113 41.0 61.0 75.5",
+      "images": []
+    },
+    {
+      "id": "S4.T9",
+      "text": "Table 9 : Self-supervised pretraining improves downstream finetuning. Supervised finetuning from self-supervised pretrained weights (3) outperforms both self-supervised learning (1) and supervised training from scratch (2) on BlendedMVS. Method Depth Pose rel ↓ \\downarrow τ \\tau ↑ \\uparrow 5 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow (1) Self-Supervised (NAS3R) 0.145 79.1 29.8 49.5 66.8 (2) Supervised from scratch 0.177 76.6 10.7 23.5 39.4 (3) Supervised from weights in (1) 0.119 90.0 33.9 54.3 71.3",
+      "images": []
+    },
+    {
+      "id": "Sx2.F6",
+      "text": "Figure 6 : Examples of 3D Gaussians and rendered RGB and depth results on RE10K.",
+      "images": [
+        {
+          "src": "2603.27455v2/supp_gs_vis.png",
+          "id": "Sx2.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/166;",
+          "width": "685",
+          "height": "166",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "Sx2.F7",
+      "text": "Figure 7 : More novel view synthesis qualitative comparisons on DL3DV.",
+      "images": [
+        {
+          "src": "2603.27455v2/supplement_images_dl3dv.png",
+          "id": "Sx2.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:679/222;",
+          "width": "679",
+          "height": "222",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "Sx2.T10",
+      "text": "Table 10 : Ablation on progressive interval curriculum on RE10K. Method NVS Pose PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow 5 ∘ ↑ \\uparrow 10 ∘ ↑ \\uparrow 20 ∘ ↑ \\uparrow No Curriculum 21.020 0.650 0.255 20.3 35.8 50.2 Progressive Interval Curriculum 23.130 0.764 0.193 32.6 51.0 64.9",
+      "images": []
+    },
+    {
+      "id": "Sx2.T11",
+      "text": "Table 11 : Ablation on ground-truth intrinsics on RE10K. Methods w/o priors w/ VGGT priors PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow NAS3R 23.130 0.764 0.193 25.888 0.861 0.136 NAS3R-I 23.144 0.758 0.196 25.872 0.861 0.135",
+      "images": []
+    },
+    {
+      "id": "Sx2.T12",
+      "text": "Table 12 : Comparison with AnySplat on DL3DV dataset. Method Training Data 2 View 5 Views PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow (a) AnySplat DL3DV+8 datasets 16.905 0.514 0.249 21.680 0.694 0.218 (b) NAS3R DL3DV 20.069 0.588 0.281 21.307 0.646 0.240",
+      "images": []
+    },
+    {
+      "id": "Sx2.T13",
+      "text": "Table 13 : Inference efficiency on an NVIDIA A6000 GPU. Methods Params (M) FLOPs (GMac) Time (s) NAS3R (MASt3R) 613.47 404.52 0.042 NAS3R (VGGT) 1223.2 607.65 0.073",
+      "images": []
+    },
+    {
+      "id": "Sx3.F8",
+      "text": "Figure 8 : More novel view synthesis qualitative comparisons on RE10K.",
+      "images": [
+        {
+          "src": "2603.27455v2/supplement_images_re10k.png",
+          "id": "Sx3.F8.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "style": "aspect-ratio:679/851;",
+          "width": "679",
+          "height": "851",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "Sx3.F9",
+      "text": "Figure 9 : More novel view synthesis qualitative comparisons on ACID.",
+      "images": [
+        {
+          "src": "2603.27455v2/supplement_images_acid.png",
+          "id": "Sx3.F9.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "style": "aspect-ratio:679/852;",
+          "width": "679",
+          "height": "852",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

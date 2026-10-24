@@ -14,7 +14,12 @@
       "reading",
       "sources"
     ],
-    "figures": 3
+    "figures": 3,
+    "topics": [
+      "01",
+      "05",
+      "08"
+    ]
   },
   {
     "id": "A06",
@@ -31,7 +36,13 @@
       "reading",
       "sources"
     ],
-    "figures": 4
+    "figures": 4,
+    "topics": [
+      "01",
+      "03",
+      "04",
+      "09"
+    ]
   },
   {
     "id": "A08",
@@ -48,7 +59,12 @@
       "reading",
       "sources"
     ],
-    "figures": 4
+    "figures": 4,
+    "topics": [
+      "01",
+      "04",
+      "09"
+    ]
   },
   {
     "id": "A09",
@@ -65,7 +81,12 @@
       "reading",
       "sources"
     ],
-    "figures": 3
+    "figures": 3,
+    "topics": [
+      "01",
+      "02",
+      "06"
+    ]
   },
   {
     "id": "A10",
@@ -82,7 +103,13 @@
       "reading",
       "sources"
     ],
-    "figures": 5
+    "figures": 5,
+    "topics": [
+      "01",
+      "02",
+      "07",
+      "08"
+    ]
   },
   {
     "id": "A12",
@@ -99,6 +126,363 @@
       "reading",
       "sources"
     ],
-    "figures": 3
+    "figures": 3,
+    "topics": [
+      "01",
+      "04",
+      "08"
+    ]
+  },
+  {
+    "id": "H02",
+    "slug": "moge",
+    "title": "MoGe",
+    "path": "papers/moge.html",
+    "version": "2410.19115v3",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3,
+    "topics": [
+      "02"
+    ]
+  },
+  {
+    "id": "A07",
+    "slug": "pow3r",
+    "title": "Pow3R",
+    "path": "papers/pow3r.html",
+    "version": "2503.17316v1",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3,
+    "topics": [
+      "02",
+      "01"
+    ]
+  },
+  {
+    "id": "B02",
+    "slug": "cut3r",
+    "title": "CUT3R",
+    "path": "papers/cut3r.html",
+    "version": "2501.12387v1",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3,
+    "topics": [
+      "03",
+      "06"
+    ]
+  },
+  {
+    "id": "N07",
+    "slug": "streamvggt",
+    "title": "StreamVGGT",
+    "path": "papers/streamvggt.html",
+    "version": "2507.11539v2",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3,
+    "topics": [
+      "03",
+      "04"
+    ]
+  },
+  {
+    "id": "C02",
+    "slug": "vgg-t3",
+    "title": "VGG-T³",
+    "path": "papers/vgg-t3.html",
+    "version": "2602.23361v1",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "04",
+      "03"
+    ]
+  },
+  {
+    "id": "C03",
+    "slug": "zipmap",
+    "title": "ZipMap",
+    "path": "papers/zipmap.html",
+    "version": "2603.04385v3",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "04",
+      "03"
+    ]
+  },
+  {
+    "id": "A02",
+    "slug": "mast3r",
+    "title": "MASt3R",
+    "path": "papers/mast3r.html",
+    "version": "2406.09756v1",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3,
+    "topics": [
+      "05",
+      "01"
+    ]
+  },
+  {
+    "id": "E01",
+    "slug": "monst3r",
+    "title": "MonST3R",
+    "path": "papers/monst3r.html",
+    "version": "2410.03825v2",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "06",
+      "05"
+    ]
+  },
+  {
+    "id": "N09",
+    "slug": "d4rt",
+    "title": "D4RT",
+    "path": "papers/d4rt.html",
+    "version": "2512.08924v2",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3,
+    "topics": [
+      "06",
+      "01"
+    ]
+  },
+  {
+    "id": "F01",
+    "slug": "pixelsplat",
+    "title": "pixelSplat",
+    "path": "papers/pixelsplat.html",
+    "version": "2312.12337v4",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "07"
+    ]
+  },
+  {
+    "id": "F02",
+    "slug": "mvsplat",
+    "title": "MVSplat",
+    "path": "papers/mvsplat.html",
+    "version": "2403.14627v2",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "07",
+      "05"
+    ]
+  },
+  {
+    "id": "N03",
+    "slug": "croco-v2",
+    "title": "CroCo v2",
+    "path": "papers/croco-v2.html",
+    "version": "2211.10408v3",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "08"
+    ]
+  },
+  {
+    "id": "G02",
+    "slug": "nas3r",
+    "title": "NAS3R",
+    "path": "papers/nas3r.html",
+    "version": "2603.27455v2",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "08",
+      "07"
+    ]
+  },
+  {
+    "id": "G01",
+    "slug": "geometric-understanding",
+    "title": "Geometric Understanding",
+    "path": "papers/geometric-understanding.html",
+    "version": "2512.11508v2",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "09",
+      "01"
+    ]
+  },
+  {
+    "id": "G04",
+    "slug": "geocond",
+    "title": "GeoCond",
+    "path": "papers/geocond.html",
+    "version": "2609.18465v1",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "09",
+      "05"
+    ]
+  },
+  {
+    "id": "H07",
+    "slug": "lrm",
+    "title": "LRM",
+    "path": "papers/lrm.html",
+    "version": "2311.04400v2",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3,
+    "topics": [
+      "10"
+    ]
+  },
+  {
+    "id": "N12",
+    "slug": "instantmesh",
+    "title": "InstantMesh",
+    "path": "papers/instantmesh.html",
+    "version": "2404.07191v2",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "10"
+    ]
   }
 ]
