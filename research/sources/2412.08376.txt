@@ -1,0 +1,1793 @@
+Reloc3r: Large-Scale Training of Relative Camera Pose Regression for Generalizable, Fast, and Accurate Visual Localization
+Skip to main content
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Contents
+Reading mode
+Colour theme
+Abstract
+1 Introduction
+2 Related Work
+3 Method
+3.1 Relative Camera Pose Regression
+3.2 Motion Averaging
+4 Experiments
+4.1 Relative Camera Pose Estimation
+4.2 Visual Localization
+4.3 Analyses
+5 Conclusion
+A Training Details
+B Detailed Ablation Studies
+C More Analyses
+D Additional Comparisons
+E Details for the Compared Methods
+F In-The-Wild Camera Pose Estimations
+References
+License: arXiv.org perpetual non-exclusive license
+arXiv:2412.08376v2 [cs.CV] 21 Mar 2025
+Reloc3r: Large-Scale Training of Relative Camera Pose Regression for Generalizable, Fast, and Accurate Visual Localization
+Siyan Dong
+††thanks: Joint first authors: siyan3d@hku.hk, shuzhe.wang@aalto.fi
+Affiliation: The University of Hong Kong
+Shuzhe Wang11footnotemark:
+1
+Affiliation: Aalto University
+Shaohui Liu
+Affiliation: ETH Zurich
+Lulu Cai
+Affiliation: The University of Hong Kong
+Qingnan Fan
+Affiliation: VIVO
+Juho Kannala
+††thanks: Corresponding authors
+Affiliation: Aalto University
+Affiliation: University of Oulu
+Yanchao Yang22footnotemark:
+2
+Affiliation: The University of Hong Kong
+Abstract
+Visual localization aims to determine the camera pose of a query image relative to a database of posed images. In recent years, deep neural networks that directly regress camera poses have gained popularity due to their fast inference capabilities. However, existing methods struggle to either generalize well to new scenes or provide accurate camera pose estimates. To address these issues, we present Reloc3r, a simple yet effective visual localization framework. It consists of an elegantly designed relative pose regression network, and a minimalist motion averaging module for absolute pose estimation. Trained on approximately eight million posed image pairs, Reloc3r achieves surprisingly good performance and generalization ability. We conduct extensive experiments on six public datasets, consistently demonstrating the effectiveness and efficiency of the proposed method. It provides high-quality camera pose estimates in real time and generalizes to novel scenes. Code: https://github.com/ffrivera0/reloc3r.
+1 Introduction
+Figure 1:
+Comparison of pose accuracy and runtime efficiency.
+We report the AUC@5 and image pairs per second (FPS) on the ScanNet1500 [26, 80] dataset.
+We provide two versions of Reloc3r: one trained and tested on image widths of 512, and another on 224. The proposed Reloc3r-512 outperforms all other methods, achieving the best AUC@5 while maintaining an efficiency of 24 FPS. Remarkably, even at 224 resolution, our method matches ROMA [34] in accuracy while being 20 \times faster.
+Visual localization, also known as camera re-localization, is a key challenge in computer vision, robotics, and graphics. It’s crucial for many applications, including augmented reality and robot navigation. The process involves registering new query images to a database of posed images or 3D models. This is typically done by estimating 6-degree-of-freedom (6-DoF) camera poses within a world coordinate system defined by the database.
+Traditional visual localization approaches rely on structure-from-motion (SfM) techniques [88, 27, 80] to reconstruct 3D models. These methods [84, 72, 33, 76, 80, 95, 60, 112, 37, 109] match pixels from query images to 3D scene points, then use geometric optimization [36, 38, 47, 79, 81] to solve camera poses. While renowned for their high localization accuracy, these approaches often struggle with inefficiencies at test time, which limits their scalability for real-time applications.
+Scene coordinate regression approaches [15, 13, 53, 54, 14, 30, 16] provide an alternative perspective on pixel-to-point correspondences. These methods use neural networks to learn implicit scene representations, which are then used to infer dense correspondences. However, most of them face limitations in generalization. Moreover, these methods often require intensive supervision, such as ground-truth keypoint matches or 3D point maps, making it challenging to scale up the training data.
+Absolute pose regression (APR) approaches [42, 103, 43, 70, 117, 66, 18, 104, 89, 124, 90] directly regress camera poses from images, offering much faster inference times and high accuracy. However, most of these methods are inherently scene-specific and typically require dense viewpoint coverage during training, limiting their real-world applicability. Recent attempts [69, 20, 21, 58, 22] to enhance accuracy through synthetic data generation introduce significant computational overhead, hampering widespread deployment.
+In contrast, relative pose regression (RPR) approaches [49, 7, 35, 1, 4, 49, 129, 116] estimate relative poses between database-query image pairs. These methods mitigate the need for per-scene training while maintaining the test-time efficiency of APR models.
+However, even the most advanced RPR methods [29, 101, 116, 4] have not yet matched APR approaches in localization accuracy. While several RPR methods [49, 101, 116, 4] have shown the ability to generalize across different datasets, this often results in further reduced camera pose accuracy.
+Therefore, most of the aforementioned approaches struggle with one of the following three criteria: novel-scene generalization, test-time efficiency, and camera pose accuracy.
+To address these challenges, we present Reloc3r (pronounced “\textiparI”loUk@r”), a simple yet surprisingly effective visual localization framework. It draws inspiration from recent foundation models [46, 73, 63, 6, 111, 51, 98, 108]. These models, utilizing scalable network architectures (such as Transformers [32, 40]) and large-scale training, demonstrate strong performance and exceptional generalization across various tasks. This success motivates our exploration of a similar methodology for pose estimation. We adopt architecture from DUSt3R [111] as the backbone, applying parsimonious and elegant modifications to build a relative pose regression network. The network is designed to be fully symmetric and disregards the metric scale of relative poses during training. We then integrate this with a minimalist motion averaging module to estimate absolute poses, resulting in the Reloc3r framework. To unleash the power of large-scale training, we processed around eight million image pairs from diverse public sources, spanning object-centric, indoor, and outdoor scenes. Experimentally, Reloc3r demonstrates superior performance across six well-known pose estimation datasets, benefiting from its simple architecture and large-scale training. Our key contributions can be summarized as follows:
+•
+We introduce Reloc3r, a simple yet surprisingly effective visual localization framework. It enables excellent generalization to novel scenes, fast test-time efficiency, and high camera pose accuracy.
+•
+Both the proposed fully symmetric relative pose regression network and the motion averaging module follow the principle of parsimony. This streamlined approach enables efficient large-scale training.
+•
+Comprehensive experiments across six popular evaluation datasets consistently demonstrate the effectiveness of our proposed approach.
+2 Related Work
+Structure-based visual localization.
+The structure-based localization pipeline is a well-established approach to solving camera pose via multi-view geometry [38]. Modern methods [55, 82, 83, 125, 84, 85, 96, 86, 41, 129, 81, 72, 120, 37, 109, 64] typically consist of two main steps: 1) establishing correspondences either between images or between pixels and a pre-built 3D model, and 2) robustly solving the camera pose from noisy correspondences.
+These correspondences are obtained through keypoint matching [65, 2, 27, 33, 76, 80, 95, 112, 60, 34, 51] or scene coordinate regression [15, 13, 53, 119, 54, 14, 97, 30, 16, 110]. Robust estimators [36, 25, 50, 8, 10, 11, 9, 48] are then applied to estimate the final camera pose. Though effective, these methods often have slow inference times, which limits their use in real-time applications.
+Recent efficiency-oriented variants [60, 112] have been proposed to speed up the matching process. However, the complex system design and high computational cost of robust estimation remain bottlenecks. These methods typically require ground-truth correspondences or 3D point maps for supervision, limiting their scalability for large-scale training. To address these challenges, we choose a straightforward camera pose regression approach. This method allows for efficient large-scale training while simplifying the system, resulting in a faster and more scalable visual localization solution.
+Camera pose regression.
+End-to-end pose regression [44, 42, 103, 43, 70, 117, 66, 18, 104, 89, 124, 90, 87, 69, 20, 21, 58, 22, 23, 49, 7, 35, 1, 4, 129, 116, 78, 29, 101] has gained popularity due to its real-time inference capabilities. These methods fall into two broad categories: absolute pose regression (APR) and relative pose regression (RPR).
+APR approaches directly regress camera positions and orientations in the world coordinate system from images within milliseconds. Despite their simplicity, these methods fall short of the localization accuracy achieved by structure-based approaches and often resemble pose approximation through image retrieval [87]. To improve the accuracy of APR, some methods [69, 21, 22, 58] resort to novel view synthesis [67] to create dense viewpoints for training. While being effective, this strategy introduces significant computational costs, with training taking hours or days for each specific scene.
+More recent approach [23] attempts to reduce training time to minutes by building the connection between pose regressor and scene-specific maps.
+However, it is still limited to per-scene training and evaluation.
+RPR approaches aim to generalize across different scenes by learning the relative pose between image pairs. Localization is achieved by regressing the relative pose between the query image and the most similar (or top- K ) database images. The metric scale of the relative translation can be estimated approximately from a single database-query pair [7, 35, 1, 4], while more precise absolute positioning is possible through multi-view triangulation [49, 129, 116, 31]. Despite this capability, the best RPR methods [29, 129, 116, 4, 45] lag significantly behind APR methods. Furthermore, the generalization ability of existing RPR models remains limited. For instance, methods like Relative PN [49] and Relpose-GNN [101] can adapt to new datasets and scenes, but their localization errors nearly double in these scenarios.
+Map-free [4], despite being trained on large datasets (about 523K samples), still relies on separate models for indoor and outdoor settings.
+Other approaches explore multi-view pose estimation [118, 127, 106, 57, 128], as well as wide-baseline [77] and panoramic methods [100].
+However, they remain dataset-specific training, which limits their scalability.
+Previous methods have largely focused on technical design rather than scaling training on larger and more diverse datasets. In this paper, we present the first pose regression approach trained on a diverse mixture of object-centric, indoor, and outdoor datasets.
+Contrary to prior work [129] suggesting that pose regression inaccuracies stem from coarse feature localization, we find that a well-trained patch-level regression network can achieve, and sometimes even surpass the performance of pixel-level feature matching.
+Foundation Models.
+Large neural network models have advanced significantly due to the scalability of the Transformer architecture [102]. This architecture underpins both large language models [28, 71, 99, 24, 5, 68] and large vision models [32, 46, 73, 6, 74, 63, 98]. These foundation models, trained on large-scale datasets, have proven effective and demonstrate strong generalization capabilities across diverse tasks. Recently, DUSt3R [111] introduces the first 3D foundation model capable of addressing nearly all tasks related to two-view geometry. Its architecture has been adapted and fine-tuned in numerous follow-up works [51, 92, 105, 126, 122] to enhance performance in various downstream tasks. In our work, we adopt DUSt3R’s Transformer backbone to develop Reloc3r, but featuring a fully symmetric design. We will discuss the benefits of this symmetric architecture in the following section.
+3 Method
+Figure 2:
+Reloc3r consists of two modules: a relative camera pose regression network (Sec. 3.1) and a motion averaging module (Sec. 3.2).
+Given a pair of input images, the network module infers the relative camera pose (at an unknown scale) between them. This module consists of a two-branch Vision Transformer (ViT) with shared weights. The images are divided into patches, converted to tokens, and embedded as latent features through separate encoders. Decoders then exchange information between the two sets of latent features. Each head aggregates its latent features to estimate a relative camera pose. To determine the absolute camera pose of a query image relative to a database, we retrieve at least two database-query pairs. These pairs are first processed by the network for relative pose estimation. Subsequently, the motion averaging module computes the absolute metric pose by aggregating the relative estimates.
+Problem statement.
+Given a database \textbf{D}=\{I_{d_{n}}\in\mathbb{R}^{H\times W\times 3}\ |\ n=1,...,N\} of posed images from a scene, and a query image I_{q} from the same scene, the task of visual localization is to estimate the 6-DoF camera pose P\in\mathbb{R}^{3\times 4} that can register I_{q} to the world coordinate system defined by the database images. P is represented by camera rotation R\in\mathbb{R}^{3\times 3} and translation t\in\mathbb{R}^{3} .
+Method overview.
+Figure 2 illustrates an overview of the proposed visual localization method. It comprises two main components: a relative pose regression network, and a motion averaging module. The query image I_{q} is paired with the top- K database images using an off-the-shelf image retrieval approach [3], creating a set of image pairs \textbf{Q}=\{(I_{d_{k}},I_{q})\ |\ k=1,...,K\} . The relative pose regression network processes each image pair from Q independently to determine their relative poses P_{d,q} and P_{q,d} .
+With known poses of database images \{\hat{P}{d_{1}},...,\hat{P}{d_{K}}\} , it is possible to infer the query image’s absolute rotation from a single pair. However, these estimates can be noisy, and the translation vector’s metric scale remains uncertain. To tackle these issues, a motion averaging module performs rotation averaging and camera center triangulation, eventually producing the absolute metric pose of the query image.
+In Sec. 3.1, we provide a detailed description of the pose regression model. This model leverages a unified Vision Transformer (ViT) [32] architecture with minimal modifications. The motion averaging module discussed in Sec. 3.2 also takes a minimalist approach. It performs simple rotation averaging and camera center triangulation, without any trainable parameters involved.
+3.1 Relative Camera Pose Regression
+The proposed relative camera pose regression network, inspired by DUSt3R [111], takes an image pair I_{1},I_{2} as input. While we assume the images have the same resolution (consistent with DUSt3R), their resolutions may differ in practice. The network divides the images into patches and processes them as tokens through a Vision Transformer (ViT) encoder. A ViT decoder [113, 114] then uses a cross-attention mechanism to exchange information between tokens from both branches. This is followed by regression heads that predict the relative poses \hat{P}_{I_{1},I_{2}} and \hat{P}_{I_{2},I_{1}} . The two branches are fully symmetrical with shared weights.
+ViT encoder-decoder architecture.
+The two modules resemble those of DUSt3R and gain substantial benefits from pre-training. We begin by dividing each input image I_{i} into a sequence of T tokens, each with dimension d . Next, we compute RoPE positional embeddings [94] for each token to encode their relative spatial positions within the image. Then, we process the tokens through m ViT encoder blocks, each comprising self-attention and feed-forward layers, to produce encoded feature tokens F_{1} and F_{2} :
+|
+| F_{i}^{(T\times d)}=\text{Encoder}(\text{Patchify}(I_{i}^{(H\times W\times 3)})),\ \text{where }i=1,2.
+|
+The decoder comprises n ViT decoder blocks, each using the same RoPE position embedding. Unlike the encoder block, each decoder block incorporates an additional cross-attention layer between its self-attention and feed-forward layers. This structure enables the model to reason the spatial relationship between two sets of feature tokens.
+We obtain decoded tokens as:
+|
+| \displaystyle G_{1}^{(T\times d)}
+| \displaystyle=\text{Decoder}(F_{1}^{(T\times d)},F_{2}^{(T\times d)}),
+|
+|
+| \displaystyle G_{2}^{(T\times d)}
+| \displaystyle=\text{Decoder}(F_{2}^{(T\times d)},F_{1}^{(T\times d)}).
+|
+Pose regression head.
+Following recent research [23], our pose regression head comprises h feed-forward layers followed by average pooling, with additional layers to regress relative rotation and translation. The rotation is initially represented using a 9D representation [52]. It is then converted into a 3 \times 3 rotation matrix using SVD orthogonalization. This matrix is concatenated with the 3D translation vector to form the final transformation matrix.
+The final output for the relative pose is:
+|
+| \hat{P}_{I_{1},I_{2}}^{(3\times 4)}=\text{Head}(G_{1}^{(T\times d)}),\ \ \ \hat{P}_{I_{2},I_{1}}^{(3\times 4)}=\text{Head}(G_{2}^{(T\times d)}).
+|
+Supervision signal.
+The predicted pose by our network conveys two pieces of information: 1) rotation, which measures the relative change in orientation, and 2) translation, which indicates the relative direction of camera center movement. Both of these quantities can be expressed as relative angles. Consequently, we train the network by minimizing the difference between these predicted relative angles and their ground-truth:
+\mathcal{L}=\ell_{R}+\ell_{t} , where
+|
+| \ell_{R}=\text{arccos}(\frac{\text{tr}(\hat{R}^{-1}R)-1}{2}),\ell_{t}=\text{arccos}(\frac{\hat{t}\cdot t}{\lVert\hat{t}\rVert\lVert t\rVert}).
+|
+Here, tr( \cdot ) denotes the trace of a matrix. \hat{R} and \hat{t} represent the predicted rotation and translation, while R and t represent their respective ground-truth values.
+Discussion.
+Unlike DUSt3R’s asymmetric branches for coordinate alignment, we use a fully symmetric architecture, which is inherently more suitable for relative pose estimation. This design eliminates biases from image ordering, thereby simplifying training. It also allows weight sharing across branches, reducing computational complexity and storage requirements.
+Recent works [116, 4] on relative pose regression prefer learning a metric pose. In contrast, we choose to learn only the direction of translation, as motion averaging can effectively solve the metric scale (discussed in the next section). This approach represents translations as angles in the same dimension as rotations, eliminating the need to weight rotation and translation values during training. It also avoids the challenge of balancing different dataset metric scales.
+3.2 Motion Averaging
+To maintain efficiency and simplicity, we integrate our pose regression network with a minimalist motion averaging module. Given the high accuracy of the network’s predictions, we don’t apply any robust estimation [36, 19, 115, 131, 31]. For each image pair, the regression network produces two relative poses: \hat{P}_{I_{1},I_{2}} and \hat{P}_{I_{2},I_{1}} , which ideally should be inverses of each other. Empirically, we observe similar accuracy for both poses. By default, we use the transformation that maps the query to the database as input for motion averaging. The module processes rotation and translation separately, as detailed below.
+Rotation avgeraging.
+Given a relative rotation estimation \hat{R}_{q,d_{i}} from a database-query pair, the absolute rotation is computed as \hat{R}_{q}=R_{d_{i}}\hat{R}_{q,{d_{i}}} . The motion averaging module reduces prediction noise by aggregating absolute rotation estimates from all available pairs. This aggregation is efficiently performed by calculating the mean rotation using quaternion representations [129]. We have observed that calculating the median rotation can further enhance robustness against noise, with minimal additional computational cost. Consequently, we use the median rotation as our final rotation estimation.
+Camera center triangulation.
+The absolute camera center can be triangulated [39] from two database-query pairs. Similar to rotation averaging, we calculate an average intersection using all valid pairs. While the geometric median of the intersection is not analytically solvable and typically requires iterative optimization, we opt for a more efficient approach.
+We use a simple least-squares method that minimizes the sum of squared distances from the camera center to each translation direction derived from relative pose estimates. The solution is obtained through Singular Value Decomposition (SVD).
+4 Experiments
+In this section, we first introduce our training data and implementation details, then evaluate our method across multiple datasets. In Sec. 4.1, we verify our network’s performance on the relative pose estimation task. In Sec. 4.2, we evaluate our full method on the visual localization task. Finally, we conduct ablation studies and analyses in Sec. 4.3.
+It’s worth noting that our method is trained once for all experiments, meaning all evaluations use the same model, except for the ablation studies.
+Training data.
+To build up-to-scale training pairs with ground-truth relative poses, similar to DUSt3R [111], we process around eight million image pairs from seven public datasets.
+The statistics are reported in Table 1.
+We convert the ground-truth relative poses to a unified format: relative coordinate transformation aligned with the OpenCV [17] definition. Each image is center-cropped based on its principal points and resized to a width of 512 pixels.
+| Datasets
+| Scene type
+| Number of image pairs
+| CO3Dv2 [75]
+| Object-centric
+| \sim 1M
+| ScanNet++ [123]
+| Indoor
+| \sim 850K
+| ARKitScenes [12]
+| Indoor
+| \sim 2.1M
+| BlendedMVS [121]
+| Outdoor
+| \sim 1M
+| MegaDepth [56]
+| Outdoor
+| \sim 1.8M
+| DL3DV [61]
+| Indoor & outdoor
+| \sim 1.1M
+| RealEstate10K [130]
+| Indoor & outdoor
+| \sim 100K
+Table 1:
+Training data of Reloc3r. It comprises about eight million image pairs from seven public sources, covering a wide range of scenes from object-centric to indoor and outdoor environments.
+Implementation details.
+By default, the proposed Reloc3r uses m=24 encoder blocks, n=12 decoder blocks, followed by the pose regression head with h=2 convolutional layers. To improve memory usage and speed in self and cross-attention, we employ memory-efficient attention. This design achieves approximately a 14% speed increase while saving 25% of GPU memory during training. We initialize Reloc3r with DUSt3R’s pre-trained 512-DPT weights. For decoder initialization, we use the weights from DUSt3R decoder2, as it’s pre-trained to perform coordinate transformation. The full model is trained on 8 AMD MI250x-40G GPUs with a batch size of 8 and a learning rate starting at 1e-5, decaying to 1e-7.
+For the visual localization task, following the literature [79, 101], we apply NetVLAD [3] for image retrieval and use the top 10 similar image pairs. We directly use these retrieved image pairs without distance-based clustering, filtering, or other heuristics to enhance their spatial distribution. All evaluations are conducted on a 24GB NVIDIA GeForce RTX 4090 GPU and we use mixed precision fp16 / fp32 to improve speed and memory efficiency without sacrificing accuracy.
+4.1 Relative Camera Pose Estimation
+|
+| Methods
+| RRA@15
+| RTA@15
+| mAA@30
+|
+Non-PR
+| PixSfM [59]
+| 33.7
+| 32.9
+| 30.1
+| RelPose [127]
+| 57.1
+| -
+| -
+| PoseDiffusion [106]
+| 80.5
+| 79.8
+| 66.5
+| RelPose++ [57]
+| 82.3
+| 77.2
+| 65.1
+| RayDiffusion* [128]
+| 93.3
+| -
+| -
+| VGGSfM [107]
+| 92.1
+| 88.3
+| 74.0
+| DUSt3R (w/ PnP) [111]
+| 94.3
+| 88.4
+| 77.2
+| MASt3R [51]
+| 94.6
+| 91.9
+| 81.1
+|
+PR
+| PoseReg [106]
+| 53.2
+| 49.1
+| 45.0
+| RayReg* [128]
+| 89.2
+| -
+| -
+| Reloc3r-224 (Ours)
+| 93.6
+| 91.9
+| 79.1
+| Reloc3r-512 (Ours)
+| 95.8
+| 93.7
+| 82.9
+Table 2:
+Relative pose evaluation (multi-view) on the CO3Dv2 dataset [75].
+The best results for each method category are highlighted in bold.
+The underlined numbers indicate that our method achieves the best performance among all competitors. The methods marked with * donate evaluation on 8 frames.
+|
+| Methods
+| ScanNet1500
+| RealEstate10K
+| ACID
+| Inference time
+|
+| AUC@5
+| AUC@10
+| AUC@20
+| AUC@5
+| AUC@10
+| AUC@20
+| AUC@5
+| AUC@10
+| AUC@20
+|
+Non-PR
+| Efficient LoFTR [112]
+| 19.20
+| 37.00
+| 53.60
+| -
+| -
+| -
+| -
+| -
+| -
+| 40 ms
+| ROMA [34]
+| 28.90
+| 50.40
+| 68.30
+| 54.60
+| 69.80
+| 79.70
+| 46.30
+| 58.80
+| 68.90
+| 300 ms
+| DUSt3R [111]
+| 23.81
+| 45.91
+| 65.57
+| 39.70
+| 56.88
+| 70.43
+| 21.50
+| 35.95
+| 49.70
+| 441 ms
+| MASt3R [51]
+| 28.01
+| 50.24
+| 68.83
+| 63.54
+| 76.39
+| 84.50
+| 52.12
+| 64.54
+| 73.61
+| 294 ms
+| NoPoSplat [122]
+| 31.80
+| 53.80
+| 71.70
+| 69.10
+| 80.60
+| 87.70
+| 48.60
+| 61.70
+| 72.80
+| > 2000 ms
+|
+PR
+| Map-free (Regress-SN) [4]
+| 1.84
+| 8.75
+| 25.33
+| 0.83
+| 4.06
+| 13.97
+| 1.32
+| 5.82
+| 16.28
+| 10 ms
+| Map-free (Regress-MF) [4]
+| 0.50
+| 3.48
+| 13.15
+| 1.61
+| 6.74
+| 18.38
+| 2.57
+| 9.96
+| 24.50
+| 10 ms
+| ExReNet (SN) [116]
+| 2.30
+| 10.71
+| 26.13
+| 2.17
+| 7.94
+| 20.43
+| 1.90
+| 7.53
+| 18.69
+| 17 ms
+| ExReNet (SUNCG) [116]
+| 1.61
+| 7.00
+| 18.03
+| 3.27
+| 12.06
+| 27.85
+| 4.14
+| 13.43
+| 27.70
+| 17 ms
+| Reloc3r-224 (Ours)
+| 28.34
+| 52.60
+| 71.56
+| 59.70
+| 75.05
+| 84.71
+| 28.25
+| 47.34
+| 62.54
+| 15 ms
+| Reloc3r-512 (Ours)
+| 34.79
+| 58.37
+| 75.56
+| 66.70
+| 80.20
+| 88.39
+| 38.18
+| 56.39
+| 70.34
+| 25 ms
+Table 3:
+Relative camera pose evaluation on the ScanNet1500 [26, 80], RealEstate10K [130] and ACID [62] datasets.
+The best results for each method category are highlighted in bold.
+Our method outperforms all the pose regression competitors. Moreover, it achieves the best results (underlined) among all the competitors on several datasets and metrics. Notably, our method runs in real-time, which is over 50\times faster than the state-of-the-art Non-PR method.
+Please refer to Figure 1 for an intuitive comparison with representative methods.
+|
+| Methods
+| Chess
+| Fire
+| Heads
+| Office
+| Pumpkin
+| RedKitchen
+| Stairs
+| Average
+| Dataset-specific
+|
+| training time
+|
+APR
+| LENS [69]
+| 0.03 / 1.30
+| 0.10 / 3.70
+| 0.07 / 5.80
+| 0.07 / 1.90
+| 0.08 / 2.20
+| 0.09 / 2.20
+| 0.14 / 3.60
+| 0.08 / 3.00
+| Days / scene
+| PMNet [58]
+| 0.03 / 1.26
+| 0.04 / 1.76
+| 0.02 / 1.68
+| 0.06 / 1.69
+| 0.07 / 1.96
+| 0.08 / 2.23
+| 0.11 / 2.97
+| 0.06 / 1.93
+| Days / scene
+| DFNet [21]+NeFeS [22]
+| 0.02 / 0.57
+| 0.02 / 0.74
+| 0.02 / 1.28
+| 0.02 / 0.56
+| 0.02 / 0.55
+| 0.02 / 0.57
+| 0.05 / 1.28
+| 0.02 / 0.79
+| Days / scene
+| Marepo [23]
+| 0.02 / 1.24
+| 0.02 / 1.39
+| 0.02 / 2.03
+| 0.03 / 1.26
+| 0.04 / 1.48
+| 0.04 / 1.71
+| 0.06 / 1.67
+| 0.03 / 1.54
+| 15min / scene
+|
+RPR (Seen)
+| EssNet (7S) [129]
+| -
+| -
+| -
+| -
+| -
+| -
+| -
+| 0.22 / 8.03
+| Hours
+| Relative PN (7S) [49]
+| 0.13 / 6.46
+| 0.26 / 12.72
+| 0.14 / 12.34
+| 0.21 / 7.35
+| 0.24 / 6.35
+| 0.24 / 8.03
+| 0.27 / 11.82
+| 0.21 / 9.30
+| Hours
+| NC-EssNet (7S) [129]
+| -
+| -
+| -
+| -
+| -
+| -
+| -
+| 0.21 / 7.50
+| Hours
+| RelocNet (7S) [7]
+| 0.12 / 4.14
+| 0.26 / 10.4
+| 0.14 / 10.5
+| 0.18 / 5.32
+| 0.26 / 4.17
+| 0.23 / 5.08
+| 0.28 / 7.53
+| 0.21 / 6.73
+| Hours
+| Relpose-GNN [101]
+| 0.08 / 2.70
+| 0.21 / 7.50
+| 0.13 / 8.70
+| 0.15 / 4.10
+| 0.15 / 3.50
+| 0.19 / 3.70
+| 0.22 / 6.50
+| 0.16 / 5.20
+| Hours
+| AnchorNet [78]
+| 0.06 / 3.89
+| 0.15 / 10.3
+| 0.08 / 10.9
+| 0.09 / 5.15
+| 0.10 / 2.97
+| 0.08 / 4.68
+| 0.10 / 9.26
+| 0.09 / 6.74
+| Hours
+| CamNet [29]
+| 0.04 / 1.73
+| 0.03 / 1.74
+| 0.05 / 1.98
+| 0.04 / 1.62
+| 0.04 / 1.64
+| 0.04 / 1.63
+| 0.04 / 1.51
+| 0.04 / 1.69
+| Hours
+|
+RPR (Unseen)
+| EssNet (CL) [129]
+| -
+| -
+| -
+| -
+| -
+| -
+| -
+| 0.57 / 80.06
+| None
+| NC-EssNet (CL) [129]
+| -
+| -
+| -
+| -
+| -
+| -
+| -
+| 0.48 / 32.97
+| None
+| Relative PN (U) [49]
+| 0.31 / 15.05
+| 0.40 / 19.00
+| 0.24 / 22.15
+| 0.38 / 14.14
+| 0.44 / 18.24
+| 0.41 / 16.51
+| 0.35 / 23.55
+| 0.36 / 18.38
+| None
+| RelocNet (SN) [7]
+| 0.21 / 10.9
+| 0.32 / 11.8
+| 0.15 / 13.4
+| 0.31 / 10.3
+| 0.40 / 10.9
+| 0.33 / 10.3
+| 0.33 / 11.4
+| 0.29 / 11.3
+| None
+| ImageNet+NCM [129] \dagger
+| -
+| -
+| -
+| -
+| -
+| -
+| -
+| 0.19 / 4.30
+| None
+| Map-free (Match) [4] \dagger
+| 0.10 / 2.93
+| 0.12 / 4.95
+| 0.11 / 5.40
+| 0.12 / 3.01
+| 0.16 / 3.19
+| 0.14 / 3.45
+| 0.21 / 4.50
+| 0.14 / 3.92
+| None
+| Map-free (Regress) [4]
+| 0.09 / 2.66
+| 0.13 / 4.54
+| 0.11 / 4.81
+| 0.11 / 2.77
+| 0.16 / 3.11
+| 0.14 / 3.48
+| 0.18 / 4.70
+| 0.13 / 3.72
+| None
+| ExReNet (SN) [116]
+| 0.06 / 2.15
+| 0.09 / 3.20
+| 0.04 / 3.30
+| 0.07 / 2.17
+| 0.11 / 2.65
+| 0.09 / 2.57
+| 0.33 / 7.34
+| 0.11 / 3.34
+| None
+| ExReNet (SUNCG) [116]
+| 0.05 / 1.63
+| 0.07 / 2.54
+| 0.03 / 2.71
+| 0.06 / 1.75
+| 0.07 / 2.04
+| 0.07 / 2.10
+| 0.19 / 4.87
+| 0.08 / 2.52
+| None
+| Reloc3r-224 (Ours)
+| 0.03 / 0.99
+| 0.04 / 1.13
+| 0.02 / 1.23
+| 0.05 / 0.88
+| 0.07 / 1.14
+| 0.05 / 1.23
+| 0.12 / 2.25
+| 0.05 / 1.26
+| None
+| Reloc3r-512 (Ours)
+| 0.03 / 0.88
+| 0.03 / 0.81
+| 0.01 / 0.95
+| 0.04 / 0.88
+| 0.06 / 1.10
+| 0.04 / 1.26
+| 0.07 / 1.26
+| 0.04 / 1.02
+| None
+Table 4:
+Visual localization results on the 7 Scenes dataset [91].
+We report median pose errors in meters and degrees.
+The best results for each method category are highlighted in bold.
+The underlined numbers indicate where Reloc3r outperforms all competitors.
+The methods marked with \dagger indicate hybrid pose estimation, which combines additional geometric solvers with feature matching.
+|
+| Methods
+| GreatCourt
+| KingsCollege
+| OldHospital
+| ShopFacade
+| StMarysChurch
+| Average (4)
+| Average
+| Dataset-specific
+|
+| training time
+|
+APR
+| LENS [69]
+| -
+| 0.33 / 0.50
+| 0.44 / 0.90
+| 0.27 / 1.60
+| 0.53 / 1.60
+| 0.39 / 1.20
+| -
+| Days / scene
+| PMNet [58]
+| -
+| 0.31 / 0.55
+| 0.44 / 0.79
+| 0.17 / 0.86
+| 0.31 / 0.96
+| 0.31 / 0.79
+| -
+| Days / scene
+| DFNet [21]+NeFeS [22]
+| -
+| 0.37 / 0.54
+| 0.52 / 0.88
+| 0.15 / 0.53
+| 0.37 / 1.14
+| 0.35 / 0.77
+| -
+| Days / scene
+|
+RPR (Seen)
+| EssNet (CL) [129]
+| -
+| -
+| -
+| -
+| -
+| 1.08 / 3.41
+| -
+| Hours
+| Relpose-GNN [101]
+| 3.20 / 2.20
+| 0.48 / 1.00
+| 1.14 / 2.50
+| 0.48 / 2.50
+| 1.52 / 3.20
+| 0.91 / 2.30
+| 1.37 / 2.30
+| Hours
+| NC-EssNet (CL) [129]
+| -
+| -
+| -
+| -
+| -
+| 0.85 / 2.82
+| -
+| Hours
+| AnchorNet [78]
+| -
+| 0.57 / 0.88
+| 1.21 / 2.55
+| 0.52 / 2.27
+| 1.04 / 2.69
+| 0.84 / 2.10
+| -
+| Hours
+|
+RPR (Unseen)
+| EssNet (7S) [129]
+| -
+| -
+| -
+| -
+| -
+| 10.36 / 85.75
+| -
+| None
+| NC-EssNet (7S) [129]
+| -
+| -
+| -
+| -
+| -
+| 7.98 / 24.35
+| -
+| None
+| Map-free (Match) [4] \dagger
+| 9.09 / 5.33
+| 2.51 / 3.11
+| 3.89 / 6.44
+| 1.04 / 3.61
+| 3.00 / 6.14
+| 2.61 / 4.83
+| 3.90 / 4.93
+| None
+| Map-free (Regress) [4]
+| 8.40 / 4.56
+| 2.44 / 2.54
+| 3.73 / 5.23
+| 0.97 / 3.17
+| 2.91 / 5.10
+| 2.51 / 4.01
+| 3.69 / 4.12
+| None
+| ExReNet (SN) [116]
+| 10.97 / 6.52
+| 2.48 / 2.92
+| 3.47 / 3.90
+| 0.90 / 3.27
+| 2.60 / 4.98
+| 2.36 / 3.77
+| 4.08 / 4.32
+| None
+| ExReNet (SUNCG) [116]
+| 9.79 / 4.46
+| 2.33 / 2.48
+| 3.54 / 3.49
+| 0.72 / 2.41
+| 2.30 / 3.72
+| 2.22 / 3.03
+| 3.74 / 3.31
+| None
+| ImageNet+NCM [129] \dagger
+| -
+| -
+| -
+| -
+| -
+| 0.83 / 1.36
+| -
+| None
+| Reloc3r-224 (Ours)
+| 1.71 / 0.94
+| 0.47 / 0.41
+| 0.87 / 0.66
+| 0.18 / 0.53
+| 0.41 / 0.73
+| 0.48 / 0.58
+| 0.73 / 0.65
+| None
+| Reloc3r-512 (Ours)
+| 1.22 / 0.73
+| 0.42 / 0.36
+| 0.62 / 0.55
+| 0.13 / 0.58
+| 0.34 / 0.58
+| 0.38 / 0.52
+| 0.55 / 0.56
+| None
+Table 5:
+Visual localization results on the Cambridge Landmarks [44].
+We report median pose errors in meters and degrees.
+The best results for each method category are highlighted in bold.
+The underlined numbers indicate where Reloc3r outperforms all competitors.
+The methods marked with \dagger indicate hybrid pose estimation, which combines additional geometric solvers with feature matching.
+Figure 3:
+We visualize pose estimates for two scenes: Chess from the 7 Scenes dataset [91] and KingsCollege from Cambridge Landmarks [44]. We compare Reloc3r’s results with those of the most closely related RPR methods: ExReNet [116] and Map-free [4]. We can observe that Reloc3r’s pose estimates align more closely with the ground-truth poses.
+In this section, we evaluate Reloc3r’s relative pose regression module. Our evaluation covers two scenarios: pair-wise relative pose on ScanNet1500 [26, 80], RealEstate10K [130], and ACID [62] datasets, as well as multi-view relative pose on Co3dv2 [75] dataset.
+Pair-wise relative pose.
+Following recent research [122], we evaluate pair-wise relative pose on three datasets: ScanNet1500 [26, 80], RealEstate10K [130], and ACID [62]. These datasets showcase a variety of indoor and outdoor scenes captured with diverse camera trajectories. ScanNet1500 [26, 80] focuses on indoor scenes, RealEstate10K [130] covers both indoor and outdoor environments, and ACID [62] is an aerial outdoor dataset. Importantly, our evaluation test sets do not overlap with scenes in our training data, and ACID remains entirely unseen by Reloc3r during training. Following previous research [80, 95, 112], we employ three metrics: AUC@5/10/20. These metrics calculate the area under the curve of pose accuracy using thresholds of \tau=5/10/20 degrees for the minimum of rotation and translation angular errors.
+Since no existing pose regression (PR) methods have been specifically designed for these datasets, we primarily compare our approach with non-PR methods. Additionally, we evaluate the current state-of-the-art relative pose regression methods, ExReNet [116, 93] and Map-free [4], on these datasets.
+The results are presented in Table 3. Reloc3r outperforms other PR methods by a significant margin across all three datasets. When compared to non-PR methods,
+Reloc3r also achieves SoTA performance.
+Specifically, on the ScanNet1500 dataset, Reloc3r delivers top performance with AUC at all thresholds, outperforming its baseline DUSt3R [111] by around 13% on AUC@20.
+On the RealEstate10K dataset, Reloc3r achieves performance comparable to NoPoSplat [122], with AUC values of 66.70 / 80.20 / 88.39% at thresholds of 5, 10, and 20, respectively.
+Similarly, on the ACID dataset, Reloc3r achieves high accuracy (AUC@20 = 70.34%), demonstrating its generalization ability to unseen datasets.
+Furthermore, Reloc3r runs at an inference time of just 42 ms at an image resolution of 512 in width. This is significantly faster than many non-PR methods such as NoPoSplat [122] ( > 2000 ms) and ROMA [34] (300 ms),
+and on par with PR methods. Such speed makes Reloc3r ideal for real-time applications.
+Multi-view relative pose.
+We evaluate the multi-view relative pose on the Co3dv2 [75] dataset. This dataset consists of object-level scenes captured with inward-facing camera trajectories. The main challenges of this dataset include visual symmetries, textureless objects, and wide baselines between images. Following the evaluation protocol in [106, 111], we evaluate Reloc3r on the test sets of 41 categories. For each sequence, we randomly sample 10 frames and formulate all 45 pairs for the evaluation.
+These relative poses are evaluated with three metrics: the relative rotation accuracy within 15 degrees (RRA@15), the relative translation accuracy within 15 degrees (RTA@15), and the mean average accuracy (mAA@30, also called AUC@30).
+We compare Reloc3r with recent SfM-based approaches, PixSfM [59] and VGGSfM [107], as well as data-driven methods including RelPose [127], RelPose++ [57], PoseDiffusion [106], RayDiffusion [128], DUSt3R (with PnP) [111], and MASt3R [51]. In addition, we also compare the regression-based methods PoseReg [106] and RayReg [128].
+Note that while we refer to our evaluation as multi-view, we actually only use pair-wise evaluation, similar to DUSt3R (w/ PnP) and MASt3R. In contrast, all other methods (excluding RayDiffusion and RayReg use 8 frames ) use all 10 frames simultaneously, thus having more contextual information for evaluation.
+The quantitative results are reported in Table 2. Compared to existing approaches, the proposed Reloc3r achieves SoTA performance across multiple metrics, demonstrating significant improvements over competing methods.
+Specifically, Reloc3r achieves the best scores in terms of RRA@15 (95.8%), RTA@15 (93.7%), and mAA@30 (82.9%), surpassing both Non-PR and PR methods.
+This highlights Reloc3r’s ability to robustly and accurately localize images in multi-view settings and wide baselines.
+4.2 Visual Localization
+In this section, we evaluate Reloc3r’s absolute pose estimation for visual localization. We conduct experiments using two public datasets: the 7 Scenes dataset [91] and Cambridge Landmarks [44]. The 7 Scenes dataset comprises seven indoor room scenes, each containing several video sequences captured from different moving trajectories. Cambridge Landmarks is a suburban-scale outdoor dataset featuring six scenes. Following prior approaches [15, 54, 101], we use five of these scenes for evaluation. For each scene, we report the median translation and rotation errors (in meters and degrees, respectively). It’s worth noting that both datasets were entirely unseen by Reloc3r during training.
+Indoor visual localization.
+We compare Reloc3r with state-of-the-art absolute pose regression (APR) and relative pose regression (RPR) methods on the 7 Scenes [91] dataset. The results are shown in Table 4. For RPR methods, we categorize them into two groups: seen, where the model is trained and evaluated on the same dataset, and unseen, where the dataset is entirely new to the model during evaluation. The table shows that methods like EssNet [129], Relative PN [49], and RelocNet [7] experience significant performance drops when evaluated on unseen datasets, revealing their limitations in scene generalizability. In contrast, our method consistently outperforms all RPR methods, even those trained on the same dataset, achieving an average median error of 0.04m/1.02^{\circ} . Moreover, when compared with APR methods, our approach demonstrates comparable performance without requiring scene-specific training, further highlighting Reloc3r’s robustness and adaptability across diverse scenes.
+Outdoor visual localization.
+For the Cambridge [44] dataset, a widely used benchmark for regression-based localization, all RPR methods (both seen and unseen) face challenges in this outdoor setting. Our proposed Reloc3r, as shown in Table 5, surpasses all previous RPR methods without any retraining or fine-tuning on specific scenes, achieving consistent improvements across all evaluated scenes. Notably, in unseen conditions, Reloc3r demonstrates an average halving of the pose error compared to the previous state-of-the-art RPR method, ImageNet+NCM [129], with average errors of 0.38m/0.52^{\circ} across the last four scenes. Furthermore, our method shows a better average rotation error than all APR-based methods. This supports our motivation that leveraging a simple architectural design, coupled with scaled-up training, can effectively achieve good performance.
+Visual comparisons are shown in Figure 3.
+4.3 Analyses
+| Methods
+| ScanNet1500
+| AUC@5
+| AUC@10
+| AUC@20
+| Reloc3r-512 asymmetric
+| 32.71
+| 56.84
+| 74.63
+| Reloc3r-512 metric pose
+| 25.70
+| 50.20
+| 70.07
+| Reloc3r-512 (default)
+| 34.79
+| 58.37
+| 75.56
+Table 6:
+Ablation studies examining asymmetric network architecture and pose prediction with metric scales.
+Figure 4:
+The top row showcases matches from Efficient LoFTR, while the bottom row displays the top-3 cross-attention responses from Reloc3r’s decoder. We observe that the correlated regions in Reloc3r are superior to those of Efficient LoFTR, even though Reloc3r is trained solely with pose supervision.
+We summarize most insights here and refer the reader to the supplementary material for more details and discussions.
+Image resolutions.
+We train and evaluate Reloc3r at two image resolutions: widths of 224 and 512 pixels. The results are shown in the tables in Sec. 4.1 and Sec. 4.2.
+Similar to DUSt3R [111], the higher resolution improves accuracy but increases runtime due to processing more tokens.
+Comparison with asymmetric network architecture.
+We train an asymmetric version of Reloc3r-512 that uses separate decoders and heads for each branch. As shown in Table 6, this version performs even worse than the default Reloc3r while requiring more computational resources.
+Comparison with pose prediction with metric scale.
+We train a version of Reloc3r-512 with metric poses as output. The lower accuracy results reported in Table 6 validate the effectiveness of our default design without metric scales.
+Interesting findings.
+We visualize the cross-attention responses in some blocks from Reloc3r’s decoder. Interestingly, we find that several layers have developed the ability to match patch correspondences, as illustrated in Figure 4.
+Limitations.
+A failure case of Reloc3r occurs when the query image and all the retrieved database images are perfectly collinear, leading to a degeneracy issue that makes the metric scale unsolvable using motion averaging methods.
+5 Conclusion
+In this paper, we present Reloc3r, a simple yet effective visual localization framework. It consists of an elegantly designed relative pose regression network with a minimalist motion averaging module. Leveraging large-scale training on around eight million image pairs, Reloc3r demonstrates strong generalization capability, high efficiency, and accurate pose estimation performance across multiple datasets, while remaining parsimonious.
+We hope it will advance research on data scale and diversity in visual localization.
+Acknowledgements.
+This work is supported by
+the Early Career Scheme of the Research Grants Council
+(grant # 27207224),
+the HKU-100 Award,
+a donation from the Musketeers Foundation, and in part by the JC STEM Lab of Autonomous Intelligent Systems funded by The Hong Kong Jockey Club Charities Trust.
+This work is also supported in part by the Research Council of Finland for funding the projects (grants No. 353138, No. 362407, and No. 352788). We acknowledge the computational resources provided by the CSC-IT Center for Science, Finland and the HKU-Shanghai ICRC. We thank the reviewers for their valuable feedback. Siyan Dong would like to thank the support from HKU School of Computing and Data Science.
+Supplementary Material
+This appendix provides additional content that cannot be included in the main paper due to page limitations.
+Appendix A Training Details
+Similar to DUSt3R [111], we randomly sample a fixed number of 50K image pairs from each dataset at each training epoch. During training, we augment the image pairs with random color jittering.
+For Reloc3r-512, we begin training directly with images at the maximum resolution of 512 pixels. Within each batch, the image aspect ratios are randomly selected from [4:3, 32:21, 16:9, 2:1, 16:5]. During inference, test image pairs are resized to a width of 512 pixels while maintaining their original aspect ratios.
+In contrast, for Reloc3r-224, the image resolution is fixed to 224 \times 224 for both training and inference.
+Our symmetric architecture consists of a ViT-Large as the encoder [32], a ViT-Base as the decoder, and a regression head. We freeze the ViT encoder and only update the weighs for the decoder and pose regression head during the training. Unlike DUSt3R, which uses both image orders (I_{1},I_{2}) and (I_{2},I_{1}) during training for better generalization, our symmetric design allows us to feed only (I_{1},I_{2}) directly.
+This approach speeds up the training process and reduces memory and storage consumption, which will be discussed in detail in Sec. B.
+Appendix B Detailed Ablation Studies
+Symmetric vs. asymmetric networks.
+DUSt3R [111]’s two branches are designed to learn different capabilities. They aim to solve scene reconstruction in a unified coordinate system. For convenience, they choose the first frame’s local coordinate system as the unified system. Therefore, the first branch focuses on 3D geometry reconstruction without requiring coordinate transformations, while the second branch handles both geometry reconstruction and coordinate system alignment. In contrast, Reloc3r focuses on learning relative poses, which are inherently symmetric for the two branches. To leverage this property, we adapt DUSt3R’s architecture by introducing shared decoder and prediction head, simplifying the model while preserving its effectiveness.
+The asymmetric version of Reloc3r follows DUSt3R’s design [111], which employs separate decoders and regression heads for the two input images. However, this approach increases the number of learnable parameters and introduces a potential bias based on the image order. To mitigate this bias, DUSt3R incorporates flipped image pairs during training, which adds additional computational overhead. As shown in Table 6 in the main paper, we demonstrate that the asymmetric version performs even worse than the default Reloc3r on the ScanNet1500 dataset [26, 80].
+This underscores the benefits of our fully symmetric architecture, where both branches share decoder and prediction head. Remarkably, our model (with 0.43B parameters) achieves superior accuracy while using approximately 28% fewer parameters compared to the asymmetric variant.
+Learning relative poses with metric scales?
+As discussed in the main paper, learning metric scales in relative poses can divert the network’s focus from estimating camera orientation and movement direction, potentially hindering generalization across datasets.
+To investigate this, we conduct an ablation study on learning relative poses with metric scales. Following recent works [116, 4], we normalize the translation output as a unit vector and add an additional layer to regress the metric translation scale.
+The predicted translation vectors and scales are supervised with the L1 loss.
+We evaluate this version on ScanNet1500 [26, 80] and Cambridge Landmarks [44].
+The relative pose estimation results are reported in Table 6.
+Notably, in this setup, the predicted scale factors are irrelevant to the task and we observe a decrease in the accuracy of relative pose estimation compared to our default Reloc3r.
+These findings validate the effectiveness of the non-metric design, which allows the network to focus on two critical aspects: camera orientation and movement direction.
+The results of absolute pose estimation are presented in Table 9. Methods labeled as metric represent the versions that learn metric camera poses. We observe that the predicted scale estimates lack accuracy, leading to translation errors similar to baseline methods [116, 4].
+For further evaluation, we focus solely on translation directions combined with top-2 motion averaging, which produces significantly improved results. This finding validates our approach of estimating metric scales through motion averaging rather than directly learning them with neural networks, highlighting its robustness and effectiveness.
+Rotation representations.
+We use a continuous 9D-to-SO(3) mapping [52] in Reloc3r to avoid the discontinuities found in 3D and 4D representations. In Table 7, we reports an ablation study using different rotation representations. The experiments are trained on ScanNet++ [123] and tested on ScanNet1500 [26, 80]. The results demonstrate the effectiveness of the 9D rotation representation.
+| Rot. representations
+| 3D
+| 4D
+| 9D (default)
+| AUC@20
+| 66.81
+| 67.87
+| 68.70
+Table 7:
+Ablation study for different rotation representations.
+| Methods
+| ScanNet1500
+| AUC@5
+| AUC@10
+| AUC@20
+| No init. (224)
+| 3.74
+| 14.59
+| 34.04
+| No init. (512)
+| 3.98
+| 15.58
+| 37.02
+| No init. (224 to 512)
+| 6.76
+| 21.96
+| 44.38
+| DUSt3R-512 (encoder)
+| 17.83
+| 41.08
+| 63.05
+| CroCo v2 (full)
+| 22.44
+| 47.62
+| 68.65
+| MASt3R (full)
+| 32.62
+| 56.28
+| 74.32
+| DUSt3R-512 (full)
+| 34.79
+| 58.37
+| 75.56
+Table 8:
+Ablations on different network weight initializations.
+Study on the importance of network weight initialization.
+The proposed Reloc3r builds on the recent foundation model DUSt3R [111], leveraging its pre-trained weights for initialization.
+Here, we explore different approaches for network weights initialization: using pre-trained weights from other models, and random initialization.
+Table 8 presents the test results for these initialization methods.
+Training from MASt3R [51] and CroCo [114] results in worse pose accuracy. Similarly, when only initializing the encoder part from DUSt3R and training the decoder from scratch, the performance also degrades.
+Without pre-trained weights as initialization, we observe a significant drop in performance, a phenomenon similarly observed in DUSt3R trained without CroCo initialization.
+Interestingly, even in the random initialized version, we still can observe meaningful interactions in the cross-attention layers. These layers demonstrate functionality akin to feature matching, despite the absence of ground-truth correspondences for supervision.
+Additional analysis of this behavior is provided in the following Sec. C.
+Appendix C More Analyses
+Figure 5:
+Our pose regression network encounters failure cases when significant changes in focal length occur. As shown in the figure, there are 3 \times to 4 \times zoom in / out effects. While rotation estimates remain largely unaffected, translation becomes noticeably inaccurate. This issue is similar to the scale-distance ambiguity problem in two-view geometry.
+Figure 6:
+Visualization of top-3 cross-attention responses on the ScanNet1500 dataset [26, 80].
+The top row displays results from Reloc3r trained without pretraining, while the bottom row shows the default Reloc3r trained with DUSt3R initialization.
+Figure 7:
+Visualization of top-3 cross-attention responses on the Cambridge Landmarks [44].
+The top row displays results from Reloc3r trained without pretraining, while the bottom row shows the default Reloc3r trained with DUSt3R initialization.
+|
+| Methods
+| GreatCourt
+| KingsCollege
+| OldHospital
+| ShopFacade
+| StMarysChurch
+| Average (4)
+| Average
+| Inference time
+|
+FM
+| HLoc (SP+SG) [79, 27, 80]
+| 0.10 / 0.05
+| 0.07 / 0.10
+| 0.13 / 0.23
+| 0.03 / 0.14
+| 0.04 / 0.16
+| 0.07 / 0.16
+| 0.07 / 0.14
+| 737 ms
+| LazyLoc [31] (top-20)
+| 0.14 / 0.08
+| 0.07 / 0.13
+| 0.20 / 0.37
+| 0.04 / 0.15
+| 0.06 / 0.18
+| 0.09 / 0.21
+| 0.10 / 0.18
+| 1041 ms
+| DUSt3R-512 [111] (top-20)
+| 0.38 / 0.16
+| 0.11 / 0.20
+| 0.17 / 0.33
+| 0.06 / 0.26
+| 0.07 / 0.24
+| 0.10 / 0.26
+| 0.16 / 0.24
+| > 3000 ms
+|
+SCR
+| DSAC* (RGB+3D) [14]
+| 0.49 / 0.3
+| 0.15 / 0.3
+| 0.21 / 0.4
+| 0.05 / 0.3
+| 0.13 / 0.4
+| 0.14 / 0.4
+| 0.21 / 0.3
+| -
+| DSAC* (RGB) [14]
+| 0.34 / 0.2
+| 0.18 / 0.3
+| 0.21 / 0.4
+| 0.05 / 0.3
+| 0.15 / 0.6
+| 0.15 / 0.4
+| 0.19 / 0.4
+| -
+| ACE [16]
+| 0.43 / 0.2
+| 0.28 / 0.4
+| 0.31 / 0.6
+| 0.05 / 0.3
+| 0.18 / 0.6
+| 0.21 / 0.5
+| 0.25 / 0.4
+| -
+|
+RPR
+| Map-free (Regress) [4]
+| 8.40 / 4.56
+| 2.44 / 2.54
+| 3.73 / 5.23
+| 0.97 / 3.17
+| 2.91 / 5.10
+| 2.51 / 4.01
+| 3.69 / 4.12
+| 11 ms
+| ExReNet (SUNCG) [116]
+| 9.79 / 4.46
+| 2.33 / 2.48
+| 3.54 / 3.49
+| 0.72 / 2.41
+| 2.30 / 3.72
+| 2.22 / 3.03
+| 3.74 / 3.31
+| 18 ms
+| ImageNet+NCM [129] \dagger
+| -
+| -
+| -
+| -
+| -
+| 0.83 / 1.36
+| -
+| -
+| Reloc3r-224 top-10
+| 1.71 / 0.94
+| 0.47 / 0.41
+| 0.87 / 0.66
+| 0.18 / 0.53
+| 0.41 / 0.73
+| 0.48 / 0.58
+| 0.73 / 0.65
+| 51 ms
+| Reloc3r-512 metric
+| 9.18 / 1.20
+| 2.77 / 0.60
+| 3.79 / 0.96
+| 0.95 / 0.92
+| 2.98 / 0.99
+| 2.62 / 0.87
+| 3.93 / 0.93
+| 42 ms
+| Reloc3r-512 metric top-2
+| 2.86 / 1.18
+| 0.95 / 0.53
+| 1.41 / 0.86
+| 0.37 / 0.79
+| 0.63 / 0.91
+| 0.84 / 0.77
+| 1.24 / 0.85
+| 54 ms
+| Reloc3r-512 top-2
+| 2.41 / 0.86
+| 0.75 / 0.41
+| 1.22 / 0.48
+| 0.18 / 0.55
+| 0.60 / 0.65
+| 0.69 / 0.52
+| 1.03 / 0.59
+| 54 ms
+| Reloc3r-512 top-5
+| 1.26 / 0.72
+| 0.49 / 0.39
+| 0.77 / 0.54
+| 0.13 / 0.55
+| 0.40 / 0.60
+| 0.45 / 0.52
+| 0.61 / 0.56
+| 122 ms
+| Reloc3r-512 top-10
+| 1.22 / 0.73
+| 0.42 / 0.36
+| 0.62 / 0.55
+| 0.13 / 0.58
+| 0.34 / 0.58
+| 0.38 / 0.52
+| 0.55 / 0.56
+| 235 ms
+| Reloc3r-512 top-10 robust
+| 0.95 / 0.72
+| 0.45 / 0.36
+| 0.58 / 0.53
+| 0.13 / 0.53
+| 0.34 / 0.54
+| 0.38 / 0.49
+| 0.49 / 0.54
+| 235 ms
+Table 9:
+Additional results on the Cambridge Landmarks [44].
+Note that although DUSt3R-512 regresses coordinates, it performs pixel-to-pixel matching with these regressed coordinates for accurate visual localization.
+The inference times of Reloc3r are reported using fp32.
+Visualization of cross-attention responses.
+We are interested in how Reloc3r achieves its performance and aim to understand what the network has learned. To this end, we visualize the cross-attention maps in the decoder blocks and observe an interesting behavior: they resemble patch-wise correspondence matching. Results from two datasets are presented in Figure 6 and Figure 7. For clarity, the query patches in the right-hand figures are manually selected for better visualization.
+From random initialization, the network still gains the ability to build correspondences, with only relative poses as supervision. When initialized with DUSt3R’s pre-trained weights, the cross-attention responses are more accurate and concentrated. This may stem from dense pixel-wise coordinate supervision. We believe introducing ground-truth correspondence information and supervising the across-attention maps could potentially enhance network performance, or accelerate convergence during training.
+Model sizes.
+Previous works mainly focus on algorithm design, yet we take a different direction by scaling up the training to develop (to the best of our knowledge) the first foundation model for camera pose regression. As a result, Reloc3r’s relative pose regression network contains 0.43B parameters - far larger than existing camera pose regression networks (e.g., Map-free with 22M and Marepo with 10M parameters). Despite its size, it achieves real-time inference on consumer-grade GPUs like NVIDIA 3090/4090. We chose Transformer architectures as our backbone for their proven ability to scale better than Convolutional Neural Networks (CNNs). Our experiments with Map-free (ResUNet) showed that its 22M parameters led to underfitting on our training data. Even after expanding the CNN’s Resblocks and feature dimensions (up to 0.1B parameters), the model only memorized the training data. All CNN models we tested performed poorly, achieving AUC@20 < 5 on the ScanNet1500 datasetet.
+While their rotation accuracy can be reasonable, their translation accuracy is poor.
+Scale and diversity of training data.
+In Table 10, we show that larger training sets consistently improve pose estimation accuracy. Removing domain-specific data (such as the object-centric Co3Dv2 dataset) has minimal impact on accuracy in other domains. This suggests that diverse data helps with generalization, while domain-specific data improves accuracy within its domain.
+| AUC@20 on datasets
+| ScanNet1500
+| RE10K
+| ACID
+| Reloc3r-512 trained w/ ScanNet++ only
+| 68.70
+| 58.52
+| 51.15
+| Reloc3r-512 trained w/o RE10K & Co3Dv2
+| 75.46
+| 84.44
+| 67.41
+| Reloc3r-512 trained w/o RE10K
+| 75.55
+| 85.33
+| 67.76
+| Reloc3r-512 full training
+| 75.56
+| 88.39
+| 70.34
+Table 10:
+Ablation study on training data.
+Additional discussion on limitations and future works.
+As discussed in the main paper, a primary limitation of Reloc3r is the degeneracy issue of solving the metric translation with motion averaging when all the images are perfectly collinear. In such cases, the metric scale becomes unsolvable. Although our experiments show that directly regressing metric poses leads to inferior results, this remains an open direction for future research to explore.
+While classical feature-matching methods solve relative poses using the 5-point algorithm [38] with ground-truth camera intrinsics, our pose regression network does not explore this intrinsic information. This limitation results in some failure cases similar to the scale-distance ambiguity issue (Figure 5), making it challenging to predict the movement of the camera center. Future research could explore embedding intrinsic parameters directly into the network or regressing the essential matrix as a potential solution.
+Figure 8:
+We visualize relative pose estimates using both internet-sourced and self-captured images. For better visualization, we plot the axes of the first view, and the metric scale of the translation vectors is set to 1 meter.
+Figure 9:
+We visualize absolute pose estimates using casually captured videos. For each video, we use two database images whose poses are estimated by our pose regression network. The metric scale of the translation between database images is set to 1 meter.
+Appendix D Additional Comparisons
+Relative pose estimation on MegaDepth1500 [56, 95].
+The results are presented in Table 11. This dataset exhibits significant intrinsic variations between image pairs, which pose a major challenge for pose regression methods and often lead to failures in estimating the translation direction. We also compare our method with matching-based competitors, where DUSt3R [111] and MASt3R [51] are evaluated with image resolution 512 \times 512, and the relative poses are obtained from essential matrix estimation in OpenCV [17]. While our method achieves reasonable pose accuracy, it still falls short compared to SoTA matching-based approaches. Figure 5 illustrates some failure cases, which are also discussed in Sec. C.
+|
+| Methods
+| MegaDepth1500
+|
+| AUC@5
+| AUC@10
+| AUC@20
+|
+Non-PR
+| Efficient LoFTR [112]
+| 56.4
+| 72.2
+| 83.5
+| ROMA [34]
+| 62.6
+| 76.7
+| 86.3
+| DUSt3R [111]
+| 27.9
+| 46.0
+| 63.3
+| MASt3R [51]
+| 42.4
+| 61.5
+| 76.9
+|
+PR
+| Map-free (Regress-SN) [4]
+| -
+| -
+| < 10
+| Map-free (Regress-MF) [4]
+| -
+| -
+| < 10
+| ExReNet (SN) [116]
+| -
+| -
+| < 10
+| ExReNet (SUNCG) [116]
+| -
+| -
+| < 10
+| Reloc3r-224
+| 39.9
+| 59.7
+| 75.4
+| Reloc3r-512
+| 49.6
+| 67.9
+| 81.2
+Table 11:
+Relative camera pose evaluation on the MegaDepth1500 dataset [56, 95].
+Comparison with FAR [77].
+Recent works FAR [77] and PanoPose [100] design pose regression networks for wide baseline pairs and panorama images. While FAR performs well on images with few overlaps, it underperforms Reloc3r on popular datasets used in the main paper. Specifically, we tested FAR on ScanNet1500, RE10K, and ACID datasets, achieving AUC@20 of 28.19, 37.67, and 44.98%, respectively. Since PanoPose has not released its code yet, we look forward to comparing with it in the future.
+Visual localization with different experimental settings.
+We conduct these experiments on the Cambridge Landmarks [44]. The results are shown in Table 9.
+In our evaluation of metric pose estimation, we compare results with and without motion averaging. Due to the challenge of learning metric scales, using top-2 motion averaging yields significantly better results compared to single pairs. For Reloc3r-512, we test varying numbers of top- K image pairs. While increasing the number of images reduces error, it also leads to longer inference times. We also try to adopt LazyLoc [31]’s rotation and translation averaging modules as robust estimators. These provide limited improvements across most scenes, with the notable exception of GreatCourt, which features extensive repetitive patterns and similar regions.
+Since Reloc3r does not produce matches, it cannot adopt the post-optimization step used in LazyLoc. Like other pose regression-based methods, Reloc3r therefore still underperforms in pose accuracy compared to SoTA feature matching-based methods on large-scale scenes.
+The accuracy of pose regression also can not match with those of scene coordinate regression (SCR) based methods, as SCR methods typically require per-scene training and can take long inference times.
+Appendix E Details for the Compared Methods
+For relative pose estimation on ScanNet1500 [26, 80], Re10K [130], and ACID [62].
+In NoPoSplat’s implementation, images are first resized and center-cropped to 256 \times 256, then upscaled to 560 \times 560 at the coarse level, and finally to 864 \times 864 to match ROMA [34]’s settings. Our approach, however, maintains original aspect ratios while limiting maximum image resolution to 512px. For DUSt3R [111] and MASt3R [51], different from NoPoSplat that uses the input resolution of 512 \times 256, we set it to 512 \times 512. On MegaDepth1500 [56, 95], evaluation resolutions also vary across methods, following their original settings. For example, Efficient LoFTR [112] is evaluated with an image resolution of 1200 \times 1200, RoMA uses 560 \times 560, while our method employs a resolution of 512px.
+For the PR-based competitors, We report the pose regression versions of Map-free [4] trained on ScanNet [26] and their Map-free dataset. Similarly, we evaluate two versions of ExReNet trained on ScanNet and SUNCG [93].
+For multi-view pose estimation on CO3Dv2 [75], we randomly sample 10 images from each test sequence to form 45 pairs, yielding 76,905 total pairs for evaluation. For RayReg [128] and RayDiffusion [128], we report the results based on the 8-view setup described in the paper, as we could not produce reasonable results with 10 views.
+For absolute metric pose estimation on 7 Scenes [91] and Cambridge [44], the results mainly come from the original publication of each paper, except Map-free and ExReNet. We evaluate two versions of Map-free: regression and hybrid with matching. For 7 Scenes, we use checkpoints trained on ScanNet, while for the Cambridge dataset, we use checkpoints trained on the Map-free dataset to maintain consistency between indoor and outdoor settings.
+For ExReNet, we also evaluate their two versions on both 7 Scenes and Cambridge datasets.
+For the remaining methods not covered above, we cite results directly from their original publications.
+Appendix F In-The-Wild Camera Pose Estimations
+We test Reloc3r with “in-the-wild” images and videos collected from the internet and captured by ourselves.
+The results for relative pose estimation are shown in Figure 8. Thanks to large-scale training, we find that Reloc3r generalizes well across diverse viewpoint changes and can infer relative poses between paintings, sketches, and real images. Surprisingly, it achieves reasonable results even when processing the faces of different people.
+The results for visual localization are shown in Figure 9. For each video, we use two images as a database to localize query images in the video. The database poses are estimated by our pose regression network. Note that when the database and query images are collinear, the metric scale cannot be reliably recovered due to the degeneracy issue.
+References
+[1]
+Yehya Abouelnaga, Mai Bui, and Slobodan Ilic.
+Distillpose: Lightweight camera localization using auxiliary learning.
+In 2021 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS), pages 7919–7924. IEEE, 2021.
+[2]
+Relja Arandjelović and Andrew Zisserman.
+Three things everyone should know to improve object retrieval.
+In 2012 IEEE conference on computer vision and pattern recognition, pages 2911–2918. IEEE, 2012.
+[3]
+Relja Arandjelovic, Petr Gronat, Akihiko Torii, Tomas Pajdla, and Josef Sivic.
+Netvlad: Cnn architecture for weakly supervised place recognition.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 5297–5307, 2016.
+[4]
+Eduardo Arnold, Jamie Wynn, Sara Vicente, Guillermo Garcia-Hernando, Aron Monszpart, Victor Prisacariu, Daniyar Turmukhambetov, and Eric Brachmann.
+Map-free visual relocalization: Metric pose relative to a single image.
+In European Conference on Computer Vision, pages 690–708. Springer, 2022.
+[5]
+Jinze Bai, Shuai Bai, Yunfei Chu, Zeyu Cui, Kai Dang, Xiaodong Deng, Yang Fan, Wenbin Ge, Yu Han, Fei Huang, et al.
+Qwen technical report.
+arXiv preprint arXiv:2309.16609, 2023.
+[6]
+Yutong Bai, Xinyang Geng, Karttikeya Mangalam, Amir Bar, Alan L Yuille, Trevor Darrell, Jitendra Malik, and Alexei A Efros.
+Sequential modeling enables scalable learning for large vision models.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 22861–22872, 2024.
+[7]
+Vassileios Balntas, Shuda Li, and Victor Prisacariu.
+Relocnet: Continuous metric learning relocalisation using neural nets.
+In Proceedings of the European conference on computer vision (ECCV), pages 751–767, 2018.
+[8]
+Daniel Barath and Jiří Matas.
+Graph-cut ransac.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 6733–6741, 2018.
+[9]
+Daniel Barath and Jiri Matas.
+Graph-cut ransac: Local optimization on spatially coherent structures.
+IEEE transactions on pattern analysis and machine intelligence, 44(9):4961–4974, 2021.
+[10]
+Daniel Barath, Jiri Matas, and Jana Noskova.
+Magsac: marginalizing sample consensus.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 10197–10205, 2019.
+[11]
+Daniel Barath, Jana Noskova, Maksym Ivashechkin, and Jiri Matas.
+Magsac++, a fast, reliable and accurate robust estimator.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 1304–1312, 2020.
+[12]
+Gilad Baruch, Zhuoyuan Chen, Afshin Dehghan, Tal Dimry, Yuri Feigin, Peter Fu, Thomas Gebauer, Brandon Joffe, Daniel Kurz, Arik Schwartz, et al.
+Arkitscenes: A diverse real-world dataset for 3d indoor scene understanding using mobile rgb-d data.
+arXiv preprint arXiv:2111.08897, 2021.
+[13]
+Eric Brachmann and Carsten Rother.
+Learning less is more-6d camera localization via 3d surface regression.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 4654–4662, 2018.
+[14]
+Eric Brachmann and Carsten Rother.
+Visual camera re-localization from rgb and rgb-d images using dsac.
+IEEE transactions on pattern analysis and machine intelligence, 44(9):5847–5865, 2021.
+[15]
+Eric Brachmann, Alexander Krull, Sebastian Nowozin, Jamie Shotton, Frank Michel, Stefan Gumhold, and Carsten Rother.
+Dsac-differentiable ransac for camera localization.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 6684–6692, 2017.
+[16]
+Eric Brachmann, Tommaso Cavallari, and Victor Adrian Prisacariu.
+Accelerated coordinate encoding: Learning to relocalize in minutes using rgb and poses.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 5044–5053, 2023.
+[17]
+G Bradski.
+The opencv library.
+Dr. Dobb’s Journal of Software Tools, 2000.
+[18]
+Samarth Brahmbhatt, Jinwei Gu, Kihwan Kim, James Hays, and Jan Kautz.
+Geometry-aware learning of maps for camera localization.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 2616–2625, 2018.
+[19]
+Avishek Chatterjee and Venu Madhav Govindu.
+Efficient and robust large-scale rotation averaging.
+In Proceedings of the IEEE international conference on computer vision, pages 521–528, 2013.
+[20]
+Shuai Chen, Zirui Wang, and Victor Prisacariu.
+Direct-posenet: Absolute pose regression with photometric consistency.
+In 2021 International Conference on 3D Vision (3DV), pages 1175–1185. IEEE, 2021.
+[21]
+Shuai Chen, Xinghui Li, Zirui Wang, and Victor A Prisacariu.
+Dfnet: Enhance absolute pose regression with direct feature matching.
+In European Conference on Computer Vision, pages 1–17. Springer, 2022.
+[22]
+Shuai Chen, Yash Bhalgat, Xinghui Li, Jia-Wang Bian, Kejie Li, Zirui Wang, and Victor Adrian Prisacariu.
+Neural refinement for absolute pose regression with feature synthesis.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 20987–20996, 2024a.
+[23]
+Shuai Chen, Tommaso Cavallari, Victor Adrian Prisacariu, and Eric Brachmann.
+Map-relative pose regression for visual re-localization.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 20665–20674, 2024b.
+[24]
+Aakanksha Chowdhery, Sharan Narang, Jacob Devlin, Maarten Bosma, Gaurav Mishra, Adam Roberts, Paul Barham, Hyung Won Chung, Charles Sutton, Sebastian Gehrmann, et al.
+Palm: Scaling language modeling with pathways.
+Journal of Machine Learning Research, 24(240):1–113, 2023.
+[25]
+Ondřej Chum, Jiří Matas, and Josef Kittler.
+Locally optimized ransac.
+In Pattern Recognition: 25th DAGM Symposium, Magdeburg, Germany, September 10-12, 2003. Proceedings 25, pages 236–243. Springer, 2003.
+[26]
+Angela Dai, Angel X Chang, Manolis Savva, Maciej Halber, Thomas Funkhouser, and Matthias Nießner.
+Scannet: Richly-annotated 3d reconstructions of indoor scenes.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 5828–5839, 2017.
+[27]
+Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabinovich.
+Superpoint: Self-supervised interest point detection and description.
+In Proceedings of the IEEE conference on computer vision and pattern recognition workshops, pages 224–236, 2018.
+[28]
+Jacob Devlin.
+Bert: Pre-training of deep bidirectional transformers for language understanding.
+arXiv preprint arXiv:1810.04805, 2018.
+[29]
+Mingyu Ding, Zhe Wang, Jiankai Sun, Jianping Shi, and Ping Luo.
+Camnet: Coarse-to-fine retrieval for camera re-localization.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 2871–2880, 2019.
+[30]
+Siyan Dong, Shuzhe Wang, Yixin Zhuang, Juho Kannala, Marc Pollefeys, and Baoquan Chen.
+Visual localization via few-shot scene region classification.
+In 2022 International Conference on 3D Vision (3DV), pages 393–402. IEEE, 2022.
+[31]
+Siyan Dong, Shaohui Liu, Hengkai Guo, Baoquan Chen, and Marc Pollefeys.
+Lazy visual localization via motion averaging.
+arXiv preprint arXiv:2307.09981, 2023.
+[32]
+Alexey Dosovitskiy.
+An image is worth 16x16 words: Transformers for image recognition at scale.
+arXiv preprint arXiv:2010.11929, 2020.
+[33]
+Mihai Dusmanu, Ignacio Rocco, Tomas Pajdla, Marc Pollefeys, Josef Sivic, Akihiko Torii, and Torsten Sattler.
+D2-net: A trainable cnn for joint description and detection of local features.
+In Proceedings of the ieee/cvf conference on computer vision and pattern recognition, pages 8092–8101, 2019.
+[34]
+Johan Edstedt, Qiyu Sun, Georg Bökman, Mårten Wadenbäck, and Michael Felsberg.
+Roma: Robust dense feature matching.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 19790–19800, 2024.
+[35]
+Sovann En, Alexis Lechervy, and Frédéric Jurie.
+Rpnet: An end-to-end network for relative camera pose estimation.
+In Proceedings of the European Conference on Computer Vision (ECCV) Workshops, pages 0–0, 2018.
+[36]
+Martin A Fischler and Robert C Bolles.
+Random sample consensus: a paradigm for model fitting with applications to image analysis and automated cartography.
+Communications of the ACM, 24(6):381–395, 1981.
+[37]
+Khang Truong Giang, Soohwan Song, and Sungho Jo.
+Learning to produce semi-dense correspondences for visual localization.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 19468–19478, 2024.
+[38]
+Richard Hartley and Andrew Zisserman.
+Multiple view geometry in computer vision.
+Cambridge university press, 2003.
+[39]
+Richard I Hartley and Peter Sturm.
+Triangulation.
+Computer vision and image understanding, 68(2):146–157, 1997.
+[40]
+Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Dollár, and Ross Girshick.
+Masked autoencoders are scalable vision learners.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 16000–16009, 2022.
+[41]
+Martin Humenberger, Yohann Cabon, Nicolas Guerin, Julien Morat, Vincent Leroy, Jérôme Revaud, Philippe Rerole, Noé Pion, Cesar de Souza, and Gabriela Csurka.
+Robust image retrieval-based visual localization using kapture.
+arXiv preprint arXiv:2007.13867, 2020.
+[42]
+Alex Kendall and Roberto Cipolla.
+Modelling uncertainty in deep learning for camera relocalization.
+In 2016 IEEE international conference on Robotics and Automation (ICRA), pages 4762–4769. IEEE, 2016.
+[43]
+Alex Kendall and Roberto Cipolla.
+Geometric loss functions for camera pose regression with deep learning.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 5974–5983, 2017.
+[44]
+Alex Kendall, Matthew Grimes, and Roberto Cipolla.
+Posenet: A convolutional network for real-time 6-dof camera relocalization.
+In Proceedings of the IEEE international conference on computer vision, pages 2938–2946, 2015.
+[45]
+Fadi Khatib, Yuval Margalit, Meirav Galun, and Ronen Basri.
+Leveraging image matching toward end-to-end relative camera pose regression.
+arXiv preprint arXiv:2211.14950, 2022.
+[46]
+Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander C Berg, Wan-Yen Lo, et al.
+Segment anything.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 4015–4026, 2023.
+[47]
+Laurent Kneip, Davide Scaramuzza, and Roland Siegwart.
+A novel parametrization of the perspective-three-point problem for a direct computation of absolute camera position and orientation.
+In CVPR 2011, pages 2969–2976. IEEE, 2011.
+[48]
+Viktor Larsson and contributors.
+PoseLib - Minimal Solvers for Camera Pose Estimation, 2020.
+[49]
+Zakaria Laskar, Iaroslav Melekhov, Surya Kalia, and Juho Kannala.
+Camera relocalization by computing pairwise relative poses using convolutional neural network.
+In Proceedings of the IEEE International Conference on Computer Vision Workshops, pages 929–938, 2017.
+[50]
+Karel Lebeda, Jirı Matas, and Ondrej Chum.
+Fixing the locally optimized ransac–full experimental evaluation.
+In British machine vision conference. Citeseer Princeton, NJ, USA, 2012.
+[51]
+Vincent Leroy, Yohann Cabon, and Jérôme Revaud.
+Grounding image matching in 3d with mast3r.
+arXiv preprint arXiv:2406.09756, 2024.
+[52]
+Jake Levinson, Carlos Esteves, Kefan Chen, Noah Snavely, Angjoo Kanazawa, Afshin Rostamizadeh, and Ameesh Makadia.
+An analysis of svd for deep rotation estimation.
+Advances in Neural Information Processing Systems, 33:22554–22565, 2020.
+[53]
+Xiaotian Li, Juha Ylioinas, and Juho Kannala.
+Full-frame scene coordinate regression for image-based localization.
+arXiv preprint arXiv:1802.03237, 2018.
+[54]
+Xiaotian Li, Shuzhe Wang, Yi Zhao, Jakob Verbeek, and Juho Kannala.
+Hierarchical scene coordinate classification and regression for visual localization.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 11983–11992, 2020.
+[55]
+Yunpeng Li, Noah Snavely, and Daniel P Huttenlocher.
+Location recognition using prioritized feature matching.
+In Computer Vision–ECCV 2010: 11th European Conference on Computer Vision, Heraklion, Crete, Greece, September 5-11, 2010, Proceedings, Part II 11, pages 791–804. Springer, 2010.
+[56]
+Zhengqi Li and Noah Snavely.
+Megadepth: Learning single-view depth prediction from internet photos.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 2041–2050, 2018.
+[57]
+Amy Lin, Jason Y Zhang, Deva Ramanan, and Shubham Tulsiani.
+Relpose++: Recovering 6d poses from sparse-view observations.
+In 2024 International Conference on 3D Vision (3DV), pages 106–115. IEEE, 2024a.
+[58]
+Jingyu Lin, Jiaqi Gu, Bojian Wu, Lubin Fan, Renjie Chen, Ligang Liu, and Jieping Ye.
+Learning neural volumetric pose features for camera localization.
+arXiv preprint arXiv:2403.12800, 2024b.
+[59]
+Philipp Lindenberger, Paul-Edouard Sarlin, Viktor Larsson, and Marc Pollefeys.
+Pixel-perfect structure-from-motion with featuremetric refinement.
+In Proceedings of the IEEE/CVF international conference on computer vision, pages 5987–5997, 2021.
+[60]
+Philipp Lindenberger, Paul-Edouard Sarlin, and Marc Pollefeys.
+Lightglue: Local feature matching at light speed.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 17627–17638, 2023.
+[61]
+Lu Ling, Yichen Sheng, Zhi Tu, Wentian Zhao, Cheng Xin, Kun Wan, Lantao Yu, Qianyu Guo, Zixun Yu, Yawen Lu, et al.
+Dl3dv-10k: A large-scale scene dataset for deep learning-based 3d vision.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 22160–22169, 2024.
+[62]
+Andrew Liu, Richard Tucker, Varun Jampani, Ameesh Makadia, Noah Snavely, and Angjoo Kanazawa.
+Infinite nature: Perpetual view generation of natural scenes from a single image.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 14458–14467, 2021.
+[63]
+Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee.
+Visual instruction tuning.
+Advances in neural information processing systems, 36, 2024.
+[64]
+Shaohui Liu, Yidan Gao, Tianyi Zhang, Rémi Pautrat, Johannes L Schönberger, Viktor Larsson, and Marc Pollefeys.
+Robust incremental structure-from-motion with hybrid features.
+In European Conference on Computer Vision, pages 249–269. Springer, 2025.
+[65]
+David G Lowe.
+Object recognition from local scale-invariant features.
+In Proceedings of the seventh IEEE international conference on computer vision, pages 1150–1157. Ieee, 1999.
+[66]
+Iaroslav Melekhov, Juha Ylioinas, Juho Kannala, and Esa Rahtu.
+Image-based localization using hourglass networks.
+In Proceedings of the IEEE international conference on computer vision workshops, pages 879–886, 2017.
+[67]
+Ben Mildenhall, Pratul P Srinivasan, Matthew Tancik, Jonathan T Barron, Ravi Ramamoorthi, and Ren Ng.
+Nerf: Representing scenes as neural radiance fields for view synthesis.
+Communications of the ACM, 65(1):99–106, 2021.
+[68]
+Shervin Minaee, Tomas Mikolov, Narjes Nikzad, Meysam Chenaghlu, Richard Socher, Xavier Amatriain, and Jianfeng Gao.
+Large language models: A survey.
+arXiv preprint arXiv:2402.06196, 2024.
+[69]
+Arthur Moreau, Nathan Piasco, Dzmitry Tsishkou, Bogdan Stanciulescu, and Arnaud de La Fortelle.
+Lens: Localization enhanced by nerf synthesis.
+In Conference on Robot Learning, pages 1347–1356. PMLR, 2022.
+[70]
+Tayyab Naseer and Wolfram Burgard.
+Deep regression for monocular camera-based 6-dof global localization in outdoor environments.
+In 2017 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS), pages 1525–1530. IEEE, 2017.
+[71]
+Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, et al.
+Training language models to follow instructions with human feedback.
+Advances in neural information processing systems, 35:27730–27744, 2022.
+[72]
+Vojtech Panek, Zuzana Kukelova, and Torsten Sattler.
+Meshloc: Mesh-based visual localization.
+In European Conference on Computer Vision, pages 589–609. Springer, 2022.
+[73]
+William Peebles and Saining Xie.
+Scalable diffusion models with transformers.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 4195–4205, 2023.
+[74]
+Nikhila Ravi, Valentin Gabeur, Yuan-Ting Hu, Ronghang Hu, Chaitanya Ryali, Tengyu Ma, Haitham Khedr, Roman Rädle, Chloe Rolland, Laura Gustafson, et al.
+Sam 2: Segment anything in images and videos.
+arXiv preprint arXiv:2408.00714, 2024.
+[75]
+Jeremy Reizenstein, Roman Shapovalov, Philipp Henzler, Luca Sbordone, Patrick Labatut, and David Novotny.
+Common objects in 3d: Large-scale learning and evaluation of real-life 3d category reconstruction.
+In Proceedings of the IEEE/CVF international conference on computer vision, pages 10901–10911, 2021.
+[76]
+Jerome Revaud, Cesar De Souza, Martin Humenberger, and Philippe Weinzaepfel.
+R2d2: Reliable and repeatable detector and descriptor.
+Advances in neural information processing systems, 32, 2019.
+[77]
+Chris Rockwell, Nilesh Kulkarni, Linyi Jin, Jeong Joon Park, Justin Johnson, and David F Fouhey.
+Far: Flexible accurate and robust 6dof relative camera pose estimation.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 19854–19864, 2024.
+[78]
+Soham Saha, Girish Varma, and CV Jawahar.
+Improved visual relocalization by discovering anchor points.
+arXiv preprint arXiv:1811.04370, 2018.
+[79]
+Paul-Edouard Sarlin, Cesar Cadena, Roland Siegwart, and Marcin Dymczyk.
+From coarse to fine: Robust hierarchical localization at large scale.
+In CVPR, 2019.
+[80]
+Paul-Edouard Sarlin, Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabinovich.
+Superglue: Learning feature matching with graph neural networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 4938–4947, 2020.
+[81]
+Paul-Edouard Sarlin, Ajaykumar Unagar, Mans Larsson, Hugo Germain, Carl Toft, Viktor Larsson, Marc Pollefeys, Vincent Lepetit, Lars Hammarstrand, Fredrik Kahl, et al.
+Back to the feature: Learning robust camera localization from pixels to pose.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 3247–3257, 2021.
+[82]
+Torsten Sattler, Bastian Leibe, and Leif Kobbelt.
+Fast image-based localization using direct 2d-to-3d matching.
+In 2011 International Conference on Computer Vision, pages 667–674. IEEE, 2011.
+[83]
+Torsten Sattler, Bastian Leibe, and Leif Kobbelt.
+Improving image-based localization by active correspondence search.
+In Computer Vision–ECCV 2012: 12th European Conference on Computer Vision, Florence, Italy, October 7-13, 2012, Proceedings, Part I 12, pages 752–765. Springer, 2012.
+[84]
+Torsten Sattler, Bastian Leibe, and Leif Kobbelt.
+Efficient & effective prioritized matching for large-scale image-based localization.
+IEEE transactions on pattern analysis and machine intelligence, 39(9):1744–1756, 2016.
+[85]
+Torsten Sattler, Akihiko Torii, Josef Sivic, Marc Pollefeys, Hajime Taira, Masatoshi Okutomi, and Tomas Pajdla.
+Are large-scale 3d models really necessary for accurate visual localization?
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 1637–1646, 2017.
+[86]
+Torsten Sattler, Will Maddern, Carl Toft, Akihiko Torii, Lars Hammarstrand, Erik Stenborg, Daniel Safari, Masatoshi Okutomi, Marc Pollefeys, Josef Sivic, et al.
+Benchmarking 6dof outdoor visual localization in changing conditions.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 8601–8610, 2018.
+[87]
+Torsten Sattler, Qunjie Zhou, Marc Pollefeys, and Laura Leal-Taixe.
+Understanding the limitations of cnn-based absolute camera pose regression.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 3302–3312, 2019.
+[88]
+Johannes L Schonberger and Jan-Michael Frahm.
+Structure-from-motion revisited.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 4104–4113, 2016.
+[89]
+Yoli Shavit, Ron Ferens, and Yosi Keller.
+Learning multi-scene absolute pose regression with transformers.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 2733–2742, 2021.
+[90]
+Yoli Shavit, Ron Ferens, and Yosi Keller.
+Coarse-to-fine multi-scene pose regression with transformers.
+IEEE Transactions on Pattern Analysis and Machine Intelligence, 2023.
+[91]
+Jamie Shotton, Ben Glocker, Christopher Zach, Shahram Izadi, Antonio Criminisi, and Andrew Fitzgibbon.
+Scene coordinate regression forests for camera relocalization in rgb-d images.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 2930–2937, 2013.
+[92]
+Brandon Smart, Chuanxia Zheng, Iro Laina, and Victor Adrian Prisacariu.
+Splatt3r: Zero-shot gaussian splatting from uncalibarated image pairs.
+arXiv preprint arXiv:2408.13912, 2024.
+[93]
+Shuran Song, Fisher Yu, Andy Zeng, Angel X Chang, Manolis Savva, and Thomas Funkhouser.
+Semantic scene completion from a single depth image.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 1746–1754, 2017.
+[94]
+Jianlin Su, Murtadha Ahmed, Yu Lu, Shengfeng Pan, Wen Bo, and Yunfeng Liu.
+Roformer: Enhanced transformer with rotary position embedding.
+Neurocomputing, 568:127063, 2024.
+[95]
+Jiaming Sun, Zehong Shen, Yuang Wang, Hujun Bao, and Xiaowei Zhou.
+Loftr: Detector-free local feature matching with transformers.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 8922–8931, 2021.
+[96]
+Hajime Taira, Masatoshi Okutomi, Torsten Sattler, Mircea Cimpoi, Marc Pollefeys, Josef Sivic, Tomas Pajdla, and Akihiko Torii.
+Inloc: Indoor visual localization with dense matching and view synthesis.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 7199–7209, 2018.
+[97]
+Shitao Tang, Chengzhou Tang, Rui Huang, Siyu Zhu, and Ping Tan.
+Learning camera localization via dense scene matching.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 1831–1841, 2021.
+[98]
+Shengbang Tong, Ellis Brown, Penghao Wu, Sanghyun Woo, Manoj Middepogu, Sai Charitha Akula, Jihan Yang, Shusheng Yang, Adithya Iyer, Xichen Pan, et al.
+Cambrian-1: A fully open, vision-centric exploration of multimodal llms.
+arXiv preprint arXiv:2406.16860, 2024.
+[99]
+Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei, Nikolay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, et al.
+Llama 2: Open foundation and fine-tuned chat models.
+arXiv preprint arXiv:2307.09288, 2023.
+[100]
+Diantao Tu, Hainan Cui, Xianwei Zheng, and Shuhan Shen.
+Panopose: Self-supervised relative pose estimation for panoramic images.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 20009–20018, 2024.
+[101]
+Mehmet Ozgur Turkoglu, Eric Brachmann, Konrad Schindler, Gabriel J Brostow, and Aron Monszpart.
+Visual camera re-localization using graph neural networks and relative pose supervision.
+In 2021 International Conference on 3D Vision (3DV), pages 145–155. IEEE, 2021.
+[102]
+A Vaswani.
+Attention is all you need.
+Advances in Neural Information Processing Systems, 2017.
+[103]
+Florian Walch, Caner Hazirbas, Laura Leal-Taixe, Torsten Sattler, Sebastian Hilsenbeck, and Daniel Cremers.
+Image-based localization using lstms for structured feature correlation.
+In Proceedings of the IEEE international conference on computer vision, pages 627–637, 2017.
+[104]
+Bing Wang, Changhao Chen, Chris Xiaoxuan Lu, Peijun Zhao, Niki Trigoni, and Andrew Markham.
+Atloc: Attention guided camera localization.
+In Proceedings of the AAAI Conference on Artificial Intelligence, pages 10393–10401, 2020.
+[105]
+Hengyi Wang and Lourdes Agapito.
+3d reconstruction with spatial memory.
+arXiv preprint arXiv:2408.16061, 2024.
+[106]
+Jianyuan Wang, Christian Rupprecht, and David Novotny.
+Posediffusion: Solving pose estimation via diffusion-aided bundle adjustment.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 9773–9783, 2023.
+[107]
+Jianyuan Wang, Nikita Karaev, Christian Rupprecht, and David Novotny.
+Vggsfm: Visual geometry grounded deep structure from motion.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 21686–21697, 2024a.
+[108]
+Ruicheng Wang, Sicheng Xu, Cassie Dai, Jianfeng Xiang, Yu Deng, Xin Tong, and Jiaolong Yang.
+Moge: Unlocking accurate monocular geometry estimation for open-domain images with optimal training supervision.
+arXiv preprint arXiv:2410.19115, 2024b.
+[109]
+Shuzhe Wang, Juho Kannala, and Daniel Barath.
+Dgc-gnn: Leveraging geometry and color cues for visual descriptor-free 2d-3d matching.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 20881–20891, 2024c.
+[110]
+Shuzhe Wang, Zakaria Laskar, Iaroslav Melekhov, Xiaotian Li, Yi Zhao, Giorgos Tolias, and Juho Kannala.
+Hscnet++: Hierarchical scene coordinate classification and regression for visual localization with transformer.
+International Journal of Computer Vision, pages 1–21, 2024d.
+[111]
+Shuzhe Wang, Vincent Leroy, Yohann Cabon, Boris Chidlovskii, and Jerome Revaud.
+Dust3r: Geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 20697–20709, 2024e.
+[112]
+Yifan Wang, Xingyi He, Sida Peng, Dongli Tan, and Xiaowei Zhou.
+Efficient loftr: Semi-dense local feature matching with sparse-like speed.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 21666–21675, 2024f.
+[113]
+Philippe Weinzaepfel, Vincent Leroy, Thomas Lucas, Romain Brégier, Yohann Cabon, Vaibhav Arora, Leonid Antsfeld, Boris Chidlovskii, Gabriela Csurka, and Jérôme Revaud.
+Croco: Self-supervised pre-training for 3d vision tasks by cross-view completion.
+Advances in Neural Information Processing Systems, 35:3502–3516, 2022.
+[114]
+Philippe Weinzaepfel, Thomas Lucas, Vincent Leroy, Yohann Cabon, Vaibhav Arora, Romain Brégier, Gabriela Csurka, Leonid Antsfeld, Boris Chidlovskii, and Jérôme Revaud.
+Croco v2: Improved cross-view completion pre-training for stereo matching and optical flow.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 17969–17980, 2023.
+[115]
+Kyle Wilson and Noah Snavely.
+Robust global translations with 1dsfm.
+In Computer Vision–ECCV 2014: 13th European Conference, Zurich, Switzerland, September 6-12, 2014, Proceedings, Part III 13, pages 61–75. Springer, 2014.
+[116]
+Dominik Winkelbauer, Maximilian Denninger, and Rudolph Triebel.
+Learning to localize in new environments from synthetic training data.
+In 2021 IEEE International Conference on Robotics and Automation (ICRA), pages 5840–5846. IEEE, 2021.
+[117]
+Jian Wu, Liwei Ma, and Xiaolin Hu.
+Delving deeper into convolutional neural networks for camera relocalization.
+In 2017 IEEE International Conference on Robotics and Automation (ICRA), pages 5644–5651. IEEE, 2017.
+[118]
+Fei Xue, Xin Wu, Shaojun Cai, and Junqiu Wang.
+Learning multi-view camera relocalization with graph neural networks.
+In 2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 11372–11381. IEEE, 2020.
+[119]
+Luwei Yang, Ziqian Bai, Chengzhou Tang, Honghua Li, Yasutaka Furukawa, and Ping Tan.
+Sanet: Scene agnostic network for camera localization.
+In Proceedings of the IEEE/CVF international conference on computer vision, pages 42–51, 2019.
+[120]
+Luwei Yang, Rakesh Shrestha, Wenbo Li, Shuaicheng Liu, Guofeng Zhang, Zhaopeng Cui, and Ping Tan.
+Scenesqueezer: Learning to compress scene for camera relocalization.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 8259–8268, 2022.
+[121]
+Yao Yao, Zixin Luo, Shiwei Li, Jingyang Zhang, Yufan Ren, Lei Zhou, Tian Fang, and Long Quan.
+Blendedmvs: A large-scale dataset for generalized multi-view stereo networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 1790–1799, 2020.
+[122]
+Botao Ye, Sifei Liu, Haofei Xu, Xueting Li, Marc Pollefeys, Ming-Hsuan Yang, and Songyou Peng.
+No pose, no problem: Surprisingly simple 3d gaussian splats from sparse unposed images.
+arXiv preprint arXiv:2410.24207, 2024.
+[123]
+Chandan Yeshwanth, Yueh-Cheng Liu, Matthias Nießner, and Angela Dai.
+Scannet++: A high-fidelity dataset of 3d indoor scenes.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 12–22, 2023.
+[124]
+Yingda Yin, Yang Wang, He Wang, and Baoquan Chen.
+A laplace-inspired distribution on so(3) for probabilistic rotation estimation.
+In International Conference on Learning Representations (ICLR), 2023.
+[125]
+Bernhard Zeisl, Torsten Sattler, and Marc Pollefeys.
+Camera pose voting for large-scale image-based localization.
+In Proceedings of the IEEE International Conference on Computer Vision, pages 2704–2712, 2015.
+[126]
+Junyi Zhang, Charles Herrmann, Junhwa Hur, Varun Jampani, Trevor Darrell, Forrester Cole, Deqing Sun, and Ming-Hsuan Yang.
+Monst3r: A simple approach for estimating geometry in the presence of motion.
+arXiv preprint arXiv:2410.03825, 2024a.
+[127]
+Jason Y. Zhang, Deva Ramanan, and Shubham Tulsiani.
+RelPose: Predicting probabilistic relative rotation for single objects in the wild.
+In European Conference on Computer Vision, 2022.
+[128]
+Jason Y Zhang, Amy Lin, Moneish Kumar, Tzu-Hsuan Yang, Deva Ramanan, and Shubham Tulsiani.
+Cameras as rays: Pose estimation via ray diffusion.
+arXiv preprint arXiv:2402.14817, 2024b.
+[129]
+Qunjie Zhou, Torsten Sattler, Marc Pollefeys, and Laura Leal-Taixe.
+To learn or not to learn: Visual localization from essential matrices.
+In 2020 IEEE International Conference on Robotics and Automation (ICRA), pages 3319–3326. IEEE, 2020.
+[130]
+Tinghui Zhou, Richard Tucker, John Flynn, Graham Fyffe, and Noah Snavely.
+Stereo magnification: Learning view synthesis using multiplane images.
+arXiv preprint arXiv:1805.09817, 2018.
+[131]
+Bingbing Zhuang, Loong-Fah Cheong, and Gim Hee Lee.
+Baseline desensitizing in translation averaging.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 4539–4547, 2018.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from our major funders,
+member institutions, ,
+and all contributors.
+About ·
+Help ·
+Contact ·
+Subscribe ·
+Copyright ·
+Privacy ·
+Accessibility ·
+Operational Status (opens in new tab)

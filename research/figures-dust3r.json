@@ -1,0 +1,213 @@
+{
+  "id": "A01",
+  "slug": "dust3r",
+  "name": "DUSt3R",
+  "version": "2312.14132v3",
+  "pdf": "research/sources/2312.14132v3.pdf",
+  "url": "https://arxiv.org/pdf/2312.14132v3",
+  "sha256": "400fea3f874aed6a9570a0651a701c2a3c635dcfbc2159348e04e83013a0099a",
+  "pages": 23,
+  "figures": [
+    {
+      "id": "S0.F1",
+      "text": "Figure 1 : Overview : Given an unconstrained image collection, i.e . a set of photographs with unknown camera poses and intrinsics, our proposed method DUSt3R outputs a set of corresponding pointmaps , from which we can straightforwardly recover a variety of geometric quantities normally difficult to estimate all at once, such as the camera parameters, pixel correspondences, depthmaps, and fully-consistent 3D reconstruction. Note that DUSt3R also works for a single input image ( e.g . achieving in this case monocular reconstruction). We also show qualitative examples on the DTU, Tanks and Temples and ETH-3D datasets [ 108 , 51 , 1 ] obtained without known camera parameters. For each sample, from left to right : input image, colored point cloud, and rendered with shading for a better view of the underlying geometry.",
+      "images": []
+    },
+    {
+      "id": "S2.F2",
+      "text": "Figure 2 : Architecture of the network ℱ \\mathcal{F} . Two views of a scene ( I 1 , I 2 ) (I^{1},I^{2}) are first encoded in a Siamese manner with a shared ViT encoder. The resulting token representations F 1 F^{1} and F 2 F^{2} are then passed to two transformer decoders that constantly exchange information via cross-attention. Finally, two regression heads output the two corresponding pointmaps and associated confidence maps. Importantly, the two pointmaps are expressed in the same coordinate frame of the first image I 1 I^{1} . The network ℱ \\mathcal{F} is trained using a simple regression loss ( Eq. 4 )",
+      "images": [
+        {
+          "src": "2312.14132v3/dust3r.png",
+          "id": "S2.F2.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/205;",
+          "width": "685",
+          "height": "205",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F3",
+      "text": "Figure 3 : Reconstruction examples on two scenes never seen during training. From left to right: RGB, depth map, confidence map, reconstruction. The left scene shows the raw result output from ℱ ⁡ ( I 1 , I 2 ) \\mathcal{F}(I^{1},I^{2}) . The right scene shows the outcome of global alignment ( Sec. 3.4 ).",
+      "images": [
+        {
+          "src": "2312.14132v3/megadepth_823.png",
+          "id": "S3.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_figure_panel ltx_img_landscape",
+          "style": "aspect-ratio:384/131;",
+          "width": "384",
+          "height": "131",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2312.14132v3/figures/pipeline1.png",
+          "id": "S3.F3.g2",
+          "class": "ltx_graphics ltx_centering ltx_figure_panel ltx_img_landscape",
+          "style": "aspect-ratio:288/112;",
+          "width": "288",
+          "height": "112",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T1",
+      "text": "Methods 7Scenes (Indoor) [ 114 ] Cambridge (Outdoor) [ 49 ] Chess Fire Heads Office Pumpkin Kitchen Stairs S. Facade O. Hospital K. College St.Mary’s G. Court FM AS [ 103 ] 4/1.96 3/1.53 2/1.45 9/3.61 8/3.10 7/3.37 3 /2.22 4 /0.21 20/0.36 13/0.22 8/0.25 24/ 0.13 HLoc [ 101 ] 2/0.79 2/0.87 2/0.92 3/0.91 5/1.12 4/1.25 6/ 1.62 4/0.2 15/0.3 12/0.20 7/0.21 11 /0.16 E2E DSAC* [ 11 ] 2 /1.10 2 /1.24 1 /1.82 3 /1.15 4 /1.34 4/1.68 3 /1.16 5 /0.3 15/0.3 15/0.3 13/0.4 49/0.3 HSCNet [ 55 ] 2/0.7 2 /0.9 1 /0.9 3/0.8 4/1.0 4/ 1.2 3 / 0.8 6/0.3 19/ 0.3 18/0.3 9/0.3 28/0.2 PixLoc [ 102 ] 2 /0/80 2/0.73 1/0.82 3 /0.82 4 /1.21 3/1.20 5/1.30 5/0.23 16/0.32 14/0.24 10/0.34 30/0.14 SC-wLS [ 152 ] 3/0.76 5/1.09 3/1.92 6/0.86 8/1.27 9/1.43 12/2.80 11/0.7 42/1.7 14/0.6 39/1.3 164/0.9 NeuMaps [ 125 ] 2 /0.81 3/1.11 2/1.17 3 /0.98 4 /1.11 4/1.33 4/1.12 6/0.25 19/0.36 14/0.19 17/0.53 6/ 0.10 DUSt3R 224-NoCroCo 5/1.76 6/2.02 3/1.75 5/1.54 9/2.35 6/1.82 34/7.81 24/1.33 79/1.17 69/1.15 46/1.51 143/1.32 DUSt3R 224 3/0.96 3/1.02 1 /1.00 4/1.04 5/1.26 4/1.36 21/4.08 9/0.38 26/0.46 20/0.32 11/0.38 36/0.24 DUSt3R 512 3/0.97 3/0.95 2/1.37 3 /1.01 4 /1.14 4/1.34 11/2.84 6/0.26 17/0.33 11/0.20 7/0.24 38/0.16 Table 1: Absolute camera pose on 7Scenes [ 114 ] and Cambridge-Landmarks [ 49 ] datasets. We report the median translation and rotation errors ( c m / ∘ cm/^{\\circ} ) to feature matching (FM) based and end-to-end (E2E) learning-base methods. The best results at each category are in bold.",
+      "images": []
+    },
+    {
+      "id": "S4.T2",
+      "text": "Outdoor Indoor Methods Train DDAD [ 41 ] KITTI [ 35 ] BONN [ 80 ] NYUD-v2 [ 115 ] TUM [ 119 ] Rel ↓ \\downarrow δ 1.25 ↑ \\delta_{1.25}\\uparrow Rel ↓ \\downarrow δ 1.25 ↑ \\delta_{1.25}\\uparrow Rel ↓ \\downarrow δ 1.25 ↑ \\delta_{1.25}\\uparrow Rel ↓ \\downarrow δ 1.25 ↑ \\delta_{1.25}\\uparrow Rel ↓ \\operatorname{Rel}\\downarrow δ 1.25 ↑ \\delta_{1.25}\\uparrow DPT-BEiT [ 91 ] D 10.70 84.63 9.45 89.27 - - 5.40 96.54 10.45 89.68 NeWCRFs [ 174 ] D 9.59 82.92 5.43 91.54 - - 6.22 95.58 14.63 82.95 Monodepth2 [ 37 ] SS 23.91 75.22 11.42 86.90 56.49 35.18 16.19 74.50 31.20 47.42 SC-SfM-Learners [ 6 ] SS 16.92 77.28 11.83 86.61 21.11 71.40 13.79 79.57 22.29 64.30 SC-DepthV3 [ 121 ] SS 14.20 81.27 11.79 86.39 12.58 88.92 12.34 84.80 16.28 79.67 MonoViT [ 182 ] SS - - 09.92 90.01 - - - - - RobustMIX [ 92 ] T - - 18.25 76.95 - - 11.77 90.45 15.65 86.59 SlowTv [ 117 ] T 12.63 79.34 (6.84) (56.17) - - 11.59 87.23 15.02 80.86 DUSt3R 224-NoCroCo T 19.63 70.03 20.10 71.21 14.44 86.00 14.51 81.06 22.14 66.26 DUSt3R 224 T 16.32 77.58 16.97 77.89 11.05 89.95 10.28 88.92 17.61 75.44 DUSt3R 512 T 13.88 81.17 10.74 86.60 8.08 93.56 6.50 94.09 14.17 79.89 Methods Co3Dv2 [ 94 ] RealEstate10K RRA@15 RTA@15 mAA(30) mAA(30) RelPose [ 177 ] 57.1 - - - Colmap+SPSG [ 26 , 100 ] 36.1 27.3 25.3 45.2 PixSfM [ 59 ] 33.7 32.9 30.1 49.4 PosReg [ 140 ] 53.2 49.1 45.0 - PoseDiffusion [ 140 ] 80.5 79.8 66.5 48.0 DUSt3R 512 (w/ PnP) 94.3 88.4 77.2 61.2 DUSt3R 512 (w/ GA) 96.2 86.8 76.7 67.7 Table 2 : Left : Monocular depth estimation on multiple benchmarks. D-Supervised, SS-Self-supervised, T-transfer (zero-shot). (Parentheses) refers to training on the same set. Right: Multi-view pose regression on the CO3Dv2 [ 94 ] and RealEst10K [ 186 ] with 10 random frames.",
+      "images": []
+    },
+    {
+      "id": "S4.T3",
+      "text": "Methods GT GT GT Align KITTI ScanNet ETH3D DTU T&T Average Pose Range Intrinsics rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow rel ↓ \\downarrow τ ↑ \\tau\\uparrow time (s) ↓ \\downarrow (a) COLMAP [ 106 , 107 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 12.0 58.2 14.6 34.2 16.4 55.1 0.7 96.5 2.7 95.0 9.3 67.8 ≈ \\approx 3 min COLMAP Dense [ 106 , 107 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 26.9 52.7 38.0 22.5 89.8 23.2 20.8 69.3 25.7 76.4 40.2 48.8 ≈ \\approx 3 min (b) MVSNet [ 161 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 22.7 36.1 24.6 20.4 35.4 31.4 (1.8) ( 86.0 ) (86.0) 8.3 73.0 18.6 49.4 0.07 MVSNet Inv. Depth [ 161 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 18.6 30.7 22.7 20.9 21.6 35.6 (1.8) ( 86.7 ) (86.7) 6.5 74.6 14.2 49.7 0.32 Vis-MVSSNet [ 176 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 9.5 55.4 8.9 33.5 10.8 43.3 (1.8) (87.4) 4.1 87.2 7.0 61.4 0.70 MVS2D ScanNet [ 160 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 21.2 8.7 (27.2) (5.3) 27.4 4.8 17.2 9.8 29.2 4.4 24.4 6.6 0.04 MVS2D DTU [ 160 ] ✓ \\checkmark ✓ \\checkmark ✓ \\checkmark × \\times 226.6 0.7 32.3 11.1 99.0 11.6 (3.6) (64.2) 25.8 28.0 77.5 23.1 0.05 (c) DeMon [ 136 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 16.7 13.4 75.0 0.0 19.0 16.2 23.7 11.5 17.6 18.3 30.4 11.9 0.08 DeepV2D KITTI [ 131 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times (20.4) (16.3) 25.8 8.1 30.1 9.4 24.6 8.2 38.5 9.6 27.9 10.3 1.43 DeepV2D ScanNet [ 131 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 61.9 5.2 (3.8) (60.2) 18.7 28.7 9.2 27.4 33.5 38.0 25.4 31.9 2.15 MVSNet [ 161 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 14.0 35.8 1568.0 5.7 507.7 8.3 (4429.1) (0.1) 118.2 50.7 1327.4 20.1 0.15 MVSNet Inv. Depth [ 161 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 29.6 8.1 65.2 28.5 60.3 5.8 (28.7) (48.9) 51.4 14.6 47.0 21.2 0.28 Vis-MVSNet [ 176 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 10.3 54.4 84.9 15.6 51.5 17.4 (374.2) (1.7) 21.1 65.6 108.4 31.0 0.82 MVS2D ScanNet [ 160 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 73.4 0.0 (4.5) (54.1) 30.7 14.4 5.0 57.9 56.4 11.1 34.0 27.5 0.05 MVS2D DTU [ 160 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 93.3 0.0 51.5 1.6 78.0 0.0 (1.6) (92.3) 87.5 0.0 62.4 18.8 0.06 Robust MVD Baseline [ 110 ] ✓ \\checkmark × \\times ✓ \\checkmark × \\times 7.1 41.9 7.4 38.4 9.0 42.6 2.7 82.0 5.0 75.1 6.3 56.0 0.06 (d) DeMoN [ 136 ] × \\times × \\times ✓ \\checkmark ‖ 𝐭 ‖ \\|\\mathbf{t}\\| 15.5 15.2 12.0 21.0 17.4 15.4 21.8 16.6 13.0 23.2 16.0 18.3 0.08 DeepV2D KITTI [ 131 ] × \\times × \\times ✓ \\checkmark med (3.1) (74.9) 23.7 11.1 27.1 10.1 24.8 8.1 34.1 9.1 22.6 22.7 2.07 DeepV2D ScanNet [ 131 ] × \\times × \\times ✓ \\checkmark med 10.0 36.2 (4.4) (54.8) 11.8 29.3 7.7 33.0 8.9 46.4 8.6 39.9 3.57 DUSt3R 224-NoCroCo × \\times × \\times × \\times med 15.14 21.16 7.54 40.00 9.51 40.07 3.56 62.83 11.12 37.90 9.37 40.39 0.05 DUSt3R 224 × \\times × \\times × \\times med 15.39 26.69 (5.86) (50.84) 4.71 61.74 2.76 77.32 5.54 56.38 6.85 54.59 0.05 DUSt3R 512 × \\times × \\times × \\times med 9.11 39.49 (4.93) ( 60.20 ) 2.91 76.91 3.52 69.33 3.17 76.68 4.73 64.52 0.13 Table 3 : Multi-view depth evaluation with different settings: a) Classical approaches; b) with poses and depth range, without alignment; c) absolute scale evaluation with poses, without depth range and alignment; d) without poses and depth range, but with alignment. (Parentheses) denote training on data from the same domain. The best results for each setting are in bold .",
+      "images": []
+    },
+    {
+      "id": "S4.T4",
+      "text": "Methods GT cams Acc. ↓ \\downarrow Comp. ↓ \\downarrow Overall ↓ \\downarrow (a) Camp [ 12 ] ✓ \\checkmark 0.835 0.554 0.695 Furu [ 33 ] ✓ \\checkmark 0.613 0.941 0.777 Tola [ 134 ] ✓ \\checkmark 0.342 1.190 0.766 Gipuma [ 34 ] ✓ \\checkmark 0.283 0.873 0.578 (b) MVSNet [ 161 ] ✓ \\checkmark 0.396 0.527 0.462 CVP-MVSNet [ 158 ] ✓ \\checkmark 0.296 0.406 0.351 UCS-Net [ 18 ] ✓ \\checkmark 0.338 0.349 0.344 CER-MVS [ 65 ] ✓ \\checkmark 0.359 0.305 0.332 CIDER [ 157 ] ✓ \\checkmark 0.417 0.437 0.427 CasMVSNet [ 40 ] ✓ \\checkmark 0.325 0.385 0.355 PatchmatchNet [ 139 ] ✓ \\checkmark 0.427 0.277 0.352 GeoMVSNet [ 180 ] ✓ \\checkmark 0.331 0.259 0.295 DUSt3R 512 × \\times 2.677 0.805 1.741 Table 4 : MVS results on the DTU dataset, in mm . Traditional handcrafted methods (a) have been overcome by learning-based approaches (b) that train on this specific domain.",
+      "images": []
+    },
+    {
+      "id": "S5.F4",
+      "text": "Figure 4 : Example of 3D reconstruction of an unseen MegaDepth scene from two images (top-left). Note this is the raw output of the network, i.e . we show the output depthmaps (top-center, see Eq. 8 ) and confidence maps (top-right), as well as two different viewpoints on the colored pointcloud (middle and bottom). Camera parameters are recovered from the raw pointmaps, see Sec. 3.3 in the main paper. DUSt3R handles strong viewpoint and focal changes without apparent problems",
+      "images": [
+        {
+          "src": "2312.14132v3/figures/qualitatives/116.jpg",
+          "id": "S5.F4.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "style": "aspect-ratio:685/1000;",
+          "width": "685",
+          "height": "1000",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.F5",
+      "text": "Figure 5 : Example of 3D reconstruction of an unseen MegaDepth [ 56 ] scene from two images only. Note this is the raw output of the network, i.e . we show the output depthmaps (top-center) and confidence maps (top-right), as well as different viewpoints on the colored pointcloud (middle and bottom). Camera parameters are recovered from the raw pointmaps, see Sec. 3.3 in the main paper. DUSt3R handles strong viewpoint and focal changes without apparent problems",
+      "images": [
+        {
+          "src": "2312.14132v3/figures/qualitatives/31.jpg",
+          "id": "S5.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "style": "aspect-ratio:685/933;",
+          "width": "685",
+          "height": "933",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.F6",
+      "text": "Figure 6 : Example of 3D reconstruction from two images only of unseen scenes, namely KingsCollege(Top-Left), OldHospital (Top-Middle), StMarysChurch(Top-Right), ShopFacade(Bottom-Left), GreatCourt(Bottom-Right). Note this is the raw output of the network, i.e . we show new viewpoints on the colored pointclouds. Camera parameters are recovered from the raw pointmaps, see Sec. 3.3 in the main paper.",
+      "images": [
+        {
+          "src": "2312.14132v3/figures/cambridge_7scenes/duster_cambridge.jpg",
+          "id": "S5.F6.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:617/428;",
+          "width": "617",
+          "height": "428",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.F7",
+      "text": "Figure 7 : Example of 3D reconstruction from two images only of unseen scenes, namely Chess, Fire, Heads, Office (Top-Row), Pumpkin, Kitchen, Stairs (Bottom-Row). Note this is the raw output of the network, i.e . we show new viewpoints on the colored pointclouds. Camera parameters are recovered from the raw pointmaps, see Sec. 3.3 in the main paper.",
+      "images": [
+        {
+          "src": "2312.14132v3/figures/cambridge_7scenes/duster_7scenes_hlayout.jpg",
+          "id": "S5.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:685/255;",
+          "width": "685",
+          "height": "255",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.F8",
+      "text": "Figure 8 : Examples of 3D reconstructions from nearly opposite viewpoints . For each of the 4 cases (motorcycle, toaster, bench, stop sign), we show the two input images (top-left) and the raw output of the network: output depthmaps (top-center) and confidence maps (top-right), as well as two different views on the colored point-clouds (middle and bottom). Camera parameters are recovered from the raw pointmaps, see Sec. 3.3 in the main paper. DUSt3R handles drastic viewpoint changes without apparent issues, even when there is almost no overlapping visual content between images, e.g . for the stop sign and motorcycle. Note that these example cases are not cherry-picked; they are randomly chosen from the set of unseen CO3D_v2 sequences. Please refer to the video for animated visualizations.",
+      "images": [
+        {
+          "src": "2312.14132v3/figures/qualitatives/motorcycle.jpg",
+          "id": "S5.F8.m1.g1",
+          "class": "ltx_graphics ltx_img_square",
+          "style": "aspect-ratio:685/810;",
+          "width": "685",
+          "height": "810",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2312.14132v3/figures/qualitatives/bench.jpg",
+          "id": "S5.F8.m1.g2",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:685/323;",
+          "width": "685",
+          "height": "323",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2312.14132v3/figures/qualitatives/stopsign.jpg",
+          "id": "S5.F8.m1.g3",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:685/218;",
+          "width": "685",
+          "height": "218",
+          "alt": "Refer to caption"
+        },
+        {
+          "src": "2312.14132v3/figures/qualitatives/toaster.jpg",
+          "id": "S5.F8.m2.g1",
+          "class": "ltx_graphics ltx_img_portrait",
+          "style": "aspect-ratio:336/753;",
+          "width": "336",
+          "height": "753",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S5.F9",
+      "text": "Figure 9 : Reconstruction example from 4 random frames of a RealEstate10K indoor sequence, after global alignment. On the left-hand side, we show the 4 input frames, and on the right-hand side the resulting point-cloud and the recovered camera intrinsics and poses.",
+      "images": [
+        {
+          "src": "2312.14132v3/figures/qualitatives/realestate3.jpg",
+          "id": "S5.F9.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/312;",
+          "width": "548",
+          "height": "312",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S8.T5",
+      "text": "Methods N Frames Co3Dv2 [ 94 ] RealEstate10K [ 186 ] RRA@15 RTA@15 mAA(30) mAA(30) COLMAP+SPSG 3 ∼ \\sim 22 ∼ \\sim 14 ∼ \\sim 15 ∼ \\sim 23 PixSfM 3 ∼ \\sim 18 ∼ \\sim 8 ∼ \\sim 10 ∼ \\sim 17 Relpose 3 ∼ \\sim 56 - - - PoseDiffusion 3 ∼ \\sim 75 ∼ \\sim 75 ∼ \\sim 61 - ( ∼ \\sim 77) DUSt3R 512 3 95.3 88.3 77.5 69.5 COLMAP+SPSG 5 ∼ \\sim 21 ∼ \\sim 17 ∼ \\sim 17 ∼ \\sim 34 PixSfM 5 ∼ \\sim 21 ∼ \\sim 16 ∼ \\sim 15 ∼ \\sim 30 Relpose 5 ∼ \\sim 56 - - - PoseDiffusion 5 ∼ \\sim 77 ∼ \\sim 76 ∼ \\sim 63 - ( ∼ \\sim 78) DUSt3R 512 5 95.5 86.7 76.5 67.4 COLMAP+SPSG 10 31.6 27.3 25.3 45.2 PixSfM 10 33.7 32.9 30.1 49.4 Relpose 10 57.1 - - - PoseDiffusion 10 80.5 79.8 66.5 48.0 ( ∼ \\sim 80) DUSt3R 512 10 96.2 86.8 76.7 67.7 Table 5: Comparison with the state of the art for multi-view pose regression on the CO3Dv2 [ 94 ] and RealEstate10K [ 186 ] with 3, 5 and 10 random frames. (Parentheses) indicates results obtained after training on RealEstate10K. In contrast, we report results for DUSt3R after global alignment without training on RealEstate10K.",
+      "images": []
+    },
+    {
+      "id": "S9.T6",
+      "text": "Methods GT 7Scenes (Indoor) [ 114 ] Cambridge (Outdoor) [ 49 ] Focals Chess Fire Heads Office Pumpkin Kitchen Stairs S. Facade O. Hospital K. College St.Mary’s G. Court DUSt3R 512 from 2D-matching ✓ \\checkmark 3/0.97 3/0.95 2/1.37 3 /1.01 4 /1.14 4/1.34 11/2.84 6/0.26 17/0.33 11/0.20 7/0.24 38/0.16 DUSt3R 512 from scaled rel-pose × \\times 5/1.08 5/1.18 4/1.33 6/1.05 7/1.25 6/1.37 26/3.56 64/0.97 151/0.88 102/0.88 79/1.46 245/1.08 Table 6: Absolute camera pose on 7Scenes [ 114 ] (top 1 image) and Cambridge-Landmarks [ 49 ] (top 20 images) datasets. We report the median translation and rotation errors ( c m / ∘ cm/^{\\circ} ).",
+      "images": []
+    },
+    {
+      "id": "S10.T7",
+      "text": "Hyperparameters low-resolution training high-resolution training DPT training Prediction Head Linear Linear DPT [ 91 ] Optimizer AdamW [ 62 ] AdamW [ 62 ] AdamW [ 62 ] Base learning rate 1e-4 1e-4 1e-4 Weight decay 0.05 0.05 0.05 Adam β \\beta (0.9, 0.95) (0.9, 0.95) (0.9, 0.95) Pairs per Epoch 700k 70k 70k Batch size 128 64 64 Epochs 50 100 90 Warmup epochs 10 20 15 Learning rate scheduler Cosine decay Cosine decay Cosine decay Input resolutions 224 × 224 224{\\times}224 512 × 384 512{\\times}384 , 512 × 336 512{\\times}336 512 × 384 512{\\times}384 , 512 × 336 512{\\times}336 512 × 288 512{\\times}288 , 512 × 256 512{\\times}256 512 × 288 512{\\times}288 , 512 × 256 512{\\times}256 512 × 160 512{\\times}160 512 × 160 512{\\times}160 Image Augmentations Random centered crop, color jitter Random centered crop, color jitter Random centered crop, color jitter Initialization CroCo v2 [ 149 ] low-resolution training high-resolution training Table 7 : Detailed hyper-parameters for the training, with first a low-resolution training with a linear head followed by a higher-resolution training still with a linear head and a final step of higher-resolution training with a DPT head, in order to save training time",
+      "images": []
+    },
+    {
+      "id": "S10.T8",
+      "text": "Datasets Type N Pairs Habitat [ 104 ] Indoor / Synthetic 1000k CO3Dv2 [ 94 ] Object-centric 941k ScanNet++ [ 166 ] Indoor / Real 224k ArkitScenes [ 25 ] Indoor / Real 2040k Static Thing 3D [ 110 ] Object / Synthetic 337k MegaDepth [ 56 ] Outdoor / Real 1761k BlendedMVS [ 162 ] Outdoor / Synthetic 1062k Waymo [ 122 ] Outdoor / Real 1100k Table 8: Dataset mixture and sample sizes for DUSt3R training.",
+      "images": []
+    }
+  ]
+}

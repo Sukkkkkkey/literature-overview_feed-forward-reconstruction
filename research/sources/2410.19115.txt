@@ -1,0 +1,2605 @@
+MoGe: Unlocking Accurate Monocular Geometry Estimation for Open-Domain Images with Optimal Training Supervision
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Work
+Monocular depth estimation.
+Monocular point map estimation.
+Camera intrinsics estimation.
+Large-scale data training for monocular geometry.
+3 Approach
+3.1 Affine-invariant point map
+Recovering camera focal and shift.
+3.2 Training Objectives
+Global point map supervision.
+Multi-scale local geometry loss.
+Normal loss.
+Mask loss.
+3.3 Training data
+4 Experiments
+Implementation details.
+4.1 Quantitative Evaluations.
+Point map estimation.
+Depth map estimation.
+Camera FOV estimation.
+4.2 Qualitative comparison
+4.3 Ablation Study
+Point map representation.
+ROE alignment.
+Multi-scale local geometry loss.
+Infinity mask.
+5 Conclusion
+References
+A Algorithm Details
+A.1 Recovering Shift and Camera Focal
+A.2 ROE Alignment
+Subproblem (w/o truncation).
+Subproblem (w/ truncation).
+Alignment with 1D shift.
+Alignment with 3D shift.
+B Experiment Details
+B.1 Training Data
+B.2 Evaluation Data
+B.3 Evaluation Protocol
+C More Results
+Full table of depth estimation results
+More qualitative comparisons
+More visual results
+D Limitations and Future Work
+License: CC BY 4.0
+arXiv:2410.19115v3 [cs.CV] 15 Apr 2025
+MoGe: Unlocking Accurate Monocular Geometry Estimation for Open-Domain Images with Optimal Training Supervision
+​​Ruicheng Wang​ ​ Sicheng Xu Cassie Dai Jianfeng Xiang Yu Deng Xin Tong Jiaolong Yang
+††thanks: Work done during internship at Microsoft Research††thanks: Corresponding author
+Affiliation: USTC
+Affiliation: Microsoft Research
+Affiliation: Harvard
+Affiliation: Tsinghua University{t-ruiwang,sichengxu,t-jxiang,dengyu,jiaoyan}@microsoft.com {cccassied,xtong.gfx}@gmail.com
+Abstract
+We present MoGe, a powerful model for recovering 3D geometry from monocular open-domain images.
+Given a single image, our model directly predicts a 3D point map of the captured scene with an affine-invariant representation, which is agnostic to true global scale and shift. This new representation precludes ambiguous supervision in training and facilitates effective geometry learning. Furthermore, we propose a set of novel global and local geometry supervision techniques that empower the model to learn high-quality geometry. These include a robust, optimal, and efficient point cloud alignment solver for accurate global shape learning, and a multi-scale local geometry loss promoting precise local geometry supervision. We train our model on a large, mixed dataset and demonstrate its strong generalizability and high accuracy. In our comprehensive evaluation on diverse unseen datasets, our model significantly outperforms state-of-the-art methods across all tasks, including monocular estimation of 3D point map, depth map, and camera field of view. Code and models can be found on our project page.
+1 Introduction
+Estimating the 3D geometry of general scenes is a fundamental task in computer vision. While 3D reconstruction from a set of images has been extensively studied with Structure-from-Motion (SfM) [1, 48] and Multi-View Stereo (MVS) [49, 66] techniques, recovering the 3D geometry from a single image in an arbitrary domain remains a significant challenge due to its highly ill-posed nature.
+For monocular geometry estimation (MGE), a common approach involves first estimating a depth map, subject to an unknown scale (and shift), and then combining it with camera intrinsics to recover the 3D shape via unprojection [71, 42]. For the former, significant advancements in monocular depth estimation (MDE) have been achieved in recent years by training on large-scale data [73, 26, 67, 68, 43] or leveraging powerful pretrained models [29, 20, 23]. However, inferring camera intrinsics (e.g., focal length) from single images remains challenging due to the high degree of ambiguity when strong geometric cues are absent. Inaccurate camera parameters can lead to significant geometry distortions even when used with ground truth depth maps. Recently, DUSt3R [59] proposed predicting a 3D point map from an image by mapping each pixel to a free 3D point, thereby bypassing camera parameter estimation during geometry recovery. Although the model can estimate monocular geometry, it is primarily designed for multi-view scenarios and is trained on image pair inputs.
+In this paper, we introduce a new direct 3D geometry estimation method designed for single images in the open domain. Our model architecture is simple and straightforward: it directly predicts point maps from images, which can further derive depth map and camera focal length or FOV if needed. Different from DUSt3R [59] which uses scale-invariant point maps, our method predicts affine-invariant point maps, where the 3D points are subject to an unknown global scale as well as a 3D shift.
+This alteration is important as it eliminates the focal-distance ambiguity which is detrimental to the network training – we provide intuitive explanations with illustration as well as empirical evidence to support this advancement.
+Figure 2:
+Accuracy ranking of existing methods and ours in our extensive evaluation on monocular 3D point map (scale-invariant and affine-invariant), depth map (scale-invariant depth, affine-invariant depth, and affine-invariant disparity), and camera field of view. Outer methods rank higher. See our experiments for details.
+More importantly, our findings indicate that the design of training supervisions is crucial to achieve robust and accurate point map prediction from single images. Similar to previous MDE approaches, a global scaling factor and translation are required to align predictions with ground truth during training. However, existing methods for this global alignment calculation are either sensitive to outliers or solved with coarse approximations, leading to suboptimal supervision. We propose a Robust, Optimal, and Efficient (ROE) global alignment solver to resolve scale and shift for the affine-invariant point map loss, which substantially improves the training effectiveness and final accuracy. On the other hand, the effective learning of local, region-specific geometry has been largely neglected previously. In monocular geometry estimation, the relative distances between different objects can be ambiguous, which hinders precise local geometry learning when only a global alignment is applied. In light of this, we propose a multi-scale local geometry loss, which penalizes local discrepancies in 3D point clouds under independent affine alignments. This design significantly boosted the accuracy of our local geometry prediction.
+We train our model on large-scale data sourced from various existing datasets. Our model demonstrates strong generalizability and accuracy in monocular geometry estimation for open-domain images (examples in Fig. ). Zero-shot evaluation on eight unseen datasets shows a significant improvement over previous MGE methods that output point clouds (over 35% error reduction compared to the previous best). Moreover, our method significantly outperforms prior approaches that focus on the sub-tasks of MDE and camera FOV (20% \sim 30% error reduction for the former and over 20% for the latter). Figure 2 shows that our method ranks top across all tasks and metrics in the evaluation.
+Our contributions are summarized as follows: 1) We propose a new direct MGE method for open-domain images using affine-invariant point maps. 2) We establish a set of novel and effective global and local supervisions for robust and precise geometry recovery. 3) We demonstrate the substantial enhancement in performance of our model over existing methods on MGE, MDE, and camera FOV estimation across diverse datasets.
+We hope that our method serves as a versatile foundational model for monocular geometry tasks, facilitating applications such as 3D-aware image editing, depth-to-image synthesis, novel view synthesis, and 3D scene understanding, as well as providing initial geometrical priors for video or multiview-based 3D reconstruction.
+2 Related Work
+Monocular depth estimation.
+As a crucial precursor to monocular geometry estimation, monocular depth estimation is a long-standing task and has been extensively studied in the past. A number of methods [18, 4, 73, 26, 42, 5, 36] have been developed to estimate depth with metric scale, which often rely heavily on data from specific sensors such as RGBD cameras, LiDAR, and calibrated stereo cameras. This dependence restricts their applicability to specific domains, such as indoor and driving scenes. In contrast, relative depth estimation has garnered significant attention due to its ability to utilize a much wider variety of data, thereby exhibiting enhanced generalizability. A prevalent approach is to predict relative depth in an affine-invariant manner, either through direct regression [10, 35, 22, 11, 70, 43, 67, 68] or generative modeling [29, 20, 56, 23].
+Despite the recent advancements in monocular depth estimation, recovering 3D shape from depth information always necessitates known camera intrinsics.
+Monocular point map estimation.
+Compared to depth maps, 3D point map offers a more straightforward representation of 3D geometry.
+Monocular point map estimation aims to recover free 3D points for each pixel in a single image. Several approaches address this by predicting camera parameters alongside depth.
+For example, LeReS [71, 72] introduced a two-stage pipeline with affine-invariant depth prediction followed by a point cloud module to recover shift and camera focal length.
+UniDepth [42] proposed a self-promptable camera module that predicts dense camera representation to condition the subsequent depth estimation module.
+DUSt3R [59] employs an end-to-end model to directly map two-view images to camera space point maps, adaptable to monocular scenarios by using two identical input images. However, its scale-invariant point map can suffer from the focal-distance ambiguity.
+In contrast, our approach is designed to handle monocular input and we employ affine-invariant point map with meticulously designed training supervisions for more effective geometry learning.
+Camera intrinsics estimation.
+Estimating camera intrinsics is a fundamental task in 3D vision.
+While traditional multiview camera calibration using special patterns is well studied [75], estimating camera intrinsics from single images is ill-posed and remains challenging. For the latter, earlier works utilized known 3D shapes [61] or vanishing points [13].
+More recently, learning-based approaches have been explored [63, 7, 33, 28, 77] to handle in-the-wild images, but the results are far from satisfactory. In this work, we demonstrate that our camera parameter estimation derived from point maps can achieve state-of-the-art accuracy and offer remarkable generalizability.
+Large-scale data training for monocular geometry.
+Recently, there has been an emerging trend [43, 17, 5, 42, 73, 26, 59, 67, 68]
+in monocular geometry estimation and depth estimation that leverages large-scale datasets coupled with advanced network backbones [15, 44, 41] to enhance performance. MiDaS [43] marks an important milestone by mixing large datasets from various domains for training.
+Depth Anything [67] leverages both labeled and extensive unlabeled data to improve generalization. Its successive work [68] further highlights the importance of high-quality synthetic data for capturing rich shape details in depth prediction. These advancements underscore the vital importance of large-scale training data in improving the performance of monocular geometry estimation.
+Figure 3: Method overview. Our model consists of a ViT encoder and a convolutional decoder. It predicts an affine-invariant point map as well as a mask that excludes regions with undefined geometry (e.g., infinity). Depth, camera shift, and focal length can be further derived from the model output. For training, we design robust and effective supervisions focusing on both the global and local geometry.
+Figure 4: The focal-distance ambiguity and effects of different 3D point representations. (a) For similar images captured with varying camera focal length and distance to the objects, perceiving their true camera setup is challenging and models often produce similar geometries. (b) Inconsistent supervision signals occur with only scale alignment. (c) Consistent geometry supervision with an additional translation alignment.
+Figure 5: The relative distance ambiguity, where distances between objects can be hard to predict.
+3 Approach
+Our method takes a single image as input and directly predicts the geometry of the scene represented by 3D points. An overview of the method is shown in Fig. 3.
+3.1 Affine-invariant point map
+For an image \mathbf{I}\in\mathbb{R}^{H\times W\times 3} , our model F_{\theta} infers the 3D coordinates of the image pixels, represented by a point map \mathbf{P}\in\mathbb{R}^{H\times W\times 3} , i.e.,:
+|
+| F_{\theta}:\mathbf{I}\mapsto\mathbf{P}.
+|
+| (1)
+The X and Y axes of the coordinate frame of \mathbf{P} are aligned with the u and v axes in the image space respectively.
+Monocular geometry estimation often suffers from focal-distance ambiguity, as shown in Fig. 5 (a). To deal with this issue, we propose to predict affine-invariant point map \mathbf{P} , i.e., \mathbf{P} is agnostic to the global scale s\in\mathbb{R} and offset \mathbf{t}\in\mathbb{R}^{3} and thus \mathbf{P}\cong s\mathbf{P}+\mathbf{t},\forall s,\forall\mathbf{t} .
+Compared to the scale-invariant supervision [59] shown in Fig. 5 (b), the discrepancies in focal lengths and camera positions between the predictions and ground truth are amended by a translation, as shown in Fig. 5 (c). This ensures consistent geometry supervision when focal length is ambiguous, enabling more effective geometry learning.
+Following accepted practice, we assume that the camera principal point coincides with image center and pixels are square. In this case, \mathbf{t} can be simplified with a Z -axis shift t_{z} (i.e., t_{x}=t_{y}=0 ).
+Recovering camera focal and shift.
+The affine-invariant point map representation can be used to recover both camera shift and focal length. Given the predicted 3D points (x_{i},y_{i},z_{i}) and their corresponding 2D pixels (u_{i},v_{i}) , we solve for camera focal length prediction f and Z -axis shift t_{z}^{\prime} by minimizing the projection error:
+|
+| \min_{f,t_{z}^{\prime}}\sum_{i=1}^{N}\left({fx_{i}\over z_{i}+t_{z}^{\prime}}-u_{i}\right)^{2}+\left({fy_{i}\over z_{i}+t_{z}^{\prime}}-v_{i}\right)^{2},
+|
+| (2)
+where t_{z}^{\prime}=t_{z}/s .
+Eq. 2 can be efficiently solved with a fast iterative optimization algorithm, which typically converges within 10 iterations, taking approximately 3 ms. More details about the solution can be found in the suppl. materials.
+With t_{z}^{\prime} recovered, the scale-invariant depth map and point map in the camera space can be obtained by adding it to the z coordinates.
+3.2 Training Objectives
+Global point map supervision.
+Let \hat{\mathbf{p}}_{i} denote the predicted 3D point for the i -th pixel, and \mathbf{p}_{i} the corresponding ground truth. The global point map loss is defined as:
+|
+| \mathcal{L}_{G}=\sum_{i\in{\mathcal{M}}}{\frac{1}{{z}_{i}}\|s\hat{\mathbf{p}}_{i}+\mathbf{t}-{\mathbf{p}}_{i}\|_{1}},
+|
+| (3)
+where \|\!\cdot\!\|_{1} denotes the L_{1} norm, s and \mathbf{t} are the alignment parameters that transform the predicted affine-invariant point map to the ground-truth camera space, and {\mathcal{M}} is the mask for regions with labels. The weighting term \frac{1}{{z}_{i}} , where z_{i} is the z -coordinate of {\mathbf{p}}_{i} , is applied to balance the supervision signal across extreme depths variations.
+To apply the global loss \mathcal{L}_{G} for training, we need to first determine s and \mathbf{t} . Previous affine-invariant depth estimation methods often use rough alignment approximations, like using the median depth of two sets as an anchor to compute shift, followed by scaling [43, 67, 68], or normalizing depth range [29, 20]. These simple strategies yield suboptimal alignment and could lead to unsatisfactory supervision.
+In this work, we propose a solver to the optimal alignment parameters. Specifically, we determine s^{*} and \mathbf{t}^{*} via
+|
+| \begin{split}(s^{*},\mathbf{t}^{*})=\mathop{\arg\!\min}_{s,\mathbf{t}}\sum_{i\in{\mathcal{M}}}\frac{1}{{z}_{i}}\left\|s\hat{\mathbf{p}}_{i}+\mathbf{t}-{\mathbf{p}}_{i}\right\|_{1},\end{split}
+|
+| (4)
+where t_{x} and t_{y} are 0 .
+One approach to solve this equation is to frame it as an absolute residuals optimization problem and use linear programming methods such as simplex algorithms and the interior-point method [8]. However, these methods are known to have high computational complexity, often exceeding O(N^{3}) , making them inefficient for network training with thousands of points, where computation can take seconds.
+Instead, we develop an efficient parallelized searching algorithm. With the fact that the optimum must occur when s\hat{z}_{k}+t_{z}=z_{k} for some index k , we replace t_{z} with s and break the problem into a series of parallel one-dimensional subproblems. This reduces the complexity to O(N^{2}\log N) and enables efficient GPU-based training. A high-level description of this solution is presented in Algorithm 1 with more details in the suppl. materials.
+In practice, we found that Eq. 4 is still sensitive to outliers occasionally even with the L_{1} error norm. If the model mistakenly predicts a close foreground edge pixel as a distant background point, the objective would be dominated by this incorrect prediction.
+To further improve the robustness, we apply truncation \min(\cdot,\tau) to the absolute residuals. While this truncation introduces non-convexity, our solver remains applicable with minor adjustments.
+In summary, our alignment solver is made Robust, Optimal, and Efficient, and hence we call it the ROE solver.
+Algorithm 1 Overview of ROE alignment
+function SolveSubproblem()
+Enumerate breakpoints of the piecewise linear function.
+Find extrema among the breakpoints by their derivatives.
+return s^{(k)} with smallest objective value l^{(k)} at extrema.
+end function
+for index k=1 to N do \triangleright parallel computation
+Formulate subproblem by substituting t_{z} with z_{k}\!-s^{(k)}\hat{z}_{k} .
+Solve scale s^{(k)} and l^{(k)} via SolveSubproblem().
+Obtain translation t_{z}^{(k)} as z_{k}\!-\!s^{(k)}\hat{z}_{k} .
+end for
+Select optimal s^{*} and t_{z}^{*} with smallest function value l^{(k)} .
+Multi-scale local geometry loss.
+In monocular geometry estimation, the relative distance between different objects can be ambiguous and difficult to predict, as illustrated in Fig. 5. This hinders precise local geometry learning when a global alignment computed with all objects is applied. To enhance the supervision for local geometry, we propose a loss function which measures the accuracy of local sphere regions with independent alignment.
+Specifically, given a ground-truth 3D point {\mathbf{p}}_{j} as the anchor, we first select the point set within the spherical region centered at {\mathbf{p}}_{j} , defined as:
+|
+| {\mathcal{S}}_{j}=\{i\mid\|{\mathbf{p}}_{i}-{\mathbf{p}}_{j}\|\leq r_{j},i\in{\mathcal{M}}\},
+|
+| (5)
+where r_{j} is the radius. We set r_{j}=\alpha\cdot z_{j}\cdot\frac{\sqrt{W^{2}+H^{2}}}{2\cdot f} where z_{j} is the z -coordinate of p_{j} , f is the ground truth focal length, and W and H are image width and height. This way, the hyper-parameter \alpha\in(0,1) approximates the proportion of the projected sphere’s diameter to the image diagonal.
+Then, we apply the aforementioned ROE alignment solver to align the point maps with optimal (s_{j}^{*},\mathbf{t}_{j}^{*}) and compute error. For each sphere scale parameter \alpha , we sample a set of anchor points \mathcal{H}_{\alpha} and compute the loss as
+|
+| \mathcal{L}_{S(\alpha)}=\!\sum_{j\in\mathcal{H}_{\alpha}}l_{{\mathcal{S}}_{j}}\!=\!\sum_{j\in\mathcal{H}_{\alpha}}\!\sum_{i\in{S}_{j}}\frac{1}{z_{i}}\left\|s_{j}^{*}\hat{\mathbf{p}}_{i}+\mathbf{t}_{j}^{*}-{\mathbf{p}}_{i}\right\|_{1}.
+|
+| (6)
+In practice, we use three \alpha scales from coarse to fine: 1/4 , 1/16 , and 1/64 , denoted as \mathcal{L}_{S_{1}} , \mathcal{L}_{S_{2}} and \mathcal{L}_{S_{3}} , respectively.
+Normal loss.
+For better surface quality, we additionally supervise the normal computed from the predicted point map with the ground truth:
+|
+| \mathcal{L}_{N}=\sum_{i\in{\mathcal{M}}}\angle(\hat{\mathbf{n}}_{i},\mathbf{n}_{i}),
+|
+| (7)
+where the normal \hat{\mathbf{n}}_{i} of pixel i is obtained from the cross product of its adjacent edges on the image grid, \mathbf{n}_{i} is the ground truth, and \angle(\cdot,\cdot) measures the angle difference between the two vectors.
+Mask loss.
+The infinity region (e.g., sky) in outdoor scenes and plain backgrounds in object-only images have undefined geometry.
+We use a single-channel output head for predicting the mask \hat{\mathbf{M}}\in\mathbb{R}^{H\times W} of valid points:
+|
+| \mathcal{L}_{M}=\|\hat{\mathbf{M}}-(1-{\mathbf{M}}_{\text{inf}})\|_{2}^{2},
+|
+| (8)
+where {\mathbf{M}}_{\text{inf}} is the infinity mask label. For synthetic data, the ground truth masks are readily available, while for real outdoor scenes, we use SegFormer [64] to obtain sky masks. At inference time, the predicted mask is binarized with a threshold of 0.5 . The recovery of focal and shift involves masked points, excluding the regions of invalid geometry.
+3.3 Training data
+We collected 21 publicly available datasets from various domains [21, 62, 3, 14, 69, 35, 74, 51, 57, 45, 58, 40, 34, 19, 27, 37, 76, 47, 60, 25, 12], totaling around 9 million frames for training our model.
+Since the quality of data labels are varied, we apply tailored loss function combinations for different data sources. Higher-quality and less noisy data are assigned with finer-level loss functions.
+To address imperfections and potential outliers in real labels, we exclude the top 5\% of per-pixel loss values for real data. Following DINOv2 [41], we balance the weights of collected datasets via image retrieval from a curated image set.
+Details of training datasets can be found in the suppl. materials.
+4 Experiments
+| Method
+| NYUv2
+| KITTI
+| ETH3D
+| iBims-1
+| GSO
+| Sintel
+| DDAD
+| DIODE
+| Average
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Rank \downarrow
+| Scale-invariant point map
+|
+| LeReS
+| 16.9
+| 76.0
+| 31.6
+| 28.4
+| 17.1
+| 75.8
+| 18.5
+| 72.2
+| 14.7
+| 76.0
+| 38.6
+| 30.6
+| 32.0
+| 39.4
+| 27.6
+| 46.4
+| 24.6
+| 55.6
+| 3.94
+| DUSt3R
+| 5.53
+| 97.1
+| 15.2
+| 87.9
+| 10.7
+| 90.6
+| 6.18
+| 95.4
+| 4.54
+| 99.3
+| 34.8
+| 50.3
+| 21.4
+| 70.1
+| 12.4
+| 86.7
+| 13.8
+| 84.7
+| 2.75
+| UniDepth
+| 5.33
+| 98.4
+| 5.96
+| 98.5
+| 18.5
+| 77.6
+| 5.29
+| 97.4
+| 6.58
+| 99.6
+| 33.0
+| 48.9
+| 11.4
+| 90.2
+| 12.3
+| 91.0
+| 12.3
+| 87.7
+| 2.09
+| Ours
+| 4.86
+| 98.4
+| 5.47
+| 97.4
+| 4.58
+| 98.9
+| 4.63
+| 97.1
+| 2.58
+| 100
+| 22.3
+| 69.5
+| 12.3
+| 90.3
+| 6.58
+| 94.5
+| 7.91
+| 93.3
+| 1.22
+| Affine-invariant point map
+|
+| LeReS
+| 9.51
+| 91.4
+| 26.1
+| 49.1
+| 14.7
+| 79.6
+| 11.0
+| 88.6
+| 8.91
+| 95.2
+| 29.7
+| 55.5
+| 29.4
+| 46.7
+| 15.1
+| 80.1
+| 18.1
+| 73.3
+| 3.94
+| DUSt3R
+| 4.45
+| 97.4
+| 12.7
+| 83.3
+| 7.27
+| 95.0
+| 5.04
+| 96.0
+| 3.07
+| 99.6
+| 30.3
+| 56.6
+| 19.7
+| 71.2
+| 8.97
+| 88.7
+| 11.4
+| 86.0
+| 2.94
+| UniDepth
+| 3.93
+| 98.4
+| 4.29
+| 98.6
+| 12.2
+| 89.6
+| 4.65
+| 98.0
+| 2.99
+| 99.8
+| 28.5
+| 58.4
+| 10.3
+| 90.5
+| 8.56
+| 90.9
+| 9.43
+| 90.5
+| 1.81
+| Ours
+| 3.68
+| 98.3
+| 4.86
+| 97.2
+| 3.57
+| 99.0
+| 3.61
+| 97.3
+| 1.14
+| 100
+| 16.8
+| 77.8
+| 10.5
+| 91.4
+| 4.37
+| 96.4
+| 6.07
+| 94.7
+| 1.31
+| Local point map
+|
+| LeReS
+| -
+| -
+| -
+| -
+| 9.32
+| 91.9
+| 8.57
+| 93.2
+| -
+| -
+| 13.3
+| 84.8
+| 10.7
+| 88.9
+| 11.6
+| 88.2
+| 10.7
+| 89.4
+| 3.80
+| DUSt3R
+| -
+| -
+| -
+| -
+| 6.05
+| 94.8
+| 5.44
+| 95.9
+| -
+| -
+| 11.8
+| 87.0
+| 9.24
+| 90.8
+| 7.32
+| 93.1
+| 7.97
+| 92.3
+| 2.30
+| UniDepth
+| -
+| -
+| -
+| -
+| 8.61
+| 92.6
+| 5.92
+| 96.0
+| -
+| -
+| 13.4
+| 84.3
+| 8.18
+| 92.0
+| 9.95
+| 90.0
+| 9.21
+| 91.0
+| 2.90
+| Ours
+| -
+| -
+| -
+| -
+| 3.21
+| 98.1
+| 4.16
+| 96.8
+| -
+| -
+| 8.63
+| 92.7
+| 6.74
+| 94.3
+| 4.78
+| 96.3
+| 5.50
+| 95.6
+| 1.00
+Table 1:
+Quantitative results for point map estimation. Rel {}^{\text{p}} and \delta_{1}^{\text{p}} are in percentage.
+The best values are highlighted in bold, and the second-best ones are underlined. Local point map accuracy is evaluated on affine-invariant point maps within local object regions
+| Method
+| NYUv2
+| KITTI
+| ETH3D
+| iBims-1
+| GSO
+| Sintel
+| DDAD
+| DIODE
+| Average
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Rel. \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Rel. \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Rank \downarrow
+| Scale-invariant depth map
+|
+| LeReS
+| 12.1
+| 82.6
+| 19.2
+| 64.8
+| 14.2
+| 78.4
+| 14.0
+| 78.8
+| 13.6
+| 77.9
+| 30.5
+| 52.1
+| 26.5
+| 52.0
+| 18.2
+| 69.6
+| 18.5
+| 69.5
+| 7.31
+| ZoeDepth
+| 5.62
+| 96.3
+| 7.27
+| 91.9
+| 10.4
+| 87.3
+| 7.45
+| 93.2
+| 3.23
+| 99.9
+| 27.4
+| 61.8
+| 17.0
+| 72.8
+| 11.3
+| 85.2
+| 11.2
+| 86.1
+| 5.50
+| DUSt3R
+| 4.40
+| 97.1
+| 7.81
+| 90.6
+| 6.04
+| 95.7
+| 4.98
+| 95.8
+| 3.27
+| 99.5
+| 31.1
+| 57.2
+| 18.6
+| 73.3
+| 8.91
+| 88.8
+| 10.6
+| 87.2
+| 5.00
+| Metric3D V2
+| 4.69
+| 97.4
+| 4.00
+| 98.5
+| 3.84
+| 98.5
+| 4.23
+| 97.7
+| 2.46
+| 99.9
+| 20.7
+| 69.8
+| 7.41
+| 94.6
+| 3.29
+| 98.4
+| 6.33
+| 94.3
+| 2.07
+| UniDepth
+| 3.86
+| 98.4
+| 3.73
+| 98.6
+| 5.67
+| 97.0
+| 4.79
+| 97.4
+| 4.18
+| 99.7
+| 28.3
+| 58.8
+| 10.1
+| 90.5
+| 6.83
+| 92.8
+| 8.43
+| 91.6
+| 3.00
+| DA V1
+| 4.77
+| 97.5
+| 5.61
+| 95.6
+| 9.41
+| 88.9
+| 5.53
+| 95.8
+| 5.49
+| 99.3
+| 28.3
+| 56.7
+| 13.2
+| 81.5
+| 10.3
+| 87.5
+| 10.3
+| 87.9
+| 5.67
+| DA V2
+| 5.03
+| 97.3
+| 7.23
+| 93.7
+| 6.12
+| 95.5
+| 4.32
+| 97.9
+| 4.38
+| 99.3
+| 23.0
+| 65.2
+| 14.7
+| 78.0
+| 7.95
+| 90.0
+| 9.09
+| 89.6
+| 4.06
+| Ours
+| 3.44
+| 98.4
+| 4.25
+| 97.8
+| 3.36
+| 98.9
+| 3.46
+| 97.0
+| 1.47
+| 100
+| 19.3
+| 73.4
+| 9.17
+| 90.5
+| 4.89
+| 94.7
+| 6.17
+| 93.8
+| 1.62
+| Affine-invariant depth map
+|
+| Marigold
+| 4.63
+| 97.3
+| 7.29
+| 93.8
+| 6.08
+| 96.3
+| 4.35
+| 97.2
+| 2.78
+| 99.9
+| 21.2
+| 75.0
+| 14.6
+| 80.5
+| 6.34
+| 94.3
+| 8.41
+| 91.8
+| 2.25
+| GeoWizard
+| 4.69
+| 97.4
+| 8.14
+| 92.5
+| 6.90
+| 94.0
+| 4.50
+| 97.1
+| 2.00
+| 99.9
+| 17.8
+| 76.2
+| 16.5
+| 75.7
+| 7.03
+| 92.7
+| 8.44
+| 90.7
+| 2.69
+| Ours
+| 2.92
+| 98.6
+| 3.94
+| 98.0
+| 2.69
+| 99.2
+| 2.74
+| 97.9
+| 0.94
+| 100
+| 13.0
+| 83.2
+| 8.40
+| 92.1
+| 3.16
+| 97.5
+| 4.72
+| 95.8
+| 1.00
+| Affine-invariant disparity map
+|
+| MiDaS V3.1
+| 4.58
+| 98.1
+| 6.25
+| 94.7
+| 5.77
+| 96.8
+| 4.73
+| 97.4
+| 1.86
+| 100
+| 21.3
+| 73.1
+| 14.5
+| 82.6
+| 6.05
+| 94.9
+| 8.13
+| 92.2
+| 3.69
+| DA V1
+| 4.20
+| 98.4
+| 5.40
+| 97.0
+| 4.68
+| 98.2
+| 4.18
+| 97.6
+| 1.54
+| 100
+| 20.1
+| 77.6
+| 12.7
+| 86.9
+| 5.69
+| 95.7
+| 7.31
+| 93.9
+| 2.31
+| DA V2
+| 4.14
+| 98.3
+| 5.61
+| 96.7
+| 4.71
+| 97.9
+| 3.47
+| 98.5
+| 1.24
+| 100
+| 21.4
+| 72.8
+| 13.1
+| 86.4
+| 5.29
+| 96.1
+| 7.37
+| 93.3
+| 2.56
+| Ours
+| 3.38
+| 98.6
+| 4.05
+| 98.1
+| 3.11
+| 98.9
+| 3.23
+| 98.0
+| 0.96
+| 100
+| 18.4
+| 79.5
+| 8.99
+| 91.5
+| 3.98
+| 97.2
+| 5.76
+| 95.2
+| 1.06
+Table 2: Quantitative results for depth map estimation. Gray numbers denote models trained on respective benchmarks and thus excluded from ranking. A more extensive comparison can be found in the suppl. materials.
+| Method
+| NYUv2
+| ETH3D
+| iBims-1
+| Average
+| Mean \downarrow
+| Med. \downarrow
+| Mean
+| Med. \downarrow
+| Mean \downarrow
+| Med. \downarrow
+| Mean \downarrow
+| Med. \downarrow
+| Rank \downarrow
+| Perspective
+| 5.38
+| 4.39
+| 13.6
+| 11.9
+| 10.6
+| 9.30
+| 9.86
+| 8.53
+| 5.00
+| WildCam
+| 3.82
+| 3.20
+| 7.70
+| 5.81
+| 9.48
+| 9.08
+| 7.00
+| 6.03
+| 3.00
+| LeReS
+| 19.4
+| 19.6
+| 8.26
+| 7.19
+| 18.4
+| 17.5
+| 15.4
+| 14.8
+| 5.53
+| DUSt3R
+| 2.57
+| 1.86
+| 5.77
+| 3.60
+| 3.83
+| 2.53
+| 4.06
+| 2.66
+| 1.67
+| UniDepth
+| 7.56
+| 4.31
+| 10.7
+| 9.96
+| 11.9
+| 5.96
+| 10.1
+| 6.74
+| 4.50
+| Ours
+| 3.41
+| 3.21
+| 2.50
+| 1.54
+| 2.81
+| 1.89
+| 2.91
+| 2.21
+| 1.50
+Table 3: Evaluation results for camera FOV in degrees.
+| Ablation
+| Point
+| Depth
+| Disparity
+| Scale-inv.
+| Affine-inv.
+| Local
+| Scale-inv.
+| Affine-inv.
+| Affine-inv.
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Relp \downarrow
+| \delta_{1}^{\text{p}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| SI-Log depth
+| 11.2
+| 88.7
+| 9.09
+| 90.6
+| 9.19
+| 91.2
+| 8.94
+| 90.1
+| 7.27
+| 92.6
+| 8.23
+| 92.1
+| Affine-inv. depth
+| 29.9
+| 51.4
+| 29.0
+| 52.7
+| 12.2
+| 86.0
+| 28.9
+| 52.7
+| 6.18
+| 93.9
+| 15.9
+| 76.6
+| ROE scale-inv.
+| 10.3
+| 89.8
+| 8.34
+| 91.6
+| 8.59
+| 91.9
+| 8.27
+| 90.9
+| 6.73
+| 93.2
+| 7.90
+| 92.6
+| L2 affine-inv.
+| 13.5
+| 84.2
+| 10.3
+| 88.2
+| 9.48
+| 91.0
+| 11.1
+| 85.7
+| 8.03
+| 91.2
+| 9.37
+| 90.5
+| Med. affine-inv.
+| 10.9
+| 89.0
+| 8.97
+| 90.7
+| 9.44
+| 90.7
+| 9.10
+| 89.8
+| 7.50
+| 92.4
+| 8.74
+| 91.8
+| ROE affine-inv.
+| 9.84
+| 90.3
+| 7.88
+| 92.1
+| 7.62
+| 93.3
+| 7.91
+| 91.2
+| 6.29
+| 93.7
+| 7.43
+| 93.2
+| Full w/o trunc.
+| 9.81
+| 90.5
+| 7.91
+| 91.7
+| 7.12
+| 93.8
+| 7.92
+| 91.3
+| 6.31
+| 93.5
+| 7.45
+| 93.1
+| Full w/o \mathcal{L}_{S}
+| 9.98
+| 90.3
+| 7.94
+| 92.1
+| 7.47
+| 93.4
+| 7.94
+| 91.2
+| 6.30
+| 93.6
+| 7.47
+| 93.2
+| Full
+| 9.78
+| 90.6
+| 7.83
+| 92.1
+| 7.16
+| 93.8
+| 7.82
+| 91.3
+| 6.20
+| 93.7
+| 7.30
+| 93.3
+Table 4: Quantitative ablation study results. All experiments are conducted with a ViT-Base encoder. The first six rows are trained with global loss only.
+Figure 6:
+Qualitative ablation study results. All experiments use the ViT-Base backbone for the encoder.
+(a) Surface visualization of the impact of \mathcal{L}_{S} and \mathcal{L}_{N} . Removing either leads to noisy surfaces and poor geometry.
+(b) Depth visualization for the ablation of valid region mask prediction. Our method correctly predicts the sky regions, for which the predicted point values will be erroneous if the masks are removed. Supervising infinity regions by assigning a large distance label can negatively affect the foreground prediction accuracy.
+Implementation details.
+We use a ViT [15] encoder pretrained with DINOv2 [41] and a lightweight CNN-based upsampler as the decoder.
+The encoder and decoder have initial learning rates of 5\times 10^{-6} and 5\times 10^{-5} , with a decay factor of 5 every 100K iterations. The training batch size is 256 .
+Our model is trained on images with aspect ratios uniformly sampled between 1:2 and 2:1 , and pixel counts from 250K to 500K. We apply several image augmentations, including color jittering, Gaussian blurring, JPEG compression-decompression, and random cropping. The principal point of the cropped image is aligned with its center using a perspective crop.
+4.1 Quantitative Evaluations.
+We assess the zero-shot performance of our model and compare it to several state-of-the-art methods for monocular point map estimation [71, 42, 59] and depth map estimation [67, 68, 6, 26, 5, 20, 29]. To ensure a fair comparison, all methods utilize ViT-Large [15] as backbone, except for LeReS (using ResNeXt101 [65]) as well as GeoWizard and Marigold (using StableDiffusion V1 [46]).
+The scale and shift of the predicted point maps and depth maps are aligned with the ground truth when necessary.
+We also evaluate the FOV prediction results against several recent methods [28, 77]. As detailed below, our method achieves superior results across various tasks and benchmarks.11
+1
+In this revision, we corrected evaluation numbers due to a minor error in the evaluation data. The overall rankings and conclusions are not affected. All results are reproducible using the released code.
+Point map estimation.
+We evaluate the accuracy of point map estimation on eight diverse datasets: NYUv2 [39], KITTI [53], ETH3D [50], iBims-1 [31], Sintel [9], Google Scanned Objects (GSO) [16], DDAD [24], and DIODE [54]. These datasets represent a wide range of domains, including indoor scenes, street views, object scans, and synthetic movies. The raw datasets are processed for reliable evaluation (e.g., sky regions in Sintel dataset and boundary artifacts in the DIODE are removed; see the suppl. material for more preprocessing details). For evaluation metrics, we use the relative point error Relp, i.e., \|\hat{\mathbf{p}}-\mathbf{p}\|_{2}/\|\mathbf{p}\|_{2} , and the percentage of inliers \delta_{1}^{\text{p}} with \|\hat{\mathbf{p}}-\mathbf{p}\|_{2}/\min(\|\mathbf{p}\|_{2},\|\hat{\mathbf{p}}\|_{2})<0.25 .
+We compare our method with LeReS [71], UniDepth [42], and DUSt3R [59], evaluating both camera-space scale-invariant point maps and affine-invariant point maps. Table 1 demonstrates that our method outperforms existing methods, achieving the lowest average Relp and highest \delta_{1}^{\text{p}} for both point map representations.
+To further assess local geometry accuracy, we evaluate affine-invariant point maps within regions defined by object segmentation masks, sourced from dataset labels or Segment Anything [30].
+Due to the need for high-quality ground truth and scenes with multiple objects, NYUv2, KITTI, and GSO are excluded.
+Our method achieves a substantial reduction in region-wise Relp, lowering the error from 7.97 to 5.50 —an approximately 30\% improvement over previous methods.
+Depth map estimation.
+We employ the same benchmarks used for point map evaluation to assess the depth estimation accuracy. We adopt absolute relative error Reld, i.e., |z-\hat{z}|/z , and percentage of inliers \delta_{1}^{d} with \max(z/\hat{z},\hat{z}/z)<1.25 as the evaluation metrics.
+For a comprehensive comparison with different monocular depth estimation methods, we evaluate scale-invariant depth [71, 5, 59, 26, 42], affine-invariant depth [29, 20], and affine-invariant disparity [6, 67, 68].
+The z coordinates in our predicted point maps represent affine-invariant depth, which can be converted to scale-invariant depth using the shift derived from Eq. 2.
+For affine-invariant disparity, we take the inverse of our scale-invariant depth predictions.
+As shown in Table 2, our method exhibits the lowest average Reld for all depth representations. Since existing methods with scale-invariant depth representations can be converted to affine-invariant depth and disparity, we provide an extensive comparison in the suppl. materials, where our method also significantly outperforms the others.
+Camera FOV estimation.
+To evaluate the accuracy of the estimated camera FOV, we select benchmarks with \text{vertical FOV}\geq 45^{\circ} , including NYUv2 [39], ETH3D [50] and iBims-1 [31], and augment the FOV by randomly center cropping 50% \sim 100% from the original images.
+All input images are undistorted with a centered principal point.
+We compare our model to point map estimation methods [71, 42, 59] as well as two learning-based camera calibration methods: Perspective Fields [28] and Wild Camera [77].
+For fair zero-shot evaluation, we utilize their pre-trained checkpoints on in-the-wild datasets. Table 4 reports mean and median FOV errors. Our method achieves a mean error of 2.91^{\circ} and a median error of 2.21^{\circ} on average of the three FOV benchmarks, outperforming both camera calibration and point map estimation methods.
+4.2 Qualitative comparison
+We show visual results of disparity and point maps of different methods in Fig. 7.
+For depth prediction methods without camera parameters estimation, we lift their results to 3D points using ground-truth intrinsics when available. Upon visual inspection, our method produces significantly less-distorted point maps compared to others, demonstrating its superior generalizability and accuracy. For example, as shown in the third row of Fig. 7, other methods show noticeable stretching and deformation of the car shape. Although [68] produces visually sharp disparity maps, distorted 3D geometry is evident even with ground-truth camera intrinsics.
+In contrast, our method yields a more regular and well-formed car structure. More comparisons can be found in the suppl. materials.
+Figure 7: Qualitative comparison of point and disparity maps. The first three cases are from our test datasets, while the last two rows are random “in-the-wild” images. *: for methods without camera intrinsics prediction, we use ground-truth camera intrinsics (and disparity shifts) to lift their results into 3D points when available, or use our intrinsics prediction for the “in-the-wild” images. Best view with zoom.
+4.3 Ablation Study
+We conducted comprehensive ablation studies on our point map representation, alignment strategy and loss function designs.
+ViT-base backbones are used here for efficiency.
+Point map representation.
+We compare our affine-invariant point map representation with three variants: (1) a scale-invariant depth map and a dense ray map for camera parameters, (2) an affine-invariant depth map with a shift scalar and a dense ray map, and (3) a scale-invariant point map in camera space. The first variant uses SI-log loss [18] for the depth map and MSE for the ray map, follows UniDepth [42]. The second employs ROE alignment with L_{1} loss for the affine depth, L_{1} loss for shift, and MSE for the ray map. The third applies the ROE alignment to solve the scale parameter only.
+Table 4 (row 1-3) shows that our affine-invariant representation outperforms the others across various tasks. Notably, while the affine-invariant depth representation slightly improves specific metrics, all others drop dramatically.
+Our representation excels by effectively resolving focal-distance ambiguity, a key issue that hampers effectively training of the other three variants.
+ROE alignment.
+To assess the effectiveness of our optimal alignment, we compare it to least-squares alignment for L_{2} loss and a previously-used median-based alignment [43] for L_{1} loss. The former has an analytic solution, while the latter normalizes predicted and ground-truth point maps by their median: (\mathbf{p}-\mathbf{t}(\mathbf{P}))/s(\mathbf{P}) , where \mathbf{t}(\mathbf{P})=(0,0,\operatorname{median}(\mathbf{Z})) , and s(\mathbf{P})=\frac{1}{N}\sum_{i=1}^{N}\|\mathbf{p}_{i}-\mathbf{t}(\mathbf{P})\|_{1} . As shown in the Table 4 (row 4-6), our proposed alignment method consistently outperforms the other two strategies across all tasks by large margins, highlighting its critical role. We also ablate the truncation of alignment objective residuals, which degrades performance (Table 4 row 7).
+Multi-scale local geometry loss.
+As shown in Table 4 (row 8), the quantitative results without \mathcal{L}_{S} suffer a significant drop on local geometry metrics. This demonstrates the effectiveness of \mathcal{L}_{S} in enhancing local geometry accuracy and compensating for the insufficient supervision of the global loss due to the ambiguous relative positions between distant scene objects. Fig. 6 (a) further demonstrates the effectiveness of the proposed local geometry loss.
+Infinity mask.
+Our method predicts a valid region mask to handle infinity regions.
+As shown in Fig. 6 (b), it correctly identifies sky regions, where the output point values would be erroneous if the masks were removed.
+Another strategy for addressing infinity is to assign a large value, i.e., 1,000\times the average distance, to these regions. Fig. 6 (b) shows that this strategy compromises the foreground accuracy as the network struggles with large values for infinity.
+Incorporating a separate mask prediction effectively handles infinity while retaining accurate foreground geometry.
+5 Conclusion
+We have presented a method for accurate monocular geometry estimation of open-domain images. Our key insight is to design effective supervision which is largely neglected by previous methods. We introduce an affine-invariant point map representation which precludes ambiguous supervision during training. A robust, optimal, and efficient point map alignment solver is introduced for effective shape learning, along with a multi-scale geometry loss for precise local supervision. Trained on a large dataset collection, our model demonstrates strong generalizability and significantly outperforms previous methods across various tasks and benchmarks. We believe our method marks a significant advancement in monocular 3D geometry estimation and can serve as a robust foundational model for various applications.
+References
+[1]
+Sameer Agarwal, Yasutaka Furukawa, Noah Snavely, Ian Simon, Brian Curless, Steven M Seitz, and Richard Szeliski.
+Building rome in a day.
+Communications of the ACM, 54(10):105–112, 2011.
+[2]
+Eirikur Agustsson and Radu Timofte.
+Ntire 2017 challenge on single image super-resolution: Dataset and study.
+In The IEEE Conference on Computer Vision and Pattern Recognition (CVPR) Workshops, 2017.
+[3]
+Gilad Baruch, Zhuoyuan Chen, Afshin Dehghan, Tal Dimry, Yuri Feigin, Peter Fu, Thomas Gebauer, Brandon Joffe, Daniel Kurz, Arik Schwartz, and Elad Shulman.
+ARKitscenes - a diverse real-world dataset for 3d indoor scene understanding using mobile RGB-d data.
+In Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track (Round 1), 2021.
+[4]
+Shariq Farooq Bhat, Ibraheem Alhashim, and Peter Wonka.
+Adabins: Depth estimation using adaptive bins.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 4009–4018, 2021.
+[5]
+Shariq Farooq Bhat, Reiner Birkl, Diana Wofk, Peter Wonka, and Matthias Müller.
+Zoedepth: Zero-shot transfer by combining relative and metric depth.
+arXiv preprint arXiv:2302.12288, 2023.
+[6]
+Reiner Birkl, Diana Wofk, and Matthias Müller.
+Midas v3. 1–a model zoo for robust monocular relative depth estimation.
+arXiv preprint arXiv:2307.14460, 2023.
+[7]
+Oleksandr Bogdan, Viktor Eckstein, Francois Rameau, and Jean-Charles Bazin.
+Deepcalib: A deep learning approach for automatic intrinsic calibration of wide field-of-view cameras.
+In Proceedings of the 15th ACM SIGGRAPH European Conference on Visual Media Production, pages 1–10, 2018.
+[8]
+Stephen Boyd and Lieven Vandenberghe.
+Convex Optimization.
+Cambridge University Press, New York, NY, USA, 2004.
+[9]
+D. J. Butler, J. Wulff, G. B. Stanley, and M. J. Black.
+A naturalistic open source movie for optical flow evaluation.
+In European Conf. on Computer Vision (ECCV), pages 611–625. Springer-Verlag, 2012.
+[10]
+Weifeng Chen, Zhao Fu, Dawei Yang, and Jia Deng.
+Single-image depth perception in the wild.
+In Advances in Neural Information Processing Systems. Curran Associates, Inc., 2016.
+[11]
+Weifeng Chen, Shengyi Qian, David Fan, Noriyuki Kojima, Max Hamilton, and Jia Deng.
+Oasis: A large-scale dataset for single image 3d in the wild.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2020.
+[12]
+Matt Deitke, Dustin Schwenk, Jordi Salvador, Luca Weihs, Oscar Michel, Eli VanderBilt, Ludwig Schmidt, Kiana Ehsani, Aniruddha Kembhavi, and Ali Farhadi.
+Objaverse: A universe of annotated 3d objects.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 13142–13153, 2023.
+[13]
+Jonathan Deutscher, Michael Isard, and John MacCormick.
+Automatic camera calibration from a single manhattan image.
+In Computer Vision—ECCV 2002: 7th European Conference on Computer Vision Copenhagen, Denmark, May 28–31, 2002 Proceedings, Part IV 7, pages 175–188. Springer, 2002.
+[14]
+Digital Image Media Laboratory (DIML) and Computer Vision Laboratory (CVL).
+Diml/cvl rgb-d dataset: 2m rgb-d images of natural indoor and outdoor scenes.
+https://dimlrgbd.github.io/downloads/technical_report.pdf.
+[15]
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby.
+An image is worth 16x16 words: Transformers for image recognition at scale.
+ICLR, 2021.
+[16]
+Laura Downs, Anthony Francis, Nate Koenig, Brandon Kinman, Ryan Hickman, Krista Reymann, Thomas B. McHugh, and Vincent Vanhoucke.
+Google scanned objects: A high-quality dataset of 3d scanned household items, 2022.
+[17]
+Ainaz Eftekhar, Alexander Sax, Jitendra Malik, and Amir Zamir.
+Omnidata: A scalable pipeline for making multi-task mid-level vision datasets from 3d scans.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 10786–10796, 2021.
+[18]
+David Eigen, Christian Puhrsch, and Rob Fergus.
+Depth map prediction from a single image using a multi-scale deep network.
+Advances in neural information processing systems, 27, 2014.
+[19]
+Michael Fonder and Marc Van Droogenbroeck.
+Mid-air: A multi-modal dataset for extremely low altitude drone flights.
+In Conference on Computer Vision and Pattern Recognition Workshop (CVPRW), 2019.
+[20]
+Xiao Fu, Wei Yin, Mu Hu, Kaixuan Wang, Yuexin Ma, Ping Tan, Shaojie Shen, Dahua Lin, and Xiaoxiao Long.
+Geowizard: Unleashing the diffusion priors for 3d geometry estimation from a single image.
+arXiv preprint arXiv:2403.12013, 2024.
+[21]
+Jakob Geyer, Yohannes Kassahun, Mentar Mahmudi, Xavier Ricou, Rupesh Durgesh, Andrew S. Chung, Lorenz Hauswald, Viet Hoang Pham, Maximilian Mühlegg, Sebastian Dorn, Tiffany Fernandez, Martin Jänicke, Sudesh Mirashi, Chiragkumar Savani, Martin Sturm, Oleksandr Vorobiov, Martin Oelker, Sebastian Garreis, and Peter Schuberth.
+A2D2: Audi Autonomous Driving Dataset.
+2020.
+[22]
+Clément Godard, Oisin Mac Aodha, Michael Firman, and Gabriel J Brostow.
+Digging into self-supervised monocular depth estimation.
+In Proceedings of the IEEE/CVF international conference on computer vision, pages 3828–3838, 2019.
+[23]
+Ming Gui, Johannes S Fischer, Ulrich Prestel, Pingchuan Ma, Dmytro Kotovenko, Olga Grebenkova, Stefan Andreas Baumann, Vincent Tao Hu, and Björn Ommer.
+Depthfm: Fast monocular depth estimation with flow matching.
+arXiv preprint arXiv:2403.13788, 2024.
+[24]
+Vitor Guizilini, Rares Ambrus, Sudeep Pillai, Allan Raventos, and Adrien Gaidon.
+3d packing for self-supervised monocular depth estimation.
+In IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2020.
+[25]
+Jose L. Gómez, Manuel Silva, Antonio Seoane, Agnès Borrás, Mario Noriega, Germán Ros, Jose A. Iglesias-Guitian, and Antonio M. López.
+All for one, and one for all: Urbansyn dataset, the third musketeer of synthetic driving scenes, 2023.
+[26]
+Mu Hu, Wei Yin, Chi Zhang, Zhipeng Cai, Xiaoxiao Long, Hao Chen, Kaixuan Wang, Gang Yu, Chunhua Shen, and Shaojie Shen.
+Metric3d v2: A versatile monocular geometric foundation model for zero-shot metric depth and surface normal estimation.
+arXiv preprint arXiv:2404.15506, 2024.
+[27]
+Po-Han Huang, Kevin Matzen, Johannes Kopf, Narendra Ahuja, and Jia-Bin Huang.
+Deepmvs: Learning multi-view stereopsis.
+In IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2018.
+[28]
+Linyi Jin, Jianming Zhang, Yannick Hold-Geoffroy, Oliver Wang, Kevin Blackburn-Matzen, Matthew Sticha, and David F Fouhey.
+Perspective fields for single image camera calibration.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 17307–17316, 2023.
+[29]
+Bingxin Ke, Anton Obukhov, Shengyu Huang, Nando Metzger, Rodrigo Caye Daudt, and Konrad Schindler.
+Repurposing diffusion-based image generators for monocular depth estimation.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 9492–9502, 2024.
+[30]
+Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander C Berg, Wan-Yen Lo, et al.
+Segment anything.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 4015–4026, 2023.
+[31]
+Tobias Koch, Lukas Liebel, Marco Körner, and Friedrich Fraundorfer.
+Comparison of monocular depth estimation methods using geometrically relevant metrics on the ibims-1 dataset.
+Computer Vision and Image Understanding (CVIU), 191:102877, 2020.
+[32]
+Alina Kuznetsova, Hassan Rom, Neil Alldrin, Jasper Uijlings, Ivan Krasin, Jordi Pont-Tuset, Shahab Kamali, Stefan Popov, Matteo Malloci, Alexander Kolesnikov, Tom Duerig, and Vittorio Ferrari.
+The open images dataset v4: Unified image classification, object detection, and visual relationship detection at scale.
+IJCV, 2020.
+[33]
+Jinwoo Lee, Hyunsung Go, Hyunjoon Lee, Sunghyun Cho, Minhyuk Sung, and Junho Kim.
+Ctrl-c: Camera calibration transformer with line-classification.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 16228–16237, 2021.
+[34]
+Yixuan Li, Lihan Jiang, Linning Xu, Yuanbo Xiangli, Zhenzhi Wang, Dahua Lin, and Bo Dai.
+Matrixcity: A large-scale city dataset for city-scale neural rendering and beyond.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 3205–3215, 2023.
+[35]
+Zhengqi Li and Noah Snavely.
+Megadepth: Learning single-view depth prediction from internet photos.
+In Computer Vision and Pattern Recognition (CVPR), 2018.
+[36]
+Zhenyu Li, Xuyang Wang, Xianming Liu, and Junjun Jiang.
+Binsformer: Revisiting adaptive bins for monocular depth estimation.
+IEEE Transactions on Image Processing, 2024.
+[37]
+Lukas Mehl, Jenny Schmalfuss, Azin Jahedi, Yaroslava Nalivayko, and Andrés Bruhn.
+Spring: A high-resolution high-detail dataset and benchmark for scene flow, optical flow and stereo.
+In Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2023.
+[38]
+Jorge J Moré.
+The levenberg-marquardt algorithm: implementation and theory.
+In Numerical analysis: proceedings of the biennial Conference held at Dundee, June 28–July 1, 1977, pages 105–116. Springer, 2006.
+[39]
+Pushmeet Kohli Nathan Silberman, Derek Hoiem and Rob Fergus.
+Indoor segmentation and support inference from rgbd images.
+In ECCV, 2012.
+[40]
+Simon Niklaus, Long Mai, Jimei Yang, and Feng Liu.
+3d ken burns effect from a single image.
+ACM Transactions on Graphics, 38(6):184:1–184:15, 2019.
+[41]
+Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al.
+Dinov2: Learning robust visual features without supervision.
+arXiv preprint arXiv:2304.07193, 2023.
+[42]
+Luigi Piccinelli, Yung-Hsu Yang, Christos Sakaridis, Mattia Segu, Siyuan Li, Luc Van Gool, and Fisher Yu.
+Unidepth: Universal monocular metric depth estimation.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 10106–10116, 2024.
+[43]
+René Ranftl, Katrin Lasinger, David Hafner, Konrad Schindler, and Vladlen Koltun.
+Towards robust monocular depth estimation: Mixing datasets for zero-shot cross-dataset transfer.
+IEEE transactions on pattern analysis and machine intelligence, 44(3):1623–1637, 2020.
+[44]
+René Ranftl, Alexey Bochkovskiy, and Vladlen Koltun.
+Vision transformers for dense prediction.
+In Proceedings of the IEEE/CVF international conference on computer vision, pages 12179–12188, 2021.
+[45]
+Mike Roberts, Jason Ramapuram, Anurag Ranjan, Atulit Kumar, Miguel Angel Bautista, Nathan Paczan, Russ Webb, and Joshua M. Susskind.
+Hypersim: A photorealistic synthetic dataset for holistic indoor scene understanding.
+In International Conference on Computer Vision (ICCV) 2021, 2021.
+[46]
+Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Björn Ommer.
+High-resolution image synthesis with latent diffusion models, 2021.
+[47]
+German Ros, Laura Sellart, Joanna Materzynska, David Vazquez, and Antonio M. Lopez.
+The synthia dataset: A large collection of synthetic images for semantic segmentation of urban scenes.
+In The IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2016.
+[48]
+Johannes L Schonberger and Jan-Michael Frahm.
+Structure-from-motion revisited.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 4104–4113, 2016.
+[49]
+Johannes L Schönberger, Enliang Zheng, Jan-Michael Frahm, and Marc Pollefeys.
+Pixelwise view selection for unstructured multi-view stereo.
+In Computer Vision–ECCV 2016: 14th European Conference, Amsterdam, The Netherlands, October 11-14, 2016, Proceedings, Part III 14, pages 501–518. Springer, 2016.
+[50]
+Thomas Schöps, Torsten Sattler, and Marc Pollefeys.
+BAD SLAM: Bundle adjusted direct RGB-D SLAM.
+In Conference on Computer Vision and Pattern Recognition (CVPR), 2019.
+[51]
+Pei Sun, Henrik Kretzschmar, Xerxes Dotiwalla, Aurelien Chouard, Vijaysai Patnaik, Paul Tsui, James Guo, Yin Zhou, Yuning Chai, Benjamin Caine, Vijay Vasudevan, Wei Han, Jiquan Ngiam, Hang Zhao, Aleksei Timofeev, Scott Ettinger, Maxim Krivokon, Amy Gao, Aditya Joshi, Yu Zhang, Jonathon Shlens, Zhifeng Chen, and Dragomir Anguelov.
+Scalability in perception for autonomous driving: Waymo open dataset.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2020.
+[52]
+Michal Tölgyessy, Martin Dekan, L’uboš Chovanec, and Peter Hubinskỳ.
+Evaluation of the azure kinect and its comparison to kinect v1 and kinect v2.
+Sensors, 21(2):413, 2021.
+[53]
+Jonas Uhrig, Nick Schneider, Lukas Schneider, Uwe Franke, Thomas Brox, and Andreas Geiger.
+Sparsity invariant cnns.
+In International Conference on 3D Vision (3DV), 2017.
+[54]
+Igor Vasiljevic, Nick Kolkin, Shanyi Zhang, Ruotian Luo, Haochen Wang, Falcon Z. Dai, Andrea F. Daniele, Mohammadreza Mostajabi, Steven Basart, Matthew R. Walter, and Gregory Shakhnarovich.
+DIODE: A Dense Indoor and Outdoor DEpth Dataset.
+CoRR, abs/1908.00463, 2019.
+[55]
+Pauli Virtanen, Ralf Gommers, Travis E. Oliphant, Matt Haberland, Tyler Reddy, David Cournapeau, Evgeni Burovski, Pearu Peterson, Warren Weckesser, Jonathan Bright, Stéfan J. van der Walt, Matthew Brett, Joshua Wilson, K. Jarrod Millman, Nikolay Mayorov, Andrew R. J. Nelson, Eric Jones, Robert Kern, Eric Larson, C J Carey, İlhan Polat, Yu Feng, Eric W. Moore, Jake VanderPlas, Denis Laxalde, Josef Perktold, Robert Cimrman, Ian Henriksen, E. A. Quintero, Charles R. Harris, Anne M. Archibald, Antônio H. Ribeiro, Fabian Pedregosa, Paul van Mulbregt, and SciPy 1.0 Contributors.
+SciPy 1.0: Fundamental Algorithms for Scientific Computing in Python.
+Nature Methods, 17:261–272, 2020.
+[56]
+Qiang Wan, Zilong Huang, Bingyi Kang, Jiashi Feng, and Li Zhang.
+Harnessing diffusion models for visual perception with meta prompts.
+arXiv preprint arXiv:2312.14733, 2023.
+[57]
+Kaixuan Wang and Shaojie Shen.
+Flow-motion and depth network for monocular stereo and beyond.
+CoRR, abs/1909.05452, 2019.
+[58]
+Qiang Wang, Shizhen Zheng, Qingsong Yan, Fei Deng, Kaiyong Zhao, and Xiaowen Chu.
+IRS: A large synthetic indoor robotics stereo dataset for disparity and surface normal estimation.
+CoRR, abs/1912.09678, 2019.
+[59]
+Shuzhe Wang, Vincent Leroy, Yohann Cabon, Boris Chidlovskii, and Jerome Revaud.
+Dust3r: Geometric 3d vision made easy.
+In CVPR, 2024.
+[60]
+Wenshan Wang, Delong Zhu, Xiangwei Wang, Yaoyu Hu, Yuheng Qiu, Chen Wang, Yafei Hu, Ashish Kapoor, and Sebastian Scherer.
+Tartanair: A dataset to push the limits of visual slam.
+2020.
+[61]
+Marta Wilczkowiak, Edmond Boyer, and Peter Sturm.
+Camera calibration and 3d reconstruction from single images using parallelepipeds.
+In IEEE International Conference on Computer Vision, pages 142–148. IEEE, 2001.
+[62]
+Benjamin Wilson, William Qi, Tanmay Agarwal, John Lambert, Jagjeet Singh, Siddhesh Khandelwal, Bowen Pan, Ratnesh Kumar, Andrew Hartnett, Jhony Kaesemodel Pontes, Deva Ramanan, Peter Carr, and James Hays.
+Argoverse 2: Next generation datasets for self-driving perception and forecasting.
+In Proceedings of the Neural Information Processing Systems Track on Datasets and Benchmarks (NeurIPS Datasets and Benchmarks 2021), 2021.
+[63]
+Scott Workman, Connor Greenwell, Menghua Zhai, Ryan Baltenberger, and Nathan Jacobs.
+Deepfocal: A method for direct focal length estimation.
+In 2015 IEEE International Conference on Image Processing (ICIP), pages 1369–1373. IEEE, 2015.
+[64]
+Enze Xie, Wenhai Wang, Zhiding Yu, Anima Anandkumar, Jose M Alvarez, and Ping Luo.
+Segformer: Simple and efficient design for semantic segmentation with transformers.
+Advances in neural information processing systems, 34:12077–12090, 2021.
+[65]
+Saining Xie, Ross Girshick, Piotr Dollár, Zhuowen Tu, and Kaiming He.
+Aggregated residual transformations for deep neural networks.
+In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 1492–1500, 2017.
+[66]
+Jiayu Yang, Wei Mao, Jose M Alvarez, and Miaomiao Liu.
+Cost volume pyramid based depth inference for multi-view stereo.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 4877–4886, 2020.
+[67]
+Lihe Yang, Bingyi Kang, Zilong Huang, Xiaogang Xu, Jiashi Feng, and Hengshuang Zhao.
+Depth anything: Unleashing the power of large-scale unlabeled data.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 10371–10381, 2024a.
+[68]
+Lihe Yang, Bingyi Kang, Zilong Huang, Zhen Zhao, Xiaogang Xu, Jiashi Feng, and Hengshuang Zhao.
+Depth anything v2.
+arXiv preprint arXiv:2406.09414, 2024b.
+[69]
+Yao Yao, Zixin Luo, Shiwei Li, Jingyang Zhang, Yufan Ren, Lei Zhou, Tian Fang, and Long Quan.
+Blendedmvs: A large-scale dataset for generalized multi-view stereo networks.
+Computer Vision and Pattern Recognition (CVPR), 2020.
+[70]
+Wei Yin, Xinlong Wang, Chunhua Shen, Yifan Liu, Zhi Tian, Songcen Xu, Changming Sun, and Dou Renyin.
+Diversedepth: Affine-invariant depth prediction using diverse data.
+arXiv preprint arXiv:2002.00569, 2020a.
+[71]
+Wei Yin, Jianming Zhang, Oliver Wang, Simon Niklaus, Long Mai, Simon Chen, and Chunhua Shen.
+Learning to recover 3d scene shape from a single image.
+CoRR, abs/2012.09365, 2020b.
+[72]
+Wei Yin, Jianming Zhang, Oliver Wang, Simon Niklaus, Simon Chen, Yifan Liu, and Chunhua Shen.
+Towards accurate reconstruction of 3d scene shape from a single monocular image.
+IEEE Transactions on Pattern Analysis and Machine Intelligence, 45(5):6480–6494, 2022.
+[73]
+Wei Yin, Chi Zhang, Hao Chen, Zhipeng Cai, Gang Yu, Kaixuan Wang, Xiaozhi Chen, and Chunhua Shen.
+Metric3d: Towards zero-shot metric 3d prediction from a single image.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 9043–9053, 2023.
+[74]
+Amir R Zamir, Alexander Sax, , William B Shen, Leonidas Guibas, Jitendra Malik, and Silvio Savarese.
+Taskonomy: Disentangling task transfer learning.
+In 2018 IEEE Conference on Computer Vision and Pattern Recognition (CVPR). IEEE, 2018.
+[75]
+Zhengyou Zhang.
+A flexible new technique for camera calibration.
+IEEE Transactions on Pattern Analysis and Machine Intelligence, 22(11):1330–1334, 2000.
+[76]
+Jia Zheng, Junfei Zhang, Jing Li, Rui Tang, Shenghua Gao, and Zihan Zhou.
+Structured3d: A large photo-realistic dataset for structured 3d modeling.
+In Proceedings of The European Conference on Computer Vision (ECCV), 2020.
+[77]
+Shengjie Zhu, Abhinav Kumar, Masa Hu, and Xiaoming Liu.
+Tame a wild camera: in-the-wild monocular camera calibration.
+Advances in Neural Information Processing Systems, 36, 2024.
+Supplementary Material
+Appendix A Algorithm Details
+A.1 Recovering Shift and Camera Focal
+We assume a simple pinhole camera model with isotropic focal length and centered principal point.
+The 2D image plane is parameterized with the center as (0,0) .
+The image plane coordinate of pixel i is denoted as (u_{i},v_{i}) , corresponding to its predicted 3D point \mathbf{p}_{i}=(x_{i},y_{i},z_{i}) . The focal length and shift is obtained by minimizing the projection error,
+|
+| \min_{f,t_{z}}\sum_{i\in\mathcal{M}}\left({fx_{i}\over z_{i}+t_{z}^{\prime}}-u_{i}\right)^{2}+\left({fy_{i}\over z_{i}+t_{z}^{\prime}}-v_{i}\right)^{2},
+|
+| (9)
+which can be further reduced to have a single variable t_{z}^{\prime} by substituting f with its close-form solution with respect to t_{z}^{\prime} ,
+|
+| f={\sum_{i\in\mathcal{M}}\left(x_{i}\over z_{i}+t_{z}^{\prime}\right)u_{i}+\sum_{i\in\mathcal{M}}\left(y_{i}\over z_{i}+t_{z}^{\prime}\right)v_{i}\over\sum_{i\in\mathcal{M}}\left(x_{i}\over z_{i}+t_{z}^{\prime}\right)^{2}+\sum_{i\in\mathcal{M}}\left(y_{i}\over z_{i}+t_{z}^{\prime}\right)^{2}}.
+|
+| (10)
+We use a numerical solver for this least squares problem with Levenberg-Marquardt algorithm [38] implemented by SciPy [55] package. For efficiency, the point map is resized to low resolution ( 64\times 64 ) for running this algorithm. In our practice, it typically converges within 10 iterations in around 3ms.
+A.2 ROE Alignment
+We will first introduce an algorithm to a simpler subproblem then derive the solution to either with or without the constraint of t_{x}=t_{y}=0 (1D-shift case or 3D-shift case, respectively).
+Subproblem (w/o truncation).
+Consider the optimization objective with respect to scale s only, denoted as l_{0}(s) . We omit the mask \mathcal{M} for simplicity and denote N as the number of valid points:
+|
+| \min_{s}l_{0}(s)=\min_{s}\sum_{i=1}^{N}w_{i}|s\hat{x}_{i}-x_{i}|,
+|
+| (11)
+where w_{i}>0 and \hat{x}_{i}>0 without loss of generality. The objective, as a summation of convex functions, is also convex obviously. The minimum occurs where its left-hand l_{0}^{\prime-}(s) derivative and right-hand derivative l_{0}^{\prime+}(s) have opposite signs or one of them is zero,
+|
+| \begin{split}l_{0}^{\prime-}(s)&=\!\!\sum_{{x_{i}\over\hat{x}_{i}}<s}{w_{i}\hat{x}_{i}}-\!\!\sum_{s\leq{x_{i}\over\hat{x}_{i}}}{w_{i}\hat{x}_{i}}=2\sum_{{x_{i}\over\hat{x}_{i}}<s}w_{i}\hat{x}_{i}-\!\!\sum_{i=1}^{N}w_{i}\hat{x}_{i},\\
+l_{0}^{\prime+}(s)&=\!\!\sum_{{x_{i}\over\hat{x}_{i}}\leq s}{w_{i}\hat{x}_{i}}-\!\!\sum_{s<{x_{i}\over\hat{x}_{i}}}{w_{i}\hat{x}_{i}}=2\sum_{{x_{i}\over\hat{x}_{i}}\leq s}w_{i}\hat{x}_{i}-\!\!\sum_{i=1}^{N}w_{i}\hat{x}_{i}.\end{split}
+|
+| (12)
+l_{0}^{\prime-}(s) and l_{0}^{\prime+}(s) differ at \{{x_{i}\over\hat{x}_{i}}\} . First,
+we sort \{{x_{i}\over\hat{x}_{i}}\}_{i=1}^{N} and compute the prefix summations of \{w_{i}\hat{x}_{i}\}_{i=1}^{N} . This allows us to evaluate the derivatives in O(1) time for each point in \{{x_{i}\over\hat{x}_{i}}\}_{i=1}^{N} . Finally, \hat{x}_{i}\over x_{i} such that \l_{0}^{\prime-}({x_{i}\over\hat{x}_{i}})\leq 0\leq\l_{0}^{\prime+}({x_{i}\over\hat{x}_{i}}) is the minimum point. The solution is outlined in Algorithm 2.
+Algorithm 2 ROE alignment subproblem w/o truncation
+input: arrays \hat{X}[1..n] , X[1..n] , W[1..n]
+output: optimal scale s^{*} and objective value l^{*} to Eq. 11
+function SolveSubproblem( \hat{X} , X , W )
+sort arrays \hat{X} , X , W by X[i]/\hat{X}[i]
+Q[1..n] \leftarrow accumulated sum of W*\hat{X}
+D[0..n] \leftarrow \{-Q[n]\}\cup\{2\cdot Q[i]-Q[n]\}_{i=1}^{n}
+i^{*} \leftarrow the first i s.t. D[i-1]\leq 0\leq D[i]
+s^{*} \leftarrow X[i^{*}]/\hat{X}[i^{*}]
+l^{*} \leftarrow objective function value at s^{*} .
+return s^{*} , l^{*} .
+end function
+Subproblem (w/ truncation).
+We truncate each residual term to suppress outliers. The truncated objective is
+|
+| \min_{s}l_{1}(s)=\min_{s}\sum_{i=1}^{N}\min(\tau,w_{i}|s\hat{x}_{i}-x_{i}|),
+|
+| (13)
+where \tau is set to 1 in all our experiments. For each item l_{1,i}(s)=\min(\tau,w_{i}|s\hat{x}_{i}-x_{i}|) in the equation, the one-sided derivatives are
+|
+| \begin{split}l_{1,i}^{\prime-}(s)=\left\{\begin{array}[]{cc}-w_{i}\hat{x}_{i}&{w_{i}x_{i}-\tau_{i}\over w_{i}\hat{x}_{i}}<s\leq{x_{i}\over\hat{x}_{i}}\\
+w_{i}\hat{x}_{i}&{x_{i}\over\hat{x}_{i}}<s\leq{w_{i}x_{i}+\tau_{i}\over w_{i}\hat{x}_{i}}\\
+0&\text{otherwise}\end{array}\right.,\\
+l_{1,i}^{\prime+}(s)=\left\{\begin{array}[]{cc}-w_{i}\hat{x}_{i}&{w_{i}x_{i}-\tau_{i}\over w_{i}\hat{x}_{i}}\leq s<{x_{i}\over\hat{x}_{i}}\\
+w_{i}\hat{x}_{i}&{x_{i}\over\hat{x}_{i}}\leq s<{w_{i}x_{i}+\tau_{i}\over w_{i}\hat{x}_{i}}\\
+0&\text{otherwise}\end{array}\right..\end{split}
+|
+| (14)
+Therefore, the one-sided derivatives of l_{0}(s) are
+|
+| \begin{split}l_{1}^{\prime-}(s)&=\sum_{i=1}^{N}l_{1,i}^{\prime-}(s)=\!\!\!\!\sum_{{x_{i}\over\hat{x}_{i}}<s\leq{w_{i}x_{i}+\tau\over w_{i}\hat{x}_{i}}}\!\!\!\!{w_{i}\hat{x}_{i}}-\!\!\!\!\sum_{{w_{i}x_{i}-\tau\over w_{i}\hat{x}_{i}}<s\leq{x_{i}\over\hat{x}_{i}}}\!\!\!\!{w_{i}\hat{x}_{i}}\\
+&=2\sum_{{x_{i}\over\hat{x}_{i}}<s}w_{i}\hat{x}_{i}-\!\!\!\!\sum_{{w_{i}x_{i}-\tau\over w_{i}\hat{x}_{i}}<s}\!\!\!\!w_{i}\hat{x}_{i}-\!\!\!\!\sum_{{w_{i}x_{i}+\tau\over w_{i}\hat{x}_{i}}<s}\!\!\!\!w_{i}\hat{x}_{i},\end{split}
+|
+| (15)
+|
+| \begin{split}l_{1}^{\prime+}(s)&=\sum_{i=1}^{N}l_{1,i}^{\prime+}(s)=\!\!\!\!\sum_{{x_{i}\over\hat{x}_{i}}\leq s<{w_{i}x_{i}+\tau\over w_{i}\hat{x}_{i}}}\!\!\!\!{w_{i}\hat{x}_{i}}-\!\!\!\!\sum_{{w_{i}x_{i}-\tau\over w_{i}\hat{x}_{i}}\leq s<{x_{i}\over\hat{x}_{i}}}\!\!\!\!{w_{i}\hat{x}_{i}}\\
+&=2\sum_{{x_{i}\over\hat{x}_{i}}\leq s}w_{i}\hat{x}_{i}-\!\!\!\!\sum_{{w_{i}x_{i}-\tau\over w_{i}\hat{x}_{i}}\leq s}\!\!\!\!w_{i}\hat{x}_{i}-\!\!\!\!\sum_{{w_{i}x_{i}+\tau\over w_{i}\hat{x}_{i}}\leq s}\!\!\!\!w_{i}\hat{x}_{i}.\end{split}
+|
+| (16)
+Lemma 1 shows that the minimum of the objective function in Eq. 13 is still achieved at one of the points in the set \{{x_{i}\over\hat{x}_{i}}\}_{i=1}^{N} , despite the function is non-convex and may contain local minima.
+Solving the subproblem requires two steps, as outlined in Algorithm 3.
+The first step is to identify all extrema in \{{x_{i}\over\hat{x}_{i}}\}_{i=1}^{N} that satisfy l_{0}^{\prime-}({x_{i}\over\hat{x}_{i}})<0\leq l_{0}^{\prime+}({x_{i}\over\hat{x}_{i}}) by evaluating the derivative values.
+This can be done efficiently through first binary searching on the sorted arrays \{{x_{i}\over\hat{x}_{i}}\}_{i=1}^{N} , \{{w_{i}x_{i}-\tau\over w_{i}\hat{x}_{i}}\}_{i=1}^{N} and \{{w_{i}x_{i}+\tau\over w_{i}\hat{x}_{i}}\}_{i=1}^{N} and then indexing the prefix summations of \{w_{i}\hat{x}_{i}\} in the associated orders.
+This step has a complexity of O(N\log N) .
+The second step involves computing the objective values at these extrema and determining the minimum, which takes O(Nn_{e}) time, where n_{e} is the number of extrema. As n_{e} approximates the number of outliers, it is typically a small constant in practice.
+Lemma 1.
+There exists at least one pair of (k^{*},s^{*}) such that s^{*}\hat{x}_{k^{*}}-x_{k^{*}}=0 and s^{*} minimizes Eq. 13.
+Proof.
+The minimum of l_{1}(s) must exist, because l_{1}(s) is continuous, piece-wisely linear and bounded in [0,N\tau] .
+We first prove that there must exist s^{*} such that l_{1}(s^{*})=\min l_{1}(s) and l_{1}^{\prime+}(s)>l_{1}^{\prime-}(s) . Otherwise, for all s^{*} such that l_{0}(s^{*})=\min l_{1}(s) , there will be l_{1}^{\prime+}(s)=l_{1}^{-}(s)=0 , hence the value of l_{1}(s) in the linear interval where the minimum locates is constant. As a consequence, all neighboring intervals will be constant until the boundary where \min l_{1}(s)=l_{1}(-\infty)=N\tau , which contradicts the obvious fact that \min l_{1}(s)\leq l_{1}(x_{1}/\hat{x}_{1})<N\tau .
+Given l_{0}^{\prime+}(s^{*})>l_{0}^{\prime-}(s^{*}) , there exists an index k^{*} such that s^{*}=\hat{x}_{k^{*}}/x_{k^{*}} , because
+|
+| \begin{split}0<&l_{1}^{\prime+}(s^{*})-l_{1}^{\prime-}(s^{*})\\
+=&2\sum_{{x_{i}\over\hat{x}_{i}}=s^{*}}w_{i}\hat{x}_{i}-\!\!\!\!\!\!\sum_{{w_{i}x_{i}-\tau\over w_{i}\hat{x}_{i}}=s^{*}}\!\!\!\!w_{i}\hat{x}_{i}-\!\!\!\!\!\!\sum_{{w_{i}x_{i}+\tau\over w_{i}\hat{x}_{i}}=s^{*}}\!\!\!\!w_{i}\hat{x}_{i}\\
+\leq&2\sum_{{x_{i}\over\hat{x}_{i}}=s^{*}}w_{i}\hat{x}_{i}.\end{split}
+|
+| (17)
+∎
+Algorithm 3 ROE alignment subproblem w/ truncation
+input: arrays \hat{X}[1..n] , X[1..n] , W[1..n] , float \tau
+output: the optimal scale s^{*} , objective value l^{*} to Eq. 13
+function SolveSubproblem( \hat{X} , X , W , \tau )
+A[1..n] \leftarrow X/\hat{X}
+B[1..n] \leftarrow (W*X-\tau)/(W*\hat{X})
+C[1..n] \leftarrow (W*X+\tau)/(W*\hat{X})
+for each array \mathcal{A} in \{A,B,C\} do
+sort \mathcal{A} and obtain sorted indices I_{\mathcal{A}}[1..n]
+Q_{\mathcal{A}}[1..n] \leftarrow accumulated sum of \{W\hat{X}[I_{\mathcal{A}}[i]]\}_{i=1}^{n}
+end for
+Initialize I_{E} as empty set
+for i=1 to n do \triangleright parallel computation
+for each array \mathcal{A} in \{A,B,C\} do
+j_{\mathcal{A}}^{-} \leftarrow the last j s.t. \mathcal{A}[j]<X[i]/\hat{X}[i]
+j_{\mathcal{A}}^{+} \leftarrow the last j s.t. \mathcal{A}[j]\leq X[i]/\hat{X}[i]
+end for
+d^{-} \leftarrow 2\cdot Q_{A}[j_{A}^{-}]-Q_{B}[j_{B}^{-}]-Q_{C}[j_{C}^{-}]
+d^{+} \leftarrow 2\cdot Q_{A}[j_{A}^{+}]-Q_{B}[j_{B}^{+}]-Q_{C}[j_{C}^{+}]
+if d^{-}<0\leq d^{+} then append i to I_{E}
+end for
+Initialize l[1..N] with \infty
+for i in I_{E} do \triangleright parallel computation
+s \leftarrow X[i]/\hat{X}[i]
+l[i] \leftarrow objective function value at s
+end for
+i^{*} \leftarrow index of the minimum in l[i],i\in I_{E}
+s^{*} \leftarrow X[i^{*}]/\hat{X}[i^{*}] , l^{*} \leftarrow l[i^{*}]
+return s^{*} , l^{*}
+end function
+Alignment with 1D shift.
+Recall the alignment objective and let w_{i} be 1/z_{i} .
+We rewrite it as follows:
+|
+| \begin{split}\min_{s,t_{z}}\sum_{i=1}^{n}[w_{i}|s\hat{x}_{i}\!-x_{i}|+w_{i}|s\hat{y}_{i}\!-\!y_{i}|+w_{i}|s\hat{z}_{i}+t_{z}-z_{i}|],\end{split}
+|
+| (18)
+or apply truncation to each absolute residual term
+|
+| \begin{split}\min_{s,t_{z}}\sum_{i=1}^{n}[\min(\tau,w_{i}|s\hat{x}_{i}\!-x_{i}|)\!+\!\min(\tau,w_{i}|s\hat{y}_{i}\!-\!y_{i}|)\\
++\min(\tau,w_{i}|s\hat{z}_{i}+t_{z}-z_{i}|)].\end{split}
+|
+| (19)
+The proposed solution is outlined in Algorithm 4, with proof as follows. The corresponding subproblem solver is selected based on whether truncation is applied.
+Lemma 2.
+There exists at least one triplet of (k^{*},s^{*},t_{z}^{*}) such that s^{*}\hat{z}_{k^{*}}+t_{z}^{*}-z_{k^{*}}=0 and (s^{*},t_{z}^{*}) minimizes the objective of Equation 19.
+Proof.
+Denote the objective as l_{2}(s,t_{z}) ,
+|
+| \begin{split}l_{2}(s,t_{z})&=\sum_{i=1}^{n}[\min\left(\tau,w_{i}{|s\hat{x}_{i}-x_{i}|}\right)+\min\left(\tau,w_{i}{|s\hat{y}_{i}-y_{i}|}\right)]\\
+&+\sum_{i=1}^{N}\min\left(\tau,w_{i}{|t_{z}-(z_{i}-s\hat{z}_{i})|}\right)].\end{split}
+|
+| (20)
+Given arbitrary s , using Lemma 1, there exists at least one pair (t_{z},k) such that t_{z}-(z_{k}-s\hat{z}_{k})=0 and t_{z} minimizes \sum_{i=1}^{n}\min\left(\tau,w_{i}{|s\hat{z}_{i}+t_{z}-z_{i}|}\right) , hence minimizes l_{2}(s,t_{z}) as the rest parts are constant with regard to t_{z} . Therefore, a solution s^{*} is always associated with corresponding (t^{*}_{z},k^{*}) such that that s^{*}\hat{z}_{k^{*}}+t^{*}_{z}-z_{k^{*}}=0 .
+∎
+Lemma 2 allows us to reduce Eq. 19 to the subproblem with respect to some index k . For each possible index k , the objective is formed as:
+|
+| \begin{split}\min_{s}\sum_{i=1}^{n}\min(\tau,w_{i}|s\hat{x}_{i}\!-\!sx_{i}|)\!+\!\min(\tau,w_{i}|s\hat{y}_{i}\!-\!y_{i}|)\\
++\min(\tau,w_{i}|s(\hat{z}_{i}-\hat{z}_{k})-(z_{i}-z_{k})|),\end{split}
+|
+| (21)
+which is solvable in O(N\log N) complexity. We enumerate all possible indices for k and find the minimum. Therefore, the total time complexity is O(N^{2}\log N) .
+In our implementation, the point map is resized to low resolution ( 64\times 64 ) for alignment, with N=4096 at most. The algorithm is further parallelized with tensor operations on GPUs.
+Algorithm 4 ROE alignment w/ 1-D shift
+input: point arrays \hat{P}[1..N,1..3] , P[1..N,1..3] ,
+weight array W[1..N]
+output: the optimal scale s^{*} , shift t_{z}^{*} ,
+objective value l^{*} to Eq. 18 or Eq. 19
+W[1..3N] \leftarrow repeat each element in W 3 times
+Initialize arrays s[1..N] , l[1..N] , t_{z}[1..N]
+for k=1 to N do \triangleright parallel computation
+\hat{X}[1...3N] \leftarrow Flatten( \hat{P}[1..N,1..3]-\{0,0,\hat{P}[k,3]\} )
+X[1...3N] \leftarrow Flatten( P[1..N,1..3]-\{0,0,P[k,3]\} )
+(s[k],l[k]) \leftarrow SolveSubproblem( \hat{X} , X , W )
+t_{z}[k] \leftarrow P[k,3]-s[k]\cdot\hat{P}[k,3]
+end for
+k^{*} \leftarrow index of the minimum in l[1..N]
+s^{*} \leftarrow s[k^{*}] , l^{*} \leftarrow l[k^{*}] , t_{z}^{*} \leftarrow t_{z}[k^{*}]
+return s^{*} , t_{z}^{*} , l^{*}
+Alignment with 3D shift.
+We apply truncation and rewrite the objective as follows:
+|
+| \begin{split}\min_{s,t_{z}}\sum_{i=1}^{n}&\min(\tau,w_{i}|s\hat{x}_{i}\!+t_{x}-x_{i}|)\\
+&+\min(\tau,w_{i}|s\hat{y}_{i}+t_{y}-y_{i}|)\\
+&+\min(\tau,w_{i}|s\hat{z}_{i}+t_{z}-z_{i}|).\end{split}
+|
+| (22)
+Similarly to the proof of Lemma 2, there exists at least one group (k_{1}^{*},k_{2}^{*},k_{3}^{*},s^{*},\mathbf{t}^{*}) such that s^{*}\hat{x}_{k_{1}^{*}}+t_{x}^{*}-x_{k_{1}^{*}}=0 , s^{*}\hat{y}_{k_{2}^{*}}+t_{y}^{*}-y_{k_{2}^{*}}=0 , s^{*}\hat{z}_{k_{3}^{*}}+t_{z}^{*}-z_{k_{3}^{*}}=0 , and (s^{*},\mathbf{t}^{*}) minimizes the objective. However, the O(N^{4}\log N) time complexity of a brute-force search is prohibitive. Motivated by the strong locality of surface points within a 3D sphere, we introduce a reasonable assumption, k_{1}=k_{2}=k_{3} , to obtain an approximately optimal solution with O(N^{2}\log N) complexity. This assumption posits that the predicted and ground truth patches can be well aligned under the condition that one corresponding pair of points coincides. The effectiveness of the approximated solution has been empirically validated.
+Algorithm 5 ROE alignment w/ 3-D shift
+input: point arrays \hat{P}[1..N,1..3] , P[1..N,1..3] ,
+weight array W[1..N]
+output: the optimal scale s^{*} , shift \mathbf{t}^{*} ,
+objective value l^{*} to Eq. 22
+W[1..3N] \leftarrow repeat each element in W 3 times
+Initialize arrays s[1..N] , l[1..N] , \mathbf{t}[1..N,3]
+for k=1 to N do \triangleright parallel computation
+\hat{X}[1...3N] \leftarrow Flatten( \hat{P}[1..N,1..3]-\hat{P}[k,1..3] )
+X[1...3N] \leftarrow Flatten( P[1..N,1..3]-P[k,1..3] )
+(s[k],l[k]) \leftarrow SolveSubproblem( \hat{X} , X , W )
+\mathbf{t}[k] \leftarrow P[k]-s[k]\cdot\hat{P}[k]
+end for
+k^{*} \leftarrow index of the minimum in l[1..N]
+s^{*} \leftarrow s[k^{*}] , l^{*} \leftarrow l[k^{*}] , \mathbf{t}^{*} \leftarrow \mathbf{t}[k^{*}]
+return s^{*} , \mathbf{t}^{*} , l^{*}
+Appendix B Experiment Details
+B.1 Training Data
+The datasets used in our training are listed in Table 5. The number of frames may slightly differ from that of the original data because some invalid frames are dropped.
+To assign balanced weights to the datasets for training, we compute the retrieval probability of each dataset relative to OpenImagesV7 [32], a large and diverse natural image dataset. Specifically, we leverage DINOv2 [41] to extract feature vectors and calculate the probability that the nearest neighbor of a randomly selected image from OpenImagesV7 is found in each respective training dataset.
+| Name
+| Domain
+| #Frames
+| Type
+| Weight
+| A2D2[21]
+| Outdoor/Driving
+| 196 K
+| C
+| 0.8%
+| Argoverse2[62]
+| Outdoor/Driving
+| 1.1 M
+| C
+| 7.4%
+| ARKitScenes[3]
+| Indoor
+| 449 K
+| B
+| 8.6%
+| DIML-indoor[14]
+| Indoor
+| 894 K
+| D
+| 4.8%
+| BlendedMVS[69]
+| In-the-wild
+| 115 K
+| B
+| 12.0%
+| MegaDepth[35]
+| Outdoor/In-the-wild
+| 92 K
+| B
+| 5.6%
+| Taskonomy[74]
+| Indoor
+| 3.6 M
+| B
+| 14.1%
+| Waymo[51]
+| Outdoor/Driving
+| 788 K
+| C
+| 6.4%
+| GTA-SfM[57]
+| Outdoor/In-the-wild
+| 19 K
+| A
+| 2.8%
+| Hypersim[45]
+| Indoor
+| 75 K
+| A
+| 5.0%
+| IRS[58]
+| Indoor
+| 101 K
+| A
+| 5.6%
+| KenBurns[40]
+| In-the-wild
+| 76 K
+| A
+| 1.6%
+| MatrixCity[34]
+| Outdoor/Driving
+| 390 K
+| A
+| 1.3%
+| MidAir[19]
+| Outdoor/In-the-wild
+| 423 K
+| A
+| 4.0%
+| MVS-Synth[27]
+| Outdoor/Driving
+| 12 K
+| A
+| 1.2%
+| Spring[37]
+| In-the-wild
+| 5 K
+| A
+| 0.7%
+| Structured3D[76]
+| Indoor
+| 77 K
+| A
+| 4.8%
+| Synthia[47]
+| Outdoor/Driving
+| 96 K
+| A
+| 1.2%
+| TartanAir[60]
+| In-the-wild
+| 306 K
+| A
+| 5.0%
+| UrbanSyn[25]
+| Outdoor/Driving
+| 7 K
+| A
+| 2.1%
+| ObjaverseV1[12]
+| Object
+| 167 K
+| A
+| 4.8%
+| Type
+| Label quality
+| Applied losses
+| Accuracy
+| Range
+| Density
+| \mathcal{L}_{G}
+| \mathcal{L}_{S_{1}}
+| \mathcal{L}_{S_{2}}
+| \mathcal{L}_{S_{3}}
+| \mathcal{L}_{N}
+| \mathcal{L}_{M}
+| A. Synthetic
+| Perfect
+| \infty
+| Dense
+| ✓
+| ✓
+| ✓
+| ✓
+| ✓
+| ✓
+| B. SfM/MV Recon
+| High
+| \infty
+| Dense&Partial
+| ✓
+| ✓
+| ✓
+|
+|
+| ✓
+| C. LiDAR/Laser
+| High
+| \sim 100 m
+| Sparse
+| ✓
+| ✓
+|
+|
+|
+| ✓
+| D. Kinect
+| Medium
+| \sim 10 m
+| Dense
+| ✓
+|
+|
+|
+|
+| ✓
+Table 5: Datasets used for training and tailored loss combination.
+B.2 Evaluation Data
+The raw evaluation datasets are processed accordingly for reliable evaluation and fair comparison. We report the details as follows.
+Figure 8: Examples of evaluation data preprocessing: (a) Removing mirror and boundary artifacts from the ground truth depth in NYUv2. (b) Excluding sky regions in Sintel. (c) Removing boundary artifacts from the ground truth depth in DIODE.
+•
+NYUv2 [39]. We use the official test split of 654 samples. Due to the inaccuracy of ground truth values captured by Kinect V1 near boundaries, we filter and remove boundary regions by a simple edge detection method. Specifically, we set a threshold for the difference between the minimum and maximum depth values within a local window. Depth values beyond 5 meters are excluded because they are unreliable due to the limited sensor range [52]. Additionally, we manually mask out areas with reflective and transparent surfaces, such as mirrors and glass, which cannot be accurately captured by the sensor.
+•
+KITTI [53]. We utilize the test split of 652 images of Eigen et al. [18] following previous works. The original resolution of 1242\times 375 does not match our training aspect ratio (ranging from 1:2 to 2:1 ), so we apply center cropping to obtain a resolution of 750\times 375 from the raw images.
+•
+ETH3D [50]. All 454 images are included. The images are undistorted with the official calibration data and downsized from the original resolution of 6202\times 4135 to 2048\times 1365 .
+•
+iBims-1 [31]. All 100 images are included at an original resolution of 640\times 480 .
+•
+GSO [16]. The dataset contains 1,030 objects. For each object, we render a single view at 512\times 512 resolution. The view is randomly sampled with a FOV ranging from 30^{\circ} to 60^{\circ} . The object is centered in the image, and its bounding box occupies approximately 70% of the image’s size.
+•
+Sintel [9]. We use all 1,064 frames and center-crop the images to 872\times 436 from the original 1024\times 436 resolution to fit our aspect ratio range. The sky regions are manually masked out because evaluating models with sky depth included is not meaningful.
+•
+DDAD [24]. We randomly select 1,000 samples from the validation set. The dataset was collected using multiple cameras and LiDAR sensors mounted on a moving vehicle. Some cameras inadvertently capture parts of the vehicle, causing discrepancies with the sensor’s depth data. To address this issue, we crop the regions that are not obstructed by the vehicle itself.
+•
+DIODE [54]. We utilize the official validation split, which includes 325 indoor images and 446 outdoor images at an original resolution of 1024\times 768 . Due to artifacts in ground truth depth values near the boundaries in this dataset, we identify and remove these boundary regions using a similar approach as described above.
+B.3 Evaluation Protocol
+For all our models and baselines, predictions and ground truth are aligned in scale (and shift, if applicable) for each image before measuring errors. To clarify the notations in this section:
+•
+\hat{\mathbf{p}}_{i} and \mathbf{p}_{i} are the predicted and ground-truth points, respectively.
+•
+\hat{z}_{i} and z_{i} are the predicted and ground-truth depths, which are the Z -coordinate of corresponding points.
+•
+\mathcal{M} is the mask of valid ground-truth.
+•
+a and b denote the scale and shift used to align predictions with the ground truth for evaluation, to avoid confusion with similar symbols used in the training objectives.
+•
+Scale-invariant point map. The scale a^{*} to align prediction with ground truth is computed as:
+|
+| a^{*}=\mathop{\arg\!\min}_{a}\sum_{i\in\mathcal{M}}{1\over z_{i}}\|a\hat{\mathbf{p}}_{i}-\mathbf{p}_{i}\|_{1},
+|
+| (23)
+•
+Affine-invariant point map. The scale a^{*} and shift \mathbf{b}^{*} are computed as:
+|
+| (a^{*},\mathbf{b}^{*})=\mathop{\arg\!\min}_{a,\mathbf{b}}\sum_{i\in\mathcal{M}}{1\over z_{i}}\|a\hat{\mathbf{p}}_{i}+\mathbf{b}-\mathbf{p}_{i}\|_{1}.
+|
+| (24)
+•
+Scale-invariant depth map, the scale a^{*} is computed as
+|
+| a^{*}=\mathop{\arg\!\min}_{s}\sum_{i\in\mathcal{M}}{1\over z_{i}}|a\hat{z}_{i}-z_{i}|.
+|
+| (25)
+•
+Affine-invariant depth map. The scale a^{*} and shift b^{*} are computed as
+|
+| (a^{*},b^{*})=\mathop{\arg\!\min}_{s}\sum_{i\in\mathcal{M}}{1\over z_{i}}|a\hat{z}_{i}+b-z_{i}|.
+|
+| (26)
+•
+Affine-invariant disparity map. We follow the established protocol for affine disparity alignment [43], using least-squares to align predictions in disparity space:
+|
+| (a^{*},b^{*})=\mathop{\arg\!\min}_{s}\sum_{i\in\mathcal{M}}(a\hat{d}_{i}+b-d_{i})^{2},
+|
+| (27)
+where \hat{d}_{i} is the predicted disparity and d_{i} is the ground truth, defined as d_{i}=1/z_{i} .
+To prevent aligned disparities from taking excessively small or negative values, the aligned disparity is truncated by the inverted maximum depth 1/z_{\text{max}} before inversion. The final aligned depth \hat{z}_{i}^{*} is computed as:
+|
+| \hat{z}_{i}^{*}:={1\over\max(a^{*}\hat{d}_{i}+b^{*},1/z_{\text{max}})}.
+|
+| (28)
+Appendix C More Results
+Full table of depth estimation results
+In Table 6, we present detailed results for depth estimation where methods that predict metric or scale-invariant depth are also evaluated on affine-invariant depth and disparity for a fair comparison.
+| Method
+| NYUv2
+| KITTI
+| ETH3D
+| iBims-1
+| GSO
+| Sintel
+| DDAD
+| DIODE
+| Average
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Rel. \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Rel. \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Reld \downarrow
+| \delta_{1}^{\text{d}} \uparrow
+| Rank \downarrow
+| Scale-invariant depth
+|
+| LeReS
+| 12.1
+| 82.6
+| 19.2
+| 64.8
+| 14.2
+| 78.4
+| 14.0
+| 78.8
+| 13.6
+| 77.9
+| 30.5
+| 52.1
+| 26.5
+| 52.0
+| 18.2
+| 69.6
+| 18.5
+| 69.5
+| 7.31
+| ZoeDepth
+| 5.62
+| 96.3
+| 7.27
+| 91.9
+| 10.4
+| 87.3
+| 7.45
+| 93.2
+| 3.23
+| 99.9
+| 27.4
+| 61.8
+| 17.0
+| 72.8
+| 11.3
+| 85.2
+| 11.2
+| 86.1
+| 5.50
+| DUSt3R
+| 4.40
+| 97.1
+| 7.81
+| 90.6
+| 6.04
+| 95.7
+| 4.98
+| 95.8
+| 3.27
+| 99.5
+| 31.1
+| 57.2
+| 18.6
+| 73.3
+| 8.91
+| 88.8
+| 10.6
+| 87.2
+| 5.00
+| Metric3D V2
+| 4.69
+| 97.4
+| 4.00
+| 98.5
+| 3.84
+| 98.5
+| 4.23
+| 97.7
+| 2.46
+| 99.9
+| 20.7
+| 69.8
+| 7.41
+| 94.6
+| 3.29
+| 98.4
+| 6.33
+| 94.3
+| 2.07
+| UniDepth
+| 3.86
+| 98.4
+| 3.73
+| 98.6
+| 5.67
+| 97.0
+| 4.79
+| 97.4
+| 4.18
+| 99.7
+| 28.3
+| 58.8
+| 10.1
+| 90.5
+| 6.83
+| 92.8
+| 8.43
+| 91.6
+| 3.00
+| DA V1
+| 4.77
+| 97.5
+| 5.61
+| 95.6
+| 9.41
+| 88.9
+| 5.53
+| 95.8
+| 5.49
+| 99.3
+| 28.3
+| 56.7
+| 13.2
+| 81.5
+| 10.3
+| 87.5
+| 10.3
+| 87.9
+| 5.67
+| -metric indoor
+| 4.77
+| 97.5
+| 15.4
+| 73.6
+| 9.41
+| 88.9
+| 5.53
+| 95.8
+| 5.49
+| 99.3
+| 28.3
+| 56.7
+| 24.2
+| 57.4
+| 10.3
+| 87.5
+| 12.9
+| 82.1
+| -
+| -metric outdoor
+| 15.9
+| 72.3
+| 5.61
+| 95.6
+| 8.77
+| 92.4
+| 13.8
+| 78.8
+| 8.59
+| 93.6
+| 28.1
+| 54.8
+| 13.2
+| 81.5
+| 13.0
+| 81.4
+| 13.4
+| 81.3
+| -
+| DA V2
+| 5.03
+| 97.3
+| 7.23
+| 93.7
+| 6.12
+| 95.5
+| 4.32
+| 97.9
+| 4.38
+| 99.3
+| 23.0
+| 65.2
+| 14.7
+| 78.0
+| 7.95
+| 90.0
+| 9.09
+| 89.6
+| 4.06
+| -metric indoor
+| 5.03
+| 97.3
+| 7.61
+| 90.9
+| 6.12
+| 95.5
+| 4.32
+| 97.9
+| 4.38
+| 99.3
+| 23.0
+| 65.2
+| 16.6
+| 73.4
+| 7.95
+| 90.0
+| 9.38
+| 88.7
+| -
+| -metric outdoor
+| 15.3
+| 72.3
+| 7.23
+| 93.7
+| 9.30
+| 89.6
+| 10.6
+| 84.9
+| 9.62
+| 92.5
+| 28.6
+| 57.3
+| 14.7
+| 78.0
+| 12.2
+| 83.2
+| 13.4
+| 81.4
+| -
+| Ours
+| 3.44
+| 98.4
+| 4.25
+| 97.8
+| 3.36
+| 98.9
+| 3.46
+| 97.0
+| 1.47
+| 100
+| 19.3
+| 73.4
+| 9.17
+| 90.5
+| 4.89
+| 94.7
+| 6.17
+| 93.8
+| 1.62
+| Affine-invariant depth
+|
+| LeReS
+| 6.21
+| 95.4
+| 8.28
+| 90.3
+| 8.95
+| 90.8
+| 6.68
+| 94.5
+| 4.03
+| 99.4
+| 24.0
+| 64.8
+| 16.2
+| 75.8
+| 9.99
+| 88.1
+| 10.5
+| 87.4
+| 8.81
+| ZoeDepth
+| 4.76
+| 97.3
+| 5.59
+| 95.1
+| 7.27
+| 94.2
+| 5.85
+| 95.7
+| 2.54
+| 99.9
+| 21.8
+| 69.2
+| 14.2
+| 80.1
+| 7.80
+| 90.9
+| 8.73
+| 90.3
+| 7.33
+| DUSt3R
+| 3.73
+| 97.8
+| 7.30
+| 91.6
+| 4.96
+| 96.4
+| 3.94
+| 96.6
+| 2.55
+| 99.6
+| 25.4
+| 64.2
+| 16.9
+| 76.2
+| 6.68
+| 92.6
+| 8.93
+| 89.4
+| 6.62
+| Metric3D V2
+| 3.94
+| 97.6
+| 3.50
+| 98.4
+| 3.24
+| 99.0
+| 3.28
+| 98.3
+| 2.10
+| 99.4
+| 26.6
+| 71.7
+| 7.15
+| 94.8
+| 2.75
+| 98.7
+| 6.57
+| 94.7
+| 3.64
+| UniDepth V1
+| 3.40
+| 98.6
+| 3.55
+| 98.7
+| 4.92
+| 97.5
+| 3.76
+| 98.2
+| 2.48
+| 99.9
+| 24.9
+| 64.1
+| 9.46
+| 90.8
+| 4.90
+| 96.2
+| 7.17
+| 93.0
+| 3.62
+| Marigold
+| 4.63
+| 97.3
+| 7.29
+| 93.8
+| 6.08
+| 96.3
+| 4.35
+| 97.2
+| 2.78
+| 99.9
+| 21.2
+| 75.0
+| 14.6
+| 80.5
+| 6.34
+| 94.3
+| 8.41
+| 91.8
+| 5.69
+| Geowizard
+| 4.69
+| 97.4
+| 8.14
+| 92.5
+| 6.90
+| 93.9
+| 4.50
+| 97.1
+| 2.00
+| 99.9
+| 17.8
+| 76.2
+| 16.5
+| 75.7
+| 7.03
+| 92.7
+| 8.45
+| 90.7
+| 6.44
+| DA V1
+| 3.82
+| 98.3
+| 5.04
+| 96.4
+| 6.23
+| 95.2
+| 4.23
+| 97.3
+| 1.98
+| 100
+| 20.1
+| 71.8
+| 11.3
+| 86.1
+| 6.75
+| 92.6
+| 7.43
+| 92.2
+| 4.83
+| -metric indoor
+| 3.82
+| 98.3
+| 9.95
+| 86.5
+| 6.23
+| 95.2
+| 4.23
+| 97.3
+| 1.98
+| 100
+| 20.1
+| 71.8
+| 17.0
+| 74.0
+| 6.75
+| 92.6
+| 8.76
+| 89.5
+| -
+| -metric outdoor
+| 7.68
+| 93.8
+| 5.04
+| 96.4
+| 6.21
+| 96.6
+| 7.00
+| 94.2
+| 2.77
+| 99.8
+| 20.6
+| 70.0
+| 11.3
+| 86.1
+| 7.03
+| 93.2
+| 8.45
+| 91.3
+| -
+| DA V2
+| 4.16
+| 97.9
+| 6.77
+| 94.3
+| 4.63
+| 97.2
+| 3.44
+| 98.3
+| 1.44
+| 100
+| 17.1
+| 76.6
+| 13.4
+| 81.8
+| 5.41
+| 94.6
+| 7.04
+| 92.6
+| -
+| -metric indoor
+| 4.16
+| 97.9
+| 7.09
+| 92.3
+| 4.63
+| 97.2
+| 3.44
+| 98.3
+| 1.44
+| 100
+| 17.1
+| 76.6
+| 14.3
+| 79.8
+| 5.41
+| 94.6
+| 7.20
+| 92.1
+| -
+| -metric outdoor
+| 8.65
+| 91.0
+| 6.77
+| 94.3
+| 7.24
+| 93.5
+| 6.80
+| 93.5
+| 2.29
+| 100
+| 22.4
+| 67.1
+| 13.4
+| 81.8
+| 8.19
+| 90.7
+| 9.47
+| 89.0
+| 2.94
+| Ours
+| 2.92
+| 98.6
+| 3.94
+| 98.0
+| 2.69
+| 99.2
+| 2.74
+| 97.9
+| 0.94
+| 100
+| 13.0
+| 83.2
+| 8.40
+| 92.1
+| 3.16
+| 97.5
+| 4.72
+| 95.8
+| 1.56
+| Affine-invariant disparity
+|
+| LeReS
+| 7.31
+| 95.5
+| 12.2
+| 87.1
+| 10.2
+| 90.1
+| 8.44
+| 92.9
+| 4.33
+| 99.7
+| 28.9
+| 59.6
+| 23.4
+| 73.0
+| 10.7
+| 88.3
+| 13.2
+| 85.8
+| 8.25
+| ZoeDepth
+| 5.21
+| 97.7
+| 5.84
+| 95.6
+| 8.07
+| 94.0
+| 6.19
+| 96.1
+| 2.60
+| 99.9
+| 26.9
+| 66.3
+| 14.1
+| 81.7
+| 8.17
+| 92.0
+| 9.63
+| 90.4
+| 6.75
+| DUSt3R
+| 4.24
+| 98.1
+| 7.72
+| 92.1
+| 5.60
+| 96.2
+| 4.49
+| 96.6
+| 2.63
+| 99.8
+| 40.0
+| 56.7
+| 17.4
+| 76.2
+| 7.10
+| 92.8
+| 11.1
+| 88.6
+| 6.75
+| Metric3D V2
+| 13.4
+| 81.5
+| 3.76
+| 98.2
+| 4.30
+| 97.7
+| 8.55
+| 92.3
+| 1.80
+| 100
+| 21.8
+| 72.4
+| 7.35
+| 94.1
+| 7.70
+| 90.2
+| 8.58
+| 90.8
+| 5.29
+| UniDepth V1
+| 3.78
+| 98.7
+| 3.64
+| 98.7
+| 5.34
+| 97.2
+| 4.06
+| 98.1
+| 2.56
+| 99.9
+| 28.6
+| 60.7
+| 9.94
+| 89.1
+| 5.95
+| 95.5
+| 7.98
+| 92.2
+| 3.62
+| MiDaS V3.1
+| 4.58
+| 98.1
+| 6.25
+| 94.7
+| 5.77
+| 96.8
+| 4.73
+| 97.4
+| 1.86
+| 100
+| 21.3
+| 73.1
+| 14.5
+| 82.6
+| 6.05
+| 94.9
+| 8.13
+| 92.2
+| 5.00
+| DA V1
+| 4.20
+| 98.4
+| 5.40
+| 97.0
+| 4.68
+| 98.2
+| 4.18
+| 97.6
+| 1.54
+| 100
+| 20.1
+| 77.6
+| 12.7
+| 86.9
+| 5.69
+| 95.7
+| 7.31
+| 93.9
+| 3.00
+| DA V2
+| 4.14
+| 98.3
+| 5.61
+| 96.7
+| 4.71
+| 97.9
+| 3.47
+| 98.5
+| 1.24
+| 100
+| 21.4
+| 72.8
+| 13.1
+| 86.4
+| 5.29
+| 96.1
+| 7.37
+| 93.3
+| 3.12
+| Ours
+| 3.38
+| 98.6
+| 4.05
+| 98.1
+| 3.11
+| 98.9
+| 3.23
+| 98.0
+| 0.96
+| 100
+| 18.4
+| 79.5
+| 8.99
+| 91.5
+| 3.98
+| 97.2
+| 5.76
+| 95.2
+| 1.44
+Table 6: Full table of comparison for depth map estimation. * methods have multiple model versions available for respective benchmarks, among which the best for each benchmark is chosen for ranking, followed by the detailed results in smaller text size for each version. Gray numbers denote models trained on respective benchmarks.
+More qualitative comparisons
+Fig. 10 and Fig. 11 present additional visual comparisons on zero-shot evaluation datasets and in-the-wild images. Our method is compared with LeReS [71], UniDepth [42], DUSt3R [59], Metric3D V2 [26]
+and Depth Anything V2 [68]. Since Metric3D V2 and Depth Anything V2 predict depth map and require ground truth camera focal to obtain 3D points cloud results, we visualize them using our estimated focal lengths.
+In the supplementary videos, we present extensive and uncurated comparisons using the first 100 images from the DIV2K[2] dataset.
+More visual results
+In Fig. 12 and Fig. 13, we demonstrate more reconstruction results of our method for more open-domain images.
+Appendix D Limitations and Future Work
+While our model demonstrates strong performance, accurately capturing thin structures remains a significant challenge. This difficulty arises from the network’s limited capacity and the presence of noisy real-world training data. As illustrated in Fig. 9, our model may fail to recover these intricate structures.
+Additionally, while monocular video reconstruction holds great promise as an application, achieving temporal consistency presents substantial challenges. Our model, designed for single-image input, cannot inherently maintain temporal coherence due to the ambiguity of the task. Addressing this issue would require non-trivial solutions, such as global optimization techniques.
+Given the rapid advancements in video depth estimation, we believe that an end-to-end model for monocular video reconstruction could significantly benefit from our proposed techniques. Exploring this direction is a compelling avenue for future work.
+Figure 9: A failure case. Our model fails to capture the thin structure of the fence, leading to a flattened geometry.
+Figure 10: Additional qualitative comparisons from the evaluation datasets. *: for methods without camera intrinsics prediction, ground-truth camera intrinsics (and disparity shifts) were used to lift their results into 3D points. Best viewed with zoom.
+Figure 11: Additional qualitative comparisons for in-the-wild images from the DIV2K dataset. *: for methods without camera intrinsics prediction, our camera intrinsics prediction were used to lift their results into 3D points. Supplementary videos contain more results. Best viewed with zoom.
+Figure 12: Additional visual results for open-domain images of our model (page 1 of 2). The columns from left to right are the input images, reconstructed disparity maps, reconstructed surface geometry viewed from the source view, and three novel-view images, respectively.
+Figure 13: Additional visual results for open-domain images of our model (page 2 of 2). The columns from left to right are the input images, reconstructed disparity maps, reconstructed surface geometry viewed from the source view, and three novel-view images, respectively.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

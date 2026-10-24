@@ -1,0 +1,1288 @@
+FLARE: Feed-forward Geometry, Appearance and Camera Estimation from Uncalibrated Sparse Views
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Work
+3 Method
+3.1 Neural Pose Predictor
+3.2 Multi-view Geometry Estimation
+3.3 3D Gaussians for Appearance Modeling
+3.4 Training Loss
+4 Experiment
+Datasets.
+Implementation details.
+Inference.
+4.1 Multi-view Pose Estimation
+4.2 Sparse-view 3D Reconstruction
+4.3 Novel-view Synthesis
+Comparison.
+4.4 Ablation Study
+5 Discussion
+References
+A Implementation Details
+Data Processing.
+Baselines for Novel View Synthesis.
+Numbers of Input Image.
+B Experiments
+Relationship between MVSplat Performance and Input Views.
+Study between Performance and the Number of Frames.
+Dense View 3D Reconstruction on the DTU dataset.
+Visualization of Sparse-view Reconstruction.
+License: CC BY 4.0
+arXiv:2502.12138v7 [cs.CV] 25 Jan 2026
+FLARE: Feed-forward Geometry, Appearance and Camera Estimation from Uncalibrated Sparse Views
+Shangzhan Zhang
+Affiliation: Zhejiang University
+Jianyuan Wang
+Yinghao Xu
+Nan Xue
+Affiliation: Ant Group
+Christian Rupprecht
+Affiliation: University of Oxford
+Xiaowei Zhou
+Yujun Shen
+Affiliation: Ant Group
+Gordon Wetzstein
+Affiliation: Stanford University
+Abstract
+We present flare, a feed-forward model designed to infer high-quality camera poses and 3D geometry from uncalibrated sparse-view images (i.e., as few as 2-8 inputs), which is a challenging yet practical setting in real-world applications.
+Our solution features a cascaded learning paradigm with camera pose serving as the critical bridge, recognizing its essential role in mapping 3D structures onto 2D image planes.
+Concretely, flare starts with camera pose estimation, whose results condition the subsequent learning of geometric structure and appearance, optimized through the objectives of geometry reconstruction and novel-view synthesis.
+Utilizing large-scale public datasets for training, our method delivers state-of-the-art performance in the tasks of pose estimation, geometry reconstruction, and novel view synthesis, while maintaining the inference efficiency (i.e., less than 0.5 seconds). The project page and code can be found at: https://zhanghe3z.github.io/FLARE/
+Figure 1: We present flare, a feed-forward approach that simultaneously recovers high-quality poses, geometry and appearance from uncalibrated sparse views within 0.5s.
+Our model excels in the scenarios with a camera circling around the subject, and also shows robust generalization to real-world casual captures, such as an indoor bedroom.
+In the central area below, we casually captured six random bedroom images with minimal overlap. Our method demonstrates high-quality geometry reconstruction even in this challenging case.
+††
+∗The first three authors contributed equally. †Corresponding author.
+1 Introduction
+Reconstructing 3D scenes from multi-view images is a fundamental problem with wide-ranging applications across computer vision, perception, and computer graphics.
+Traditional approaches typically solve this problem in two stages: first, estimating camera parameters using Structure-from-Motion (SfM) solvers [20, 55, 65], and then predicting dense depth maps by Multi-View Stereo (MVS) to achieve dense 3D reconstruction [59, 56].
+Despite the significant success of the SfM-MVS paradigm over the past decades, it faces two key limitations. First, these methods rely heavily on handcrafted feature matching and are non-differentiable, preventing them from fully leveraging recent advancements in deep learning. Second, traditional SfM approaches struggle with sparse views and limited viewpoints, significantly restricting their applicability in real-world scenarios.
+Recent efforts to tackle these issues have shown potential, but significant challenges remain. Optimization-based approaches like BARF [36] and NeRF--[81] jointly optimize camera poses and geometry, but they require a good initialization and suffer from poor generalization to novel scenes.
+Deep camera estimation methods [60, 77, 35, 98, 51, 50] treat sparse-view SfM as a camera parameter regression problem, yet struggle with accuracy and generalization. VGGSfM [76] improves this by incorporating multi-view tracking and differentiable bundle adjustment but falls short in providing dense geometry.
+DUSt3R[80] and MASt3R [32] propose generating a two-view point map with pixel-wise geometry, but their reliance on post-optimization global registration is time consuming and often yields suboptimal results. PF-LRM [78] offers feed-forward reconstruction from four images, but its tri-plane representation [5] limits performance in large-scale scenes.
+While these methods have demonstrated promising advances in sparse-view settings, they still lack a comprehensive solution that combines scalability, accuracy, and efficiency in camera, geometry, and appearance estimation.
+We present flare, a novel feed-forward and differentiable system that infers high-quality geometry, appearance, and camera parameters from uncalibrated sparse-view images.
+Direct optimization of these parameters from images often presents significant learning difficulties, frequently converging to sub-optimal solutions with distorted geometry and blurry textures. To address these challenges, we introduce a novel cascade learning paradigm that progressively estimates camera poses, geometry, and appearance, relaxing traditional requirements for 3D reconstruction such as dense image views, accurate camera poses, and wide baselines.
+Our cascade learning paradigm lies in decomposing the challenging optimization problem into sequential stages, using camera poses as proxies for each stage.
+The central concept is that a camera pose frames a 2D image within a 3D observation frustum, reducing the learning complexity for subsequent tasks.
+Our method starts with a neural pose predictor that estimates coarse camera poses from sparse-view images. These initial poses provide geometric cues that facilitate a transformer-based architecture to refine the poses, compute point maps, and predict 3D Gaussians for novel-view synthesis.
+For geometry prediction, we introduce a two-stage approach instead of direct global prediction. First, we estimate camera-centric point maps in individual camera coordinates. Then, a neural scene projector unifies these local point maps into a coherent global structure. With this approach, we enable faster convergence in geometry learning and reduce geometric distortion for challenging scenes.
+We trained our model on a set of large public datasets [34, 1, 92, 95, 49, 68, 82, 39] . flare achieves state-of-the-art results in camera pose estimation, point cloud estimation, and novel-view synthesis. With unposed images as input, flare can produce photorealistic novel-view synthesis using Gaussian Splatting in just 0.5 seconds, which is a substantial improvement over previous optimization-based methods.
+As demonstrated in FLARE: Feed-forward Geometry, Appearance and Camera Estimation from Uncalibrated Sparse Views, our system reconstructs 3D scenes and estimates poses from as few as 2-8 input images.
+The primary contributions of this work are as follows:
+•
+We propose an efficient, feed-forward, and differentiable system for high-quality 3D Gaussian scene reconstruction from uncalibrated sparse-view images, achieving inference in less than 0.5 seconds.
+•
+We demonstrate that leveraging camera poses as proxies effectively simplifies complex 3D learning tasks. We thus introduce a novel cascaded learning paradigm that starts with camera pose estimation, whose results condition the subsequent learning of geometric structure and appearance.
+•
+We propose a two-stage geometry learning approach that first learns camera-centric point maps and builds a global geometry
+projector to unify the point maps into a global coordinate.
+2 Related Work
+Structure-from-Motion (SfM). SfM techniques aim to estimate camera poses and reconstruct sparse 3D structures.
+Conventional approaches [55, 65] employ multi-stage optimization, starting with pairwise feature matching [43, 2, 41] across views to establish correspondences, followed by camera pose optimization using incremental bundle adjustment [71].
+Recently, numerous learning-based SfM methods have been proposed to enhance the traditional multi-stage pipeline. These improvements focus on three main areas: developing learning-based feature descriptors [12, 13, 96], learning more accurate matching algorithms [67, 54], and implementing differentiable bundle adjustment [75, 36].
+However, when input views are extremely sparse, accurately matching features becomes highly challenging, leading to degraded camera pose estimation performance.
+Multi-view Stereo (MVS).
+MVS techniques aim to reconstruct dense 3D geometry from multiple calibrated images. Traditional MVS methods [18, 56, 16] typically follow a pipeline of depth map estimation, depth map fusion, and surface reconstruction. These approaches often rely on photometric consistency across views and various regularization techniques [91] to handle challenging scenarios.
+Recent years have witnessed a surge in learning-based MVS methods, leveraging deep neural networks to improve reconstruction quality and efficiency either with cascade cost volume matching [90, 91] or reconstruction supervision with differentiable rendering [8, 10, 6, 85, 23, 33].
+Despite significant progress, MVS methods consistently depend on calibrated camera poses, which are typically estimated by SfM methods. This cascaded pipeline often causes MVS to perform suboptimally when the estimated poses are inaccurate.
+DUSt3R [80, 32] directly predicts the geometry of visible surfaces without any explicit knowledge of the camera parameters. However, under multi-view settings, their approach is limited to pairwise image processing followed by global alignment, failing to fully exploit multi-view information and supporting photorealistic rendering.
+3D Reconstruction from Sparse-view Images. Neural representations [44, 47, 45, 61, 69] present a promising foundation for scene representation and neural rendering.
+When applied to novel-view synthesis, these methods have demonstrated success in scenarios with dense-view training images, showcasing proficiency in single-scene overfitting.
+Notably, recent advancements [97, 9, 40, 79, 37, 24, 10, 100] have extended these techniques to operate with a sparse set of views, displaying improved generalization to unseen scenes.
+These methods face challenges in capturing multiple modes within large-scale datasets, resulting in a limitation to generate realistic results.
+Additional works [85, 33, 23, 6] further scale up the model and datasets for better generalization with NeRF or Gaussian Splatting.
+Unlike existing methods that rely on calibrated camera poses to supervise the neural network training, our approach can perform direct 3D reconstruction from uncalibrated images.
+Pose-free Novel-view Synthesis.
+Recent research has made significant progress in novel-view synthesis from uncalibrated images.
+One line of research focuses on jointly optimizing camera poses and radiance fields from dense-view images. BARF [36], NeRF-- [81], and subsequent works [26, 3, 72] have advanced this approach.
+Several recent methods [15, 30, 14] have extended the 3D representation from NeRF to 3D Gaussians.
+Another research direction [52, 46, 83, 27] focuses on developing feed-forward novel-view synthesis for unposed images.
+SRT [53] proposes the first pose- and geometry-free framework for novel view synthesis, while LEAP [28] pioneers pose-free radiance field reconstruction by directly estimating scene geometry and radiance fields.
+FlowCam [64] and FlowMap [63] introduce 2D flow to enable unsupervised learning of generalizable 3D reconstruction, though their performance degrades in sparse-view settings.
+PF-LRM [78] estimates camera poses by predicting point maps and solving a differentiable perspective-n-point (PnP) problem, but shows limited generalization to complex 3D scenes.
+PF3plat [21] achieves coarse alignment of 3D Gaussians by leveraging pre-trained models for monocular depth estimation and visual correspondence.
+Splatt3R [62] and NopoSplat [93] utilize DUSt3R [80] or MASt3R [32] to predict point maps as proxy geometry and subsequently learn 3D Gaussians for sparse-view reconstruction.
+However, existing approaches are either restricted to two-view scenarios or produce suboptimal rendering results due to imperfect geometry estimates from DUSt3R or MASt3R.
+Our work presents a differentiable system that simultaneously predicts camera parameters, geometry, and appearance, achieving superior generalization across diverse real-world scenes.
+3 Method
+Figure 2:
+Illustration of our pipeline.
+Given uncalibrated sparse views, our model can infer high-quality camera poses, geometry and appearance in a single feed-forward pass. We use camera poses as proxies to guide subsequent geometry and appearance learning. Given initial pose estimates, we first compute camera-centric geometry, then project it into a global scene representation. Finally, we form 3D Gaussians on top of the scene geometry to enable photo-realistic novel-view synthesis.
+flare uses point maps [80] as our geometry representation for two key advantages: their compatibility with neural networks and natural integration with 3D Gaussians for appearance modeling.
+As shown in Fig. 2, flare is feed-forward model to infer high-quality camera poses and 3D geometry from uncalibrated sparse-view images.
+Our solution is a cascaded learning paradigm that first estimates camera poses from sparse views and then leverages the estimates to guide the subsequent geometry and appearance learning.
+We present our neural pose predictor for sparse-view pose estimation in Sec. 3.1.
+With the pose estimates, we propose a two-stage learning paradigm for geometry estimation (Sec. 3.2). Given the estimated geometry, we develop a 3D Gaussian reconstruction head that enables high-quality appearance modeling for photorealistic novel view synthesis (Sec. 3.3). Finally, we detail the training objectives for the whole framework (Sec. 3.4).
+3.1 Neural Pose Predictor
+Traditional pose estimation methods rely on feature matching to find correspondences, but this often fails in sparse-view scenarios where images have limited overlapping regions.
+Inspired by previous deep camera estimation methods [77, 76], we drop the feature matching and formulate pose estimation as a direct transformation problem from image space to camera space using an end-to-end transformer model. Given the input images \mathcal{I}=\{\mathbf{I}_{i}\}_{i=1}^{N} , we first tokenize them into non-overlapping patches to obtain image tokens. We then initialize learnable camera latents \mathcal{Q}_{c}=\{\mathbf{q}^{\text{coarse}}_{i}\}_{i=1}^{N} . By concatenating the image patches with camera latents into a 1D sequence, we leverage a small decoder-only transformer, named “neural pose predcitor” \mathrm{F}_{p}(\cdot) to estimate the coarse camera poses \mathcal{P}_{c}=\{\mathbf{p}^{\text{coarse}}_{i}\}_{i=1}^{N} :
+|
+| \mathcal{P}_{c}=\mathrm{F}_{p}(\mathcal{Q}_{c},\mathcal{I}).
+|
+| (1)
+We parametrize each camera pose as a 7-dimensional vector comprising the absolute translation and a normalized quaternion.
+With this neural pose predictor, we can estimate coarse camera poses as initialization for subsequent geometry and appearance learning.
+We observe that the estimated poses do not need to be very accurate—only approximating the ground truth distribution is enough. This aligns with our key insight: camera poses, even imperfect, provide essential geometric priors and spatial initialization, which significantly reduces the complexity for geometry and appearance reconstruction.
+3.2 Multi-view Geometry Estimation
+With our estimated camera poses serving as an effective intermediate representation, we propose a two-stage geometry learning approach to improve reconstruction quality.
+Our key idea is to first learn camera-centric geometry in local frames (camera coordinate system) and then build a neural scene projector to transform it into a global world coordinate system with the guidance of estimated poses.
+Camera-centric Geometry Estimation.
+Learning geometry in camera space aligns with the image formation process, as each view directly observes local geometry from its perspective. This also simplifies the geometry learning by focusing on local structures visible in each view, rather than reasoning about complex global spatial relationships.
+We tokenize images into image tokens and concatenate them with camera tokens derived from coarse pose estimates \mathcal{P}_{c} . These tokens are then fed into a transformer architecture \mathrm{F}_{l}(\cdot) to estimate local point tokens \mathcal{T}_{l}=\{\mathbf{T}^{local}_{i}\}_{i=1}^{N} .
+The self-attention mechanism in the transformer can perform association across different views and exploit the geometric cues from cameras.
+The local point tokens are subsequently fed into a DPT-based [48] decoder \mathrm{D}_{l}(\cdot) for spatial upsampling to obtain dense point maps \mathcal{G}_{l}=\{\mathbf{G}^{\text{local}}_{i}\}_{i=1}^{N} and confidence map \mathcal{C}_{l}=\{\mathbf{C}^{\text{local}}_{i}\}_{i=1}^{N} in local camera space. Meanwhile, we further refine the initial camera poses by introducing additional learnable pose tokens \mathcal{Q}_{f} into the network, which output refined pose estimates \mathcal{P}_{f} alongside the geometry prediction:
+|
+| \displaystyle\mathcal{T}_{l},\mathcal{P}_{f}
+| \displaystyle=\mathrm{F}_{l}(\mathcal{I},\mathcal{P}_{c},\mathcal{Q}_{f})
+|
+| (2)
+|
+| \displaystyle\mathcal{G}_{l},\mathcal{C}_{l}
+| \displaystyle=\mathrm{D}_{l}(\mathcal{T}_{l}).
+|
+| (3)
+We can process an arbitrary number of images, as long as the GPU memory does not overflow. For a detailed explanation, please refer to the supplementary materials.
+We find this multi-task learning scheme can boost each task performance by providing complementary supervision signals between pose refinement and geometry estimation, as observed in previous work [78]. To handle potentially inaccurate pose estimates during inference, we introduce a simple yet effective pose augmentation strategy during training. Specifically, we randomly perturb the predicted camera poses by adding Gaussian noise, which allows the network to learn to adapt noisy estimated poses at inference time.
+Global Geometry Projection.
+We aim to transform camera-centric geometry predictions into a consistent global geometry using refined camera poses. However, this transformation is challenging since imperfect pose estimates make direct geometric reprojection unreliable.
+Rather than using geometric transformation, we propose a learnable geometry projector \mathrm{F}_{g}(\cdot) that transforms local geometry \mathcal{G}_{l} into global space, conditioned on the estimated poses \mathcal{P}_{f} . This learned approach is more robust to pose inaccuracies compared to direct geometric projection.
+For computational efficiency, we utilize the local point tokens \mathcal{T}_{l} rather than the dense camera geometry \mathcal{G}_{l} as the input:
+|
+| \displaystyle\mathcal{T}_{g}
+| \displaystyle=\mathrm{F}_{g}(\mathcal{T}_{l},\mathcal{P}_{f})
+|
+| (4)
+|
+| \displaystyle\mathcal{G}_{g},\mathcal{C}_{g}
+| \displaystyle=\mathrm{D}_{g}(\mathcal{T}_{g}).
+|
+| (5)
+where \mathrm{D}_{g}(\cdot) , \mathcal{G}_{g} and \mathcal{C}_{g} denotes the DPT-based upsampling decoder, global point maps and corresponding confidence map.
+This geometry projector \mathrm{F}_{g}(\cdot) is also implemented with a transformer architecture, which is the same as the \mathrm{F}_{l}(\cdot) but takes different input.
+3.3 3D Gaussians for Appearance Modeling
+Based on the learned 3D point maps, we initialize 3D Gaussians by using the point maps as the centers of 3D Gaussians. We then build a Gaussian regression head to predict other Gaussian parameters including opacity \mathcal{O}=\{\mathbf{o}_{i}\}_{i=1}^{N} , rotation \mathcal{R}=\{\mathbf{r}_{i}\}_{i=1}^{N} , scale \mathcal{S}=\{\mathbf{s}_{i}\}_{i=1}^{N} and spherical harmonics coefficient \mathcal{SH}=\{\mathbf{sh}_{i}\}_{i=1}^{N} for appearance modeling. Specifically, to efficiently model appearance, we utilize a pretrained VGG network to extract features from input images \mathcal{V}=\{\mathbf{v}_{i}\}_{i=1}^{N} and build another DPT head on top of the \mathrm{F}_{g}(\cdot) to obtain an appearance feature \mathcal{A} . This appearance feature is then fused with VGG features and fed into a shallow CNN decoder \mathrm{F}_{a}(\cdot) for Gaussian parameter regression.
+To address scale inconsistency between estimated and ground truth geometry, we normalize both into a unified coordinate space. We compute average scale factors from predicted s=\mathrm{avg}(\mathcal{G}_{g}) and ground truth s_{gt}=\mathrm{avg}(\mathcal{G}_{gt}) point maps, normalizing scenes to unit space during rendering. The Gaussian scale parameter \mathcal{S} and novel-view camera position \mathbf{p}^{\prime} are also normalized.
+We use the differentiable Gaussian rasterizer \mathrm{R}(\cdot) to render images with the normalized 3D Gaussians:
+|
+| \displaystyle\mathbf{I}_{\mathbf{p}^{\prime}}=\mathrm{R}(\{\mathcal{G}_{g}/s,\mathcal{O},\mathcal{R},\mathcal{S}/s,\mathcal{SH}\},\mathbf{p}^{\prime}/s_{gt}),
+|
+| (6)
+where \mathbf{I}_{\mathbf{p}^{\prime}} is the rendered image. The entire rendering process is differentiable, enabling end-to-end optimization of the Gaussian regression head through reconstruction loss.
+3.4 Training Loss
+Our model is a joint learning framework and trained with a multi-task loss function comprising three components: camera pose loss, geometry loss, and Gaussian splatting loss.
+The camera pose loss is defined as the combined sum of rotation and translation losses following the pose loss used in VGGSFM:
+|
+| \displaystyle\mathcal{L}_{\text{pose}}
+| \displaystyle=\sum_{i=1}^{N}\ell_{\text{huber}}(\mathbf{p}_{i}^{\text{coarse}},\mathbf{p}_{i})+\ell_{\text{huber}}(\mathbf{p}_{i}^{\text{fine}},\mathbf{p}_{i}),
+|
+| (7)
+where \mathbf{p}_{i} is the ground-truth camera pose of i -th image and \ell_{\text{huber}} is the Huber-loss between the parametrization of poses.
+The geometry loss includes a confidence-aware 3D regression term similar to that in DUSt3R:
+|
+| \displaystyle\mathcal{L}_{\text{geo}}
+| \displaystyle=\sum_{i=1}^{N}\sum_{j\in\mathcal{D}^{i}}\mathbf{C}_{i,j}^{\text{camera}}\ell_{\text{regr}}^{\text{camera}}(j,i)-\alpha\log\mathbf{C}_{i,j}^{\text{camera}}
+|
+| (8)
+|
+|
+| \displaystyle+\sum_{i=1}^{N}\sum_{j\in\mathcal{D}^{i}}\mathbf{C}_{i,j}^{\text{global}}\ell_{\text{regr}}^{\text{global}}(j,i)-\alpha\log\mathbf{C}_{i,j}^{\text{global}},
+|
+| (9)
+where \mathcal{D}^{i} denotes the valid pixel grids, \mathbf{C}_{i,j}^{\text{local}} and \mathbf{C}_{i,j}^{\text{global}} denote the confidence scores of pixel j of i -th image in local and global maps. \ell_{\text{regr}}^{\text{local}}(j,i) and \ell_{\text{regr}}^{\text{global}}(j,i) denote the Euclidean distances of pixel j of i -th image between the normalized predicted point maps and ground-truth point maps in camera and global coordinate frames.
+The Gaussian splatting loss is computed as the sum of the L_{2} loss and the VGG perceptual loss L_{\text{perp}} between the rendered \mathbf{I}_{\mathbf{p}^{\prime}} and ground truth \hat{\mathbf{I}}_{\mathbf{p}^{\prime}} images. Additionally, we include a depth loss to supervise rendered depth maps \mathbf{D}_{\mathbf{p}^{\prime}} with the prediction \hat{\mathbf{D}_{\mathbf{p}^{\prime}}} from the monocular depth estimator [88]:
+|
+| \displaystyle\mathcal{L}_{\text{splat}}
+| \displaystyle=\sum_{\mathbf{p}^{\prime}\in\mathcal{P}^{\prime}}\|\hat{\mathbf{I}}_{\mathbf{p}^{\prime}}-\mathbf{I}_{\mathbf{p}^{\prime}}\|+0.5L_{\text{perp}}(\hat{\mathbf{I}}_{\mathbf{p}^{\prime}},\mathbf{I}_{\mathbf{p}^{\prime}})
+|
+| (10)
+|
+|
+| \displaystyle+0.1\|(\mathbf{W}\hat{\mathbf{D}_{\mathbf{p}^{\prime}}}+\mathbf{Q})-\mathbf{D}_{\mathbf{p}^{\prime}}\|,
+|
+| (11)
+where \mathbf{W} and \mathbf{Q} are the scale and shift used to align \hat{\mathbf{D}_{\mathbf{p}^{\prime}}} and \mathbf{D}_{\mathbf{p}^{\prime}} , \mathcal{P}^{\prime} is the novel-view camera poses.
+The total loss is represented as:
+|
+| \displaystyle\mathcal{L}_{\text{total}}
+| \displaystyle=\lambda_{\text{pose}}\mathcal{L}_{\text{pose}}+\lambda_{\text{geo}}\mathcal{L}_{\text{geo}}+\lambda_{\text{splat}}\mathcal{L}_{\text{splat}},
+|
+| (12)
+where \lambda_{\text{pose}} , \lambda_{\text{geo}} and \lambda_{\text{splat}} denotes the loss weight for corresponding loss.
+4 Experiment
+Datasets.
+Following DUSt3R [80] and MASt3R [32], we train our model on a mixture of the following public datasets: MegaDepth [34], ARKitScenes [1], Blended MVS [92], ScanNet++ [95], CO3D-v2 [49], Waymo [68], WildRGBD [82], and DL3DV [39]. These datasets feature diverse types of scenes.
+Table 1: Comparison on multi-view pose estimation. We compare our method to baselines using the RealEstate10K. We use RRA@5°, RTA@5° and AUC@30° to evaluate the pose accuracy.
+| Optimized-Based Method
+| RRA@5° \uparrow
+| RTA@5° \uparrow
+| AUC@30° \uparrow
+| DUSt3R [80]
+| 0.83
+| 0.37
+| 54.9
+| MASt3R [32]
+| 0.87
+| 0.45
+| 61.1
+| COLMAP [57] + SPSG [54]
+| 0.74
+| 0.22
+| 33.8
+| COLMAP [57]
+| 0.63
+| 0.07
+| 16.0
+| PixSfM [38]
+| 0.70
+| 0.14
+| 29.9
+| VGGSfM [76]
+| –
+| –
+| 72.1
+| RelPose [99]
+| 0.47
+| 0.32
+| 11.1
+| Feed-forward Method
+| RRA@5° \uparrow
+| RTA@5° \uparrow
+| AUC@30° \uparrow
+| PoseDiffusion [77]
+| 0.78
+| 0.27
+| 51.6
+| Ours
+| 0.97
+| 0.65
+| 79.9
+Table 2: Comparison on Sparse-view Reconstruction. The evaluation requires models to estimate both camera poses and scene geometry in the challenging sparse-view setting. For scene geometry, we report accuracy, completeness, and overall Chamfer distance. We use the accuracy for AUC under 30∘ degrees for camera poses.
+| Methods
+| DTU
+| ETH3D
+| TUM RGBD
+| ACC. \downarrow
+| COMP. \downarrow
+| Overall \downarrow
+| AUC@30∘↑
+| ACC. \downarrow
+| COMP. \downarrow
+| Overall \downarrow
+| AUC@30∘↑
+| ACC. \downarrow
+| COMP. \downarrow
+| Overall \downarrow
+| AUC@30∘↑
+| DUSt3R
+| 3.8562
+| 3.1219
+| 3.4891
+| 9.5
+| 0.4856
+| 0.7114
+| 0.5984
+| 10.0
+| 0.3228
+| 0.4388
+| 0.3808
+| 23.0
+| MASt3R
+| 4.2380
+| 3.2695
+| 3.7537
+| 12.3
+| 0.3417
+| 0.3626
+| 0.3522
+| 9.9
+| 0.2547
+| 0.3074
+| 0.2810
+| 37.4
+| Spann3R
+| 4.3097
+| 4.5573
+| 4.4335
+| -
+| 1.1589
+| 0.8005
+| 0.9797
+| -
+| 0.5031
+| 0.4643
+| 0.4837
+| -
+| Ours
+| 3.5049
+| 2.7254
+| 3.1152
+| 28.1
+| 0.4787
+| 0.5169
+| 0.4978
+| 15.3
+| 0.2046
+| 0.2050
+| 0.2048
+| 53.6
+Implementation details.
+Our model is trained from scratch using 8 views as input, without any pre-trained models, except for the encoder.
+The neural pose predictor \mathrm{F}_{p}(\cdot) consists of 12 transformer blocks with channel width 768.
+In cascade geometry estimation, our camera-centric geometry estimator \mathrm{F}_{l}(\cdot) and global geometry projector \mathrm{F}_{g}(\cdot) both use 12 transformer blocks with channel width 768.
+We use the Adam [31] optimizer with an initial learning rate of 1\times 10^{-4} , gradually decreasing to 1\times 10^{-5} . We train our model on 64 NVIDIA A800 GPUs for 200 epochs with an input resolution of 512\times 384 . The training takes approximately 14 days to complete. We use gsplat [94] for efficient Gaussian splatting rendering.
+More implementation details are presented in the supplementary materials.
+Inference.
+Our model, although trained with 8 views, generalizes well to scenarios ranging from as few as 2 views to as many as 25 views. We give a comprehensive study between performance and view numbers in supplementary materials.
+4.1 Multi-view Pose Estimation
+Dataset.
+Following PoseDiffusion [77], we evaluate the camera pose estimates on the RealEstate10K dataset [102]. We apply our method directly to the RealEstate10K dataset without fine-tuning, using 5 images as input following previous protocol.
+Metrics.
+We evaluate pose accuracy on the RealEstate10K dataset [102] using three metrics [29, 77]: AUC, RRA, and RTA.
+The AUC metric computes the area under the accuracy curve across different angular thresholds, where accuracy is determined by comparing the angular differences between predicted and ground-truth camera poses.
+RRA (Relative Rotation Accuracy) and RTA (Relative Translation Accuracy) measure the angular differences in rotation and translation respectively. The final accuracy at a threshold \tau is determined by the minimum of RRA@ \tau and RTA@ \tau .
+Baseline.
+For camera pose estimation, we compare our method with recent deep optimization-based methods, including DUSt3R [80], MASt3R [32], VGGSfM [76] and RelPose [99]. We also include traditional SfM methods such as COLMAP [57] and PixSfM [56], as well as feed-forward method PoseDiffusion [77].
+Comparison. We show quantitative comparison in Tab. 1.
+Conventional SfM methods like COLMAP and PixSfM rely on time-consuming bundle adjustment, resulting in slow inference speed for camera pose estimation. These optimization-based methods also struggle with sparse views where feature correspondences are difficult to establish.
+DUSt3R and MASt3R employ global alignment optimization, which not only leads to slow inference but also limits their performance due to their two-view geometry learning paradigm that cannot effectively leverage multi-view associations.
+Compared to other feed-forward approaches, our method achieves superior performance, thanks to the coarse-to-fine pose estimation strategy and multi-task learning with geometry.
+4.2 Sparse-view 3D Reconstruction
+Dataset.
+For sparse-view geometry reconstruction, we construct a comprehensive benchmark on the ETH3D [58], DTU [25], and TUM [66] datasets, which feature diverse scenes including objects, indoor scenes, and outdoor scenes.
+Metrics and Baselines.
+We use the accuracy and completion metrics [25] to assess point cloud quality. We compare our method against recent state-of-the-art methods like DUSt3R [80], MASt3R [32], and Spann3R [74].
+We also include conventional SfM methods like COLMAP [57] for comparison.
+Figure 3:
+Qualitative Comparison results for sparse-view 3D reconstruction.
+We visualize the 3D pointmaps of MASt3R [32], DUSt3R [80], Spann3R [74] and our flare on ETH3D and TUM dataset.
+Comparison.
+As shown in Tab. 2, our method achieves higher performance than optimization-based methods like DUSt3R [80] and MASt3R [32], as well as recent feed-forward methods such as Spann3R [74].
+Compared to DUSt3R and MASt3R, our method not only achieves better reconstruction quality but also offers faster inference, as our feed-forward reconstructor directly leverages multi-view information, avoiding their two-stage pipeline of two-view geometry estimation followed by global alignment post-processing.
+Our method also outperforms Spann3R by leveraging camera poses as geometric priors in our two-stage geometry learning paradigm, rather than directly regressing point maps through neural networks.
+We show qualitative comparisons in Fig. 3. Our model achieves better geometry reconstruction with less noise compared to other baselines.
+4.3 Novel-view Synthesis
+Dataset.
+We evaluate rendering quality on two datasets: the RealEstate10K [102] and DL3DV [39]. For RealEstate10K, a widely used benchmark for novel view synthesis, we fine-tune our network using two-view images following the NopoSplat protocol [93], adding intrinsic as a condition. Since we focus on sparse views, our RealEstate10K tests only the results from the NopoSplat test split, specifically in the overlapping regions with low and medium overlap.
+For DL3DV, we sample 8 views for each testing video sequence as the input, and another 9 views as the groundtruth for evaluation. The sampling interval is randomly chosen, selected between 8 and 24. A total of 100 scenes are used as the test set.
+Metrics and Baselines.
+To evaluate rendering quality in the RealEstate10K [102] and DL3DV [39] datasets, we employ PSNR, SSIM, and LPIPS metrics.
+To evaluate rendering quality, we compare with pose-free methods, including CoPoNeRF [22], Splatt3R, as well as pose-required methods, such as MVSplat [10] and PixelSplat [7].
+We evaluate both MVSplat and pixelSplat using two-view inputs, selecting the two closest input views relative to the target view. Although MVSplat supports multiple input views, we find its performance degrades with additional views, as demonstrated in supplementary materials.
+Figure 4:
+Qualitative Comparison results for novel-view synthesis.
+We visualize the rendering results from the DL3DV dataset, which shows that our method obtains high-quality rendering from sparse-view, uncalibrated input images.
+Table 3: Comparison of novel view rendering on the DL3DV.
+| Method
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| CoPoNeRF
+| 16.06
+| 0.472
+| 0.474
+| pixelSplat
+| 22.55
+| 0.727
+| 0.192
+| MVSplat
+| 22.08
+| 0.717
+| 0.189
+| Ours (2 views)
+| 23.04
+| 0.725
+| 0.182
+| Ours (8 views)
+| 23.33
+| 0.746
+| 0.237
+Comparison.
+Tab. 3 and Tab. 4 report the quantitative evaluation results for novel-view synthesis on DL3DV and RealEstate10K, respectively.
+Our approach substantially outperforms pose-free methods like CoPoNeRF [22] and Splatt3R [62], even better than the pose-required methods, including MVSplat [10] and PixelSplat [7] that take camera poses provided by the dataset to achieve high-fidelity rendering. Our model doesn’t require camera extrinsic information, which makes our method more applicable in real-world settings.
+Fig. 4 qualitatively illustrates that our pose-free method obtains higher rendering quality than the compared baselines.
+Table 4: Comparison of novel view rendering on the RealEstate10k. We evaluate all methods using 2 views.
+| Pose-required Method
+| PSNR↑
+| SSIM↑
+| LPIPS↓
+| pixelNeRF
+| 19.396
+| 0.621
+| 0.496
+| AttnRend
+| 21.338
+| 0.728
+| 0.304
+| pixelSplat
+| 22.495
+| 0.777
+| 0.210
+| MVSplat
+| 22.568
+| 0.781
+| 0.200
+| Pose-free Method
+| PSNR↑
+| SSIM↑
+| LPIPS↓
+| Splatt3R
+| 15.113
+| 0.492
+| 0.442
+| CoPoNeRF
+| 19.843
+| 0.652
+| 0.360
+| Ours
+| 23.765
+| 0.801
+| 0.191
+4.4 Ablation Study
+We conduct an ablation study to evaluate the effectiveness of each component in our method. For this study, we select the BlendedMVS [92] dataset.
+We randomly split the dataset of 95% scenes in BlendedMVS dataset as the training set and keep the rest 5% for testing.
+Our ablations exclude rendering loss to focus on geometric results with various design choices.
+“w/o pose” means our reconstructor is only conditioned on multiview images without inputting predicted camera poses. “w/o camera-centric” means that we directly use a transformer with the same parameter size to output the global geometry without predicting camera-centric point maps. “w/o joint training” means first training the camera predictor separately and then fixing it while training the reconstructor.
+”w/o DPT head” denotes our ablation where we substitute the DPT decoder with a shallow MLP for point-map regression. ”w/ rendering loss” refers to our configuration that incorporates rendering loss during training to evaluate its impact on geometric accuracy.
+As demonstrated in Tab. 5, using camera poses as proxies substantially improves geometry learning. Our two-stage approach with camera-centric geometry enhances performance, and the multi-task learning paradigm adds further improvements. DPT head plays a crucial role by explicitly accounting for spatial relationships during upsampling, whereas the shallow MLP lacks this consideration. The rendering loss has both positive and negative effects. While its dense supervision enhances COMP by supervising regions without ground truth point clouds, it slightly reduces ACC due to its lower accuracy compared to actual ground truth data.
+Table 5:
+Ablation Study. We evaluate the accuracy, completeness and the overall Chamfer distance on the testing set of BlendedMVS [92] for the learned geometry.
+| Method
+| ACC. \downarrow
+| COMP. \downarrow
+| Overall \downarrow
+| w/o DPT head
+| 0.0399
+| 0.0473
+| 0.0436
+| w/o pose
+| 0.0283
+| 0.0356
+| 0.0319
+| w/o camera-centric
+| 0.0265
+| 0.0326
+| 0.0295
+| w/o joint training
+| 0.0276
+| 0.0322
+| 0.0299
+| w/ rendering loss
+| 0.0320
+| 0.0244
+| 0.0282
+| Ours
+| 0.0250
+| 0.0325
+| 0.0288
+5 Discussion
+We introduce flare, a feed-forward model that can infer high-quality camera poses, geometry, and appearance from sparse-view uncalibrated images within 0.5 seconds.
+We propose a novel cascade learning paradigm that progressively estimates camera poses, geometry, and appearance, leading to substantial improvements over previous methods.
+Our model, trained on a set of public datasets, learns strong reconstruction priors that generalize robustly to challenging scenarios, such as very sparse views captured in real-world settings, enabling photo-realistic novel view synthesis.
+Acknowledgements
+We gratefully acknowledge Tao Xu for his assistance with the evaluation, Yuanbo Xiangli for insightful discussions, and Xingyi He for his Blender visualization code.
+References
+[1]
+G. Baruch, Z. Chen, A. Dehghan, T. Dimry, Y. Feigin, P. Fu, T. Gebauer, B. Joffe, D. Kurz, A. Schwartz, et al. (2021)
+Arkitscenes: a diverse real-world dataset for 3d indoor scene understanding using mobile rgb-d data.
+arXiv preprint arXiv:2111.08897.
+Cited by: §1,
+§4.
+[2]
+H. Bay, T. Tuytelaars, and L. Van Gool (2006)
+Surf: speeded up robust features.
+In Computer Vision–ECCV 2006: 9th European Conference on Computer Vision, Graz, Austria, May 7-13, 2006. Proceedings, Part I 9,
+pp. 404–417.
+Cited by: §2.
+[3]
+W. Bian, Z. Wang, K. Li, J. Bian, and V. A. Prisacariu (2023)
+Nope-nerf: optimising neural radiance field with no pose prior.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 4160–4169.
+Cited by: §2.
+[4]
+N. D. F. Campbell, G. Vogiatzis, C. Hernández, and R. Cipolla (2008)
+Using multiple hypotheses to improve depth-maps for multi-view stereo.
+In ECCV,
+Cited by: Table 7.
+[5]
+E. R. Chan, C. Z. Lin, M. A. Chan, K. Nagano, B. Pan, S. De Mello, O. Gallo, L. J. Guibas, J. Tremblay, S. Khamis, et al. (2022)
+Efficient geometry-aware 3d generative adversarial networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 16123–16133.
+Cited by: §1.
+[6]
+D. Charatan, S. L. Li, A. Tagliasacchi, and V. Sitzmann (2024)
+Pixelsplat: 3d gaussian splats from image pairs for scalable generalizable 3d reconstruction.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 19457–19467.
+Cited by: Appendix A,
+§2,
+§2.
+[7]
+D. Charatan, S. L. Li, A. Tagliasacchi, and V. Sitzmann (2024)
+PixelSplat: 3d gaussian splats from image pairs for scalable generalizable 3d reconstruction.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR),
+pp. 19457–19467.
+Cited by: §4.3,
+§4.3.
+[8]
+A. Chen, Z. Xu, F. Zhao, X. Zhang, F. Xiang, J. Yu, and H. Su (2021)
+Mvsnerf: fast generalizable radiance field reconstruction from multi-view stereo.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 14124–14133.
+Cited by: §2.
+[9]
+A. Chen, Z. Xu, F. Zhao, X. Zhang, F. Xiang, J. Yu, and H. Su (2021)
+MVSNeRF: fast generalizable radiance field reconstruction from multi-view stereo.
+In Int. Conf. Comput. Vis.,
+Cited by: §2.
+[10]
+Y. Chen, H. Xu, C. Zheng, B. Zhuang, M. Pollefeys, A. Geiger, T. Cham, and J. Cai (2024)
+Mvsplat: efficient 3d gaussian splatting from sparse multi-view images.
+arXiv preprint arXiv:2403.14627.
+Cited by: Appendix A,
+§2,
+§2,
+§4.3,
+§4.3.
+[11]
+S. Cheng, Z. Xu, S. Zhu, Z. Li, L. E. Li, R. Ramamoorthi, and H. Su (2020)
+Deep stereo using adaptive thin volume representation with uncertainty awareness.
+In CVPR,
+Cited by: Table 7.
+[12]
+D. DeTone, T. Malisiewicz, and A. Rabinovich (2018)
+Superpoint: self-supervised interest point detection and description.
+In Proceedings of the IEEE conference on computer vision and pattern recognition workshops,
+pp. 224–236.
+Cited by: §2.
+[13]
+M. Dusmanu, I. Rocco, T. Pajdla, M. Pollefeys, J. Sivic, A. Torii, and T. Sattler (2019)
+D2-net: a trainable cnn for joint description and detection of local features.
+In Proceedings of the ieee/cvf conference on computer vision and pattern recognition,
+pp. 8092–8101.
+Cited by: §2.
+[14]
+Z. Fan, W. Cong, K. Wen, K. Wang, J. Zhang, X. Ding, D. Xu, B. Ivanovic, M. Pavone, G. Pavlakos, Z. Wang, and Y. Wang (2024)
+InstantSplat: unbounded sparse-view pose-free gaussian splatting in 40 seconds.
+External Links: 2403.20309
+Cited by: §2.
+[15]
+Y. Fu, S. Liu, A. Kulkarni, J. Kautz, A. A. Efros, and X. Wang (2024)
+COLMAP-free 3d gaussian splatting.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR),
+pp. 20796–20805.
+Cited by: §2.
+[16]
+Y. Furukawa C. Hernández et al. (2015)
+Multi-view stereo: a tutorial.
+Foundations and Trends® in Computer Graphics and Vision 9 (1-2), pp. 1–148.
+Cited by: §2.
+[17]
+Y. Furukawa and J. Ponce (2010)
+Accurate, dense, and robust multiview stereopsis.
+PAMI.
+Cited by: Table 7.
+[18]
+S. Galliani, K. Lasinger, and K. Schindler (2015)
+Massively parallel multiview stereopsis by surface normal diffusion.
+In Proceedings of the IEEE international conference on computer vision,
+pp. 873–881.
+Cited by: §2.
+[19]
+S. Galliani, K. Lasinger, and K. Schindler (2015)
+Massively parallel multiview stereopsis by surface normal diffusion.
+In ICCV,
+Cited by: Table 7.
+[20]
+R. Hartley and A. Zisserman (2003)
+Multiple view geometry in computer vision.
+Cambridge university press.
+Cited by: §1.
+[21]
+S. Hong, J. Jung, H. Shin, J. Han, J. Yang, C. Luo, and S. Kim (2024)
+PF3plat: pose-free feed-forward 3d gaussian splatting.
+arXiv preprint arXiv:2410.22128.
+Cited by: §2.
+[22]
+S. Hong, J. Jung, H. Shin, J. Yang, S. Kim, and C. Luo (2023)
+Unifying correspondence, pose and nerf for pose-free novel view synthesis from stereo pairs.
+arXiv preprint arXiv:2312.07246.
+Cited by: Appendix A,
+§4.3,
+§4.3.
+[23]
+Y. Hong, K. Zhang, J. Gu, S. Bi, Y. Zhou, D. Liu, F. Liu, K. Sunkavalli, T. Bui, and H. Tan (2023)
+Lrm: large reconstruction model for single image to 3d.
+arXiv preprint arXiv:2311.04400.
+Cited by: §2,
+§2.
+[24]
+A. Jain, M. Tancik, and P. Abbeel (2021)
+Putting nerf on a diet: semantically consistent few-shot view synthesis.
+In Int. Conf. Comput. Vis.,
+Cited by: §2.
+[25]
+R. Jensen, A. Dahl, G. Vogiatzis, E. Tola, and H. Aanæs (2014)
+Large scale multi-view stereopsis evaluation.
+In 2014 IEEE Conference on Computer Vision and Pattern Recognition,
+pp. 406–413.
+Cited by: §4.2,
+§4.2.
+[26]
+Y. Jeong, S. Ahn, C. Choy, A. Anandkumar, M. Cho, and J. Park (2021)
+Self-calibrating neural radiance fields.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV),
+pp. 5846–5854.
+Cited by: §2.
+[27]
+H. Jiang, Z. Jiang, K. Grauman, and Y. Zhu (2024)
+Few-view object reconstruction with unknown categories and camera poses.
+International Conference on 3D Vision (3DV).
+Cited by: §2.
+[28]
+H. Jiang, Z. Jiang, Y. Zhao, and Q. Huang (2023)
+LEAP: liberate sparse-view 3d modeling from camera poses.
+ArXiv 2310.01410.
+Cited by: §2.
+[29]
+Y. Jin, D. Mishkin, A. Mishchuk, J. Matas, P. Fua, K. M. Yi, and E. Trulls (2021)
+Image matching across wide baselines: from paper to practice.
+International Journal of Computer Vision 129 (2), pp. 517–547.
+Cited by: §4.1.
+[30]
+N. Keetha, J. Karhade, K. M. Jatavallabhula, G. Yang, S. Scherer, D. Ramanan, and J. Luiten (2024)
+SplaTAM: splat track & map 3d gaussians for dense rgb-d slam.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 21357–21366.
+Cited by: §2.
+[31]
+D. P. Kingma (2014)
+Adam: a method for stochastic optimization.
+arXiv preprint arXiv:1412.6980.
+Cited by: §4.
+[32]
+V. Leroy, Y. Cabon, and J. Revaud (2024)
+Grounding image matching in 3d with mast3r.
+arXiv preprint arXiv:2406.09756.
+Cited by: Table 7,
+§1,
+§2,
+§2,
+Figure 3,
+Figure 3,
+§4,
+§4.1,
+§4.2,
+§4.2,
+Table 1.
+[33]
+J. Li, H. Tan, K. Zhang, Z. Xu, F. Luan, Y. Xu, Y. Hong, K. Sunkavalli, G. Shakhnarovich, and S. Bi (2023)
+Instant3d: fast text-to-3d with sparse-view generation and large reconstruction model.
+arXiv preprint arXiv:2311.06214.
+Cited by: §2,
+§2.
+[34]
+Z. Li and N. Snavely (2018)
+Megadepth: learning single-view depth prediction from internet photos.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 2041–2050.
+Cited by: §1,
+§4.
+[35]
+A. Lin, J. Y. Zhang, D. Ramanan, and S. Tulsiani (2023)
+RelPose++: recovering 6d poses from sparse-view observations.
+arXiv preprint arXiv:2305.04926.
+Cited by: §1.
+[36]
+C. Lin, W. Ma, A. Torralba, and S. Lucey (2021)
+Barf: bundle-adjusting neural radiance fields.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 5741–5751.
+Cited by: §1,
+§2,
+§2.
+[37]
+K. Lin, L. Yen-Chen, W. Lai, T. Lin, Y. Shih, and R. Ramamoorthi (2023)
+Vision transformer for nerf-based view synthesis from a single input image.
+In IEEE Winter Conf. Appl. Comput. Vis.,
+Cited by: §2.
+[38]
+P. Lindenberger, P. Sarlin, V. Larsson, and M. Pollefeys (2021)
+Pixel-Perfect Structure-from-Motion with Featuremetric Refinement.
+In ICCV,
+Cited by: Table 1.
+[39]
+L. Ling, Y. Sheng, Z. Tu, W. Zhao, C. Xin, K. Wan, L. Yu, Q. Guo, Z. Yu, Y. Lu, X. Li, X. Sun, R. Ashok, A. Mukherjee, H. Kang, X. Kong, G. Hua, T. Zhang, B. Benes, and A. Bera (2024)
+DL3DV-10k: a large-scale scene dataset for deep learning-based 3d vision.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR),
+pp. 22160–22169.
+Cited by: Appendix A,
+§1,
+§4,
+§4.3,
+§4.3.
+[40]
+X. Long, C. Lin, P. Wang, T. Komura, and W. Wang (2022)
+SparseNeuS: fast generalizable neural surface reconstruction from sparse views.
+In Eur. Conf. Comput. Vis.,
+Cited by: §2.
+[41]
+D. G. Lowe (2004)
+Distinctive image features from scale-invariant keypoints.
+International journal of computer vision 60, pp. 91–110.
+Cited by: §2.
+[42]
+Z. Ma, Z. Teed, and J. Deng (2022)
+Multiview stereo with cascaded epipolar raft.
+In ECCV,
+Cited by: Table 7.
+[43]
+J. Matas, O. Chum, M. Urban, and T. Pajdla (2004)
+Robust wide-baseline stereo from maximally stable extremal regions.
+Image and vision computing 22 (10), pp. 761–767.
+Cited by: §2.
+[44]
+L. Mescheder, M. Oechsle, M. Niemeyer, S. Nowozin, and A. Geiger (2019)
+Occupancy networks: learning 3d reconstruction in function space.
+In IEEE Conf. Comput. Vis. Pattern Recog.,
+Cited by: §2.
+[45]
+B. Mildenhall, P. P. Srinivasan, M. Tancik, J. T. Barron, R. Ramamoorthi, and R. Ng (2020)
+Nerf: representing scenes as neural radiance fields for view synthesis.
+In Eur. Conf. Comput. Vis.,
+Cited by: §2.
+[46]
+B. R. Nagoor Kani, H. Lee, S. Tulyakov, and S. Tulsiani (2024)
+UpFusion: novel view diffusion from unposed sparse view observations.
+In European Conference on Computer Vision (ECCV),
+Cited by: §2.
+[47]
+J. J. Park, P. Florence, J. Straub, R. Newcombe, and S. Lovegrove (2019)
+Deepsdf: learning continuous signed distance functions for shape representation.
+In IEEE Conf. Comput. Vis. Pattern Recog.,
+Cited by: §2.
+[48]
+R. Ranftl, A. Bochkovskiy, and V. Koltun (2021)
+Vision transformers for dense prediction.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 12179–12188.
+Cited by: §3.2.
+[49]
+J. Reizenstein, R. Shapovalov, P. Henzler, L. Sbordone, P. Labatut, and D. Novotný (2021)
+Common objects in 3d: large-scale learning and evaluation of real-life 3d category reconstruction.
+2021 IEEE/CVF International Conference on Computer Vision (ICCV), pp. 10881–10891.
+External Links: Link
+Cited by: §1,
+§4.
+[50]
+C. Rockwell, J. Johnson, and D. F. Fouhey (2022)
+The 8-point algorithm as an inductive bias for relative pose prediction by vits.
+In 3DV,
+Cited by: §1.
+[51]
+C. Rockwell, N. Kulkarni, L. Jin, J. J. Park, J. Johnson, and D. F. Fouhey (2024)
+FAR: flexible, accurate and robust 6dof relative camera pose estimation.
+Cited by: §1.
+[52]
+M. S. M. Sajjadi, A. Mahendran, T. Kipf, E. Pot, D. Duckworth, M. Lucic, and K. Greff (2022)
+RUST: latent neural scene representations from unposed imagery.
+2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pp. 17297–17306.
+Cited by: §2.
+[53]
+M. S. M. Sajjadi, H. Meyer, E. Pot, U. Bergmann, K. Greff, N. Radwan, S. Vora, M. Lucic, D. Duckworth, A. Dosovitskiy, J. Uszkoreit, T. Funkhouser, and A. Tagliasacchi (2022)
+Scene Representation Transformer: Geometry-Free Novel View Synthesis Through Set-Latent Scene Representations.
+CVPR.
+Cited by: §2.
+[54]
+P. Sarlin, D. DeTone, T. Malisiewicz, and A. Rabinovich (2020)
+Superglue: learning feature matching with graph neural networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 4938–4947.
+Cited by: §2,
+Table 1.
+[55]
+J. L. Schonberger and J. Frahm (2016)
+Structure-from-motion revisited.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 4104–4113.
+Cited by: §1,
+§2.
+[56]
+J. L. Schönberger, E. Zheng, J. Frahm, and M. Pollefeys (2016)
+Pixelwise view selection for unstructured multi-view stereo.
+In Computer Vision–ECCV 2016: 14th European Conference, Amsterdam, The Netherlands, October 11-14, 2016, Proceedings, Part III 14,
+pp. 501–518.
+Cited by: §1,
+§2,
+§4.1.
+[57]
+J. L. Schönberger and J. Frahm (2016)
+Structure-from-motion revisited.
+In Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §4.1,
+§4.2,
+Table 1,
+Table 1.
+[58]
+T. Schops, J. L. Schonberger, S. Galliani, T. Sattler, K. Schindler, M. Pollefeys, and A. Geiger (2017)
+A multi-view stereo benchmark with high-resolution images and multi-camera videos.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 3260–3269.
+Cited by: §4.2.
+[59]
+S. M. Seitz, B. Curless, J. Diebel, D. Scharstein, and R. Szeliski (2006)
+A comparison and evaluation of multi-view stereo reconstruction algorithms.
+In 2006 IEEE computer society conference on computer vision and pattern recognition (CVPR’06),
+Vol. 1, pp. 519–528.
+Cited by: §1.
+[60]
+S. Sinha, J. Y. Zhang, A. Tagliasacchi, I. Gilitschenski, and D. B. Lindell (2023)
+Sparsepose: sparse-view camera pose regression and refinement.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 21349–21359.
+Cited by: §1.
+[61]
+V. Sitzmann, M. Zollhöfer, and G. Wetzstein (2019)
+Scene representation networks: continuous 3d-structure-aware neural scene representations.
+Advances in Neural Information Processing Systems 32.
+Cited by: §2.
+[62]
+B. Smart, C. Zheng, I. Laina, and V. A. Prisacariu (2024)
+Splatt3r: zero-shot gaussian splatting from uncalibarated image pairs.
+arXiv preprint arXiv:2408.13912.
+Cited by: §2,
+§4.3.
+[63]
+C. Smith, D. Charatan, A. Tewari, and V. Sitzmann (2024)
+FlowMap: high-quality camera poses, intrinsics, and depth via gradient descent.
+arXiv preprint arXiv:2404.15259.
+Cited by: §2.
+[64]
+C. Smith, Y. Du, A. Tewari, and V. Sitzmann (2023)
+Flowcam: training generalizable 3d radiance fields without camera poses via pixel-aligned scene flow.
+arXiv preprint arXiv:2306.00180.
+Cited by: §2.
+[65]
+N. Snavely, S. M. Seitz, and R. Szeliski (2006)
+Photo tourism: exploring photo collections in 3d.
+In ACM siggraph 2006 papers,
+pp. 835–846.
+Cited by: §1,
+§2.
+[66]
+J. Sturm, W. Burgard, and D. Cremers (2012)
+Evaluating egomotion and structure-from-motion approaches using the TUM RGB-D benchmark.
+In Proc. of the Workshop on Color-Depth Camera Fusion in
+Robotics at the IEEE/RJS International Conference on Intelligent Robot Systems
+(IROS),
+Cited by: §4.2.
+[67]
+J. Sun, Z. Shen, Y. Wang, H. Bao, and X. Zhou (2021)
+LoFTR: detector-free local feature matching with transformers.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 8922–8931.
+Cited by: §2.
+[68]
+P. Sun, H. Kretzschmar, X. Dotiwalla, A. Chouard, V. Patnaik, P. Tsui, J. Guo, Y. Zhou, Y. Chai, B. Caine, V. Vasudevan, W. Han, J. Ngiam, H. Zhao, A. Timofeev, S. Ettinger, M. Krivokon, A. Gao, A. Joshi, Y. Zhang, J. Shlens, Z. Chen, and D. Anguelov (2020)
+Scalability in perception for autonomous driving: waymo open dataset.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §1,
+§4.
+[69]
+A. Tewari, J. Thies, B. Mildenhall, P. Srinivasan, E. Tretschk, W. Yifan, C. Lassner, V. Sitzmann, R. Martin-Brualla, S. Lombardi, et al. (2022)
+Advances in neural rendering.
+In Computer Graphics Forum,
+Vol. 41, pp. 703–735.
+Cited by: §2.
+[70]
+E. Tola, C. Strecha, and P. Fua (2012)
+Efficient large-scale multi-view stereo for ultra high-resolution image sets.
+Mach. Vis. Appl..
+Cited by: Table 7.
+[71]
+B. Triggs, P. F. McLauchlan, R. I. Hartley, and A. W. Fitzgibbon (2000)
+Bundle adjustment—a modern synthesis.
+In Vision Algorithms: Theory and Practice: International Workshop on Vision Algorithms Corfu, Greece, September 21–22, 1999 Proceedings,
+pp. 298–372.
+Cited by: §2.
+[72]
+P. Truong, M. Rakotosaona, F. Manhardt, and F. Tombari (2023)
+Sparf: neural radiance fields from sparse and noisy poses.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 4190–4200.
+Cited by: §2.
+[73]
+F. Wang, S. Galliani, C. Vogel, P. Speciale, and M. Pollefeys (2021)
+PatchmatchNet: learned multi-view patchmatch stereo.
+In CVPR,
+pp. 14194–14203.
+Cited by: Table 7.
+[74]
+H. Wang and L. Agapito (2024)
+3D reconstruction with spatial memory.
+arXiv preprint arXiv:2408.16061.
+Cited by: Figure 3,
+Figure 3,
+§4.2,
+§4.2.
+[75]
+J. Wang, N. Karaev, C. Rupprecht, and D. Novotny (2023)
+Visual geometry grounded deep structure from motion.
+arXiv preprint arXiv:2312.04563.
+Cited by: §2.
+[76]
+J. Wang, N. Karaev, C. Rupprecht, and D. Novotny (2024)
+VGGSfM: visual geometry grounded deep structure from motion.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 21686–21697.
+Cited by: §1,
+§3.1,
+§4.1,
+Table 1.
+[77]
+J. Wang, C. Rupprecht, and D. Novotny (2023)
+PoseDiffusion: solving pose estimation via diffusion-aided bundle adjustment.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 9773–9783.
+Cited by: §1,
+§3.1,
+§4.1,
+§4.1,
+§4.1,
+Table 1.
+[78]
+P. Wang, H. Tan, S. Bi, Y. Xu, F. Luan, K. Sunkavalli, W. Wang, Z. Xu, and K. Zhang (2023)
+Pf-lrm: pose-free large reconstruction model for joint pose and shape prediction.
+arXiv preprint arXiv:2311.12024.
+Cited by: §1,
+§2,
+§3.2.
+[79]
+Q. Wang, Z. Wang, K. Genova, P. P. Srinivasan, H. Zhou, J. T. Barron, R. Martin-Brualla, N. Snavely, and T. Funkhouser (2021)
+Ibrnet: learning multi-view image-based rendering.
+In IEEE Conf. Comput. Vis. Pattern Recog.,
+Cited by: §2.
+[80]
+S. Wang, V. Leroy, Y. Cabon, B. Chidlovskii, and J. Revaud (2024)
+Dust3r: geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20697–20709.
+Cited by: Table 7,
+§1,
+§2,
+§2,
+§3,
+Figure 3,
+Figure 3,
+§4,
+§4.1,
+§4.2,
+§4.2,
+Table 1.
+[81]
+Z. Wang, S. Wu, W. Xie, M. Chen, and V. A. Prisacariu (2021)
+NeRF–: neural radiance fields without known camera parameters.
+arXiv preprint arXiv:2102.07064.
+Cited by: §1,
+§2.
+[82]
+H. Xia, Y. Fu, S. Liu, and X. Wang (2024)
+RGBD objects in the wild: scaling real-world 3d object learning from rgb-d videos.
+External Links: 2401.12592
+Cited by: §1,
+§4.
+[83]
+C. Xu, A. Li, L. Chen, Y. Liu, R. Shi, H. Su, and M. Liu (2025)
+Sparp: fast 3d object reconstruction and pose estimation from sparse views.
+In European Conference on Computer Vision,
+pp. 143–163.
+Cited by: §2.
+[84]
+Q. Xu and W. Tao (2020)
+Learning inverse depth regression for multi-view stereo with correlation cost volume.
+In AAAI,
+Cited by: Table 7.
+[85]
+Y. Xu, Z. Shi, W. Yifan, H. Chen, C. Yang, S. Peng, Y. Shen, and G. Wetzstein (2024)
+Grm: large gaussian reconstruction model for efficient 3d reconstruction and generation.
+arXiv preprint arXiv:2403.14621.
+Cited by: §2,
+§2.
+[86]
+J. Yan, Z. Wei, H. Yi, M. Ding, R. Zhang, Y. Chen, G. Wang, and Y. Tai (2020)
+Dense hybrid recurrent multi-view stereo net with dynamic consistency checking.
+In European conference on computer vision,
+pp. 674–689.
+Cited by: Appendix A.
+[87]
+J. Yang, W. Mao, J. M. Álvarez, and M. Liu (2020)
+Cost volume pyramid based depth inference for multi-view stereo.
+In CVPR,
+pp. 4876–4885.
+Cited by: Table 7.
+[88]
+L. Yang, B. Kang, Z. Huang, X. Xu, J. Feng, and H. Zhao (2024)
+Depth anything: unleashing the power of large-scale unlabeled data.
+In CVPR,
+Cited by: §3.4.
+[89]
+Y. Yao, Z. Luo, S. Li, T. Fang, and L. Quan (2018)
+MVSNet: depth inference for unstructured multi-view stereo.
+In ECCV,
+Cited by: Table 7.
+[90]
+Y. Yao, Z. Luo, S. Li, T. Fang, and L. Quan (2018)
+Mvsnet: depth inference for unstructured multi-view stereo.
+In Proceedings of the European conference on computer vision (ECCV),
+pp. 767–783.
+Cited by: §2.
+[91]
+Y. Yao, Z. Luo, S. Li, T. Shen, T. Fang, and L. Quan (2019)
+Recurrent mvsnet for high-resolution multi-view stereo depth inference.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 5525–5534.
+Cited by: §2.
+[92]
+Y. Yao, Z. Luo, S. Li, J. Zhang, Y. Ren, L. Zhou, T. Fang, and L. Quan (2020)
+Blendedmvs: a large-scale dataset for generalized multi-view stereo networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 1790–1799.
+Cited by: §1,
+§4,
+§4.4,
+Table 5,
+Table 5.
+[93]
+B. Ye, S. Liu, H. Xu, X. Li, M. Pollefeys, M. Yang, and S. Peng (2024)
+No pose, no problem: surprisingly simple 3d gaussian splats from sparse unposed images.
+arXiv preprint arXiv:2410.24207.
+Cited by: §2,
+§4.3.
+[94]
+V. Ye, R. Li, J. Kerr, M. Turkulainen, B. Yi, Z. Pan, O. Seiskari, J. Ye, J. Hu, M. Tancik, and A. Kanazawa (2025)
+Gsplat: an open-source library for gaussian splatting.
+Journal of Machine Learning Research 26 (34), pp. 1–17.
+Cited by: §4.
+[95]
+C. Yeshwanth, Y. Liu, M. Nießner, and A. Dai (2023)
+Scannet++: a high-fidelity dataset of 3d indoor scenes.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 12–22.
+Cited by: §1,
+§4.
+[96]
+K. M. Yi, E. Trulls, V. Lepetit, and P. Fua (2016)
+Lift: learned invariant feature transform.
+In Computer Vision–ECCV 2016: 14th European Conference, Amsterdam, The Netherlands, October 11-14, 2016, Proceedings, Part VI 14,
+pp. 467–483.
+Cited by: §2.
+[97]
+A. Yu, V. Ye, M. Tancik, and A. Kanazawa (2021)
+Pixelnerf: neural radiance fields from one or few images.
+In IEEE Conf. Comput. Vis. Pattern Recog.,
+Cited by: §2.
+[98]
+J. Y. Zhang, A. Lin, M. Kumar, T. Yang, D. Ramanan, and S. Tulsiani (2024)
+Cameras as rays: pose estimation via ray diffusion.
+arXiv preprint arXiv:2402.14817.
+Cited by: §1.
+[99]
+J. Y. Zhang, D. Ramanan, and S. Tulsiani (2022)
+Relpose: predicting probabilistic relative rotation for single objects in the wild.
+In ECCV,
+pp. 592–611.
+Cited by: §4.1,
+Table 1.
+[100]
+Q. Zhang, S. Zhai, M. A. Bautista, K. Miao, A. Toshev, J. Susskind, and J. Gu (2024)
+World-consistent video diffusion with explicit 3d modeling.
+External Links: 2412.01821,
+Link
+Cited by: §2.
+[101]
+Z. Zhang, R. Peng, Y. Hu, and R. Wang (2023)
+GeoMVSNet: learning multi-view stereo with geometry perception.
+In CVPR,
+Cited by: Table 7.
+[102]
+T. Zhou, R. Tucker, J. Flynn, G. Fyffe, and N. Snavely (2018)
+Stereo magnification: learning view synthesis using multiplane images.
+arXiv preprint arXiv:1805.09817.
+Cited by: §4.1,
+§4.1,
+§4.3,
+§4.3.
+Appendix
+In this supplementary material, we include: (1) extended implementation details covering data processing and training strategies, (2) additional experimental results, and (3) a comprehensive description of the network architecture.
+Appendix A Implementation Details
+Data Processing.
+We follow the processing protocol of DUSt3R to generate point maps for most datasets.
+However, the DL3DV dataset only provides the annotation for camera parameters.
+To include DL3DV into our training framework, we use the multi-view stereo algorithm from COLMAP to annotate per-frame depth maps, which are then converted into point maps.
+Additionally, we utilize multi-view photometric and geometric consistency to eliminate noisy depth [86].
+For the datasets captured as video sequences, we randomly select 8 images from a single video clip, with each video clip containing no more than 250 frames.
+For multi-view image datasets, we randomly select 8 images per scene.
+Baselines for Novel View Synthesis.
+We compare our novel view synthesis results with MVSplat [10], pixelSplat [6], and CoPoNeRF [22] on the DL3DV dataset [39].
+However, these methods were originally trained on only 2 views and perform not well under our sparse-view setting of 8 views. To ensure a fair comparison, we selected the two source views closest to the target rendering view as inputs for these baselines (e.g., MVSplat).
+We found that selecting two closest source views significantly improved their rendering quality compared to using all 8 views directly.
+Numbers of Input Image.
+We have two camera latents: one for the first image (reference), and one is shared by all other images (source). The source token is duplicated N-1 times. Therefore, the model can process any number of input images.
+Appendix B Experiments
+2 3 5 8 10 15 20 25 ViewsValue (Scaled)PSNRSSIM (×30)LPIPS (×50)
+Figure 5: Relationship between MVSplat Performance and Input Views.
+Relationship between MVSplat Performance and Input Views.
+We evaluated MVSplat with two views because its
+performance degrades with additional input frames, as shown in Fig. 5, as
+demonstrated in the figure above. We therefore reported
+its optimal results.
+Table 6: Performance with a Varying Number of Input Frames. We study the impact of changing the number of input views on the performance of our method on the DTU dataset.
+| Metric
+| 2 Views
+| 6 Views
+| 10 Views
+| 16 Views
+| 25 Views
+| AUC@30° \uparrow
+| 59.09
+| 70.45
+| 80.15
+| 81.52
+| 81.81
+| ACC. \downarrow
+| 4.07
+| 2.79
+| 0.94
+| 0.24
+| 0.30
+Study between Performance and the Number of Frames.
+We analyzed the impact of varying the number of frames on pose and point map estimation using the DTU dataset.
+For this experiment, we randomly selected 2, 6, 10, 16, and 25 source views while fixing two query views for testing pose accuracy and for evaluating surface accuracy. Under the 2-view setting, our method generates a reasonable shape, but its precision remains limited. The results demonstrate that increasing the number of views leads to improvements in both pose and surface accuracy. However, these improvements gradually plateau as the number of views continues to grow, as shown in Tab. 6.
+Figure 6:
+Qualitative Visualization of Sparse-view 3D Reconstruction on the DTU dataset.
+We visualize the input image (left), depth map (middle), and point cloud (right).
+Dense View 3D Reconstruction on the DTU dataset.
+We present the results for dense view 3D reconstruction on the DTU dataset in Tab. 7, although dense reconstruction is not our primary objective.
+As observed, our method achieves better results compared to DUSt3R but falls short of MASt3R.
+This is expected since our approach is not tailored for dense reconstruction, whereas MASt3R is specifically optimized for it through the training of matching heads.
+Visualization of Sparse-view Reconstruction.
+We present the visualizations of our sparse-view reconstruction results on the DTU dataset in Fig. 6.
+Table 7: Dense View 3D Reconstruction on the DTU dataset. We compare our method with baseline approaches using accuracy, completeness, and overall metrics under the dense view setting.
+| Methods
+| Accuracy \downarrow
+| Completion \downarrow
+| Overall \uparrow
+| Camp [4]
+| 0.835
+| 0.554
+| 0.695
+| Furu [17]
+| 0.613
+| 0.941
+| 0.777
+| Tola [70]
+| 0.342
+| 1.190
+| 0.766
+| Gipuma [19]
+| 0.283
+| 0.873
+| 0.578
+| MVSNet [89]
+| 0.396
+| 0.527
+| 0.462
+| CVP-MVSNet [87]
+| 0.296
+| 0.406
+| 0.351
+| UCS-Net [11]
+| 0.338
+| 0.349
+| 0.447
+| CER-MVS [42]
+| 0.359
+| 0.305
+| 0.332
+| CIDER [84]
+| 0.417
+| 0.437
+| 0.427
+| PatchmatchNet [73]
+| 0.427
+| 0.377
+| 0.417
+| GeoMVSNet [101]
+| 0.331
+| 0.259
+| 0.295
+| MASt3R [32]
+| 0.403
+| 0.344
+| 0.374
+| DUSt3R [80]
+| 2.677
+| 0.805
+| 1.741
+| Ours
+| 1.932
+| 0.715
+| 1.321
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

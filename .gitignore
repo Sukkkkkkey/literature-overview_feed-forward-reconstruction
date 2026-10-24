@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+research/qa/
+research/qa-v2/
+research/qa-complete/
+research/sources/*.html
+research/sources/*-pages.txt
+research/contacts/
+research/*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,914 @@
+On Geometric Understanding and Learned Priors in Feed-forward 3D Reconstruction Models
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related work
+3 Background
+3.1 Epipolar Geometry
+3.2 Feed-forward 3D Reconstruction Models
+3.3 Dataset Design
+4 Geometric interpretability
+4.1 Do these models encode geometry? If so, where?
+4.2 How do attention maps encode correspondences?
+4.3 Do these attention patterns play a causal role?
+5 The role of learned priors in VGGT
+5.1 How well does VGGT handle occlusions?
+5.2 How robust is VGGT to scene perturbations?
+6 Discussion
+7 Conclusion
+A Dataset details
+A.1 Real-world datasets
+A.2 Synthetic ShapeNet dataset
+B Two-view probing for fundamental matrix
+B.1 Design and evaluation details
+B.2 Results on MipNeRF360
+B.3 Probe design ablations
+B.4 Rank 2 and singular value analysis
+B.5 Triplet 2-view consistency results
+C Correspondence matching analysis of intermediate layers
+C.1 Analysis in the attention space
+C.2 Analysis through feature similarity
+C.3 Analysis of the semantic correspondences
+C.4 Analysis of Depth Anything model sizes
+D Causal role of attention patterns
+E VGGT’s robustness to scene modifications
+E.1 Lighting and color variations.
+E.2 Repetition and symmetry.
+E.3 Focal length variations.
+References
+License: arXiv.org perpetual non-exclusive license
+arXiv:2512.11508v2 [cs.CV] 17 Mar 2026
+On Geometric Understanding and Learned Priors in Feed-forward 3D Reconstruction Models
+Jelena Bratulić
+††thanks: The work was done during a PhD visit to the University of Oxford within the ELLIS PhD program. Correspondence to bratulic@cs.uni-freiburg.de
+Affiliation: University of Freiburg
+Sudhanshu Mittal
+Affiliation: University of Freiburg
+Thomas Brox
+Affiliation: University of Freiburg
+Christian Rupprecht
+Affiliation: University of Oxford
+Abstract
+Feed-forward 3D reconstruction models such as DUSt3R, VGGT, and Depth Anything 3 (DA3) are transformer–based foundation models that infer camera geometry and dense scene structure in a single forward pass. Trained at scale in a supervised fashion, they raise a central question: do these models build upon geometric principles akin to traditional multi–view pipelines, or do they primarily rely on learned priors arising from the large–scale training setup? We find that epipolar geometry emerges within the intermediate layers of all three models and is causally linked to correspondence patterns in attention heads. To study this, we perform a systematic analysis of their internal representations across three real–world datasets and a controlled synthetic dataset. We quantify geometric understanding by probing intermediate features, analyzing attention patterns to identify correspondence matching patterns, and performing targeted interventions at the attention level. Further, we assess the role of learned priors by applying challenging input–level perturbations, such as occlusions, scene ambiguities, and varying camera configurations, and compare them against classical multi–stage reconstruction pipelines.
+1 Introduction
+Estimating 3D geometry from a set of 2D images has long been a fundamental challenge in computer vision. Traditional approaches rely on geometry–constrained pipelines that require a multi–step, sequential process: feature extraction, matching, and refinement, followed by camera pose estimation and 3D point cloud reconstruction.
+These approaches, although mathematically precise, struggle with ambiguities and lack robustness to scene dynamics and partial visibility, and can be computationally expensive due to runtime optimization.
+Recent deep learning approaches such as DUSt3R [37], MASt3R [18], VGGT [35], and DA3 [19], have shown that 3D reconstruction can be achieved in a single unified feed–forward step, replacing the traditional multi–stage pipeline.
+These methods predict camera poses and dense 3D point maps from image sequences using a functional mapping learned from large–scale labeled datasets.
+As all optimization is shifted to training, they run much faster than classical frameworks, and the priors learned from the data make them significantly more robust to ambiguities and input variations.
+However, such learned functional mappings are prone to fail in out–of–distribution cases.
+It is worth noting that the laws of 3D geometry are universal and should not depend on the distribution of the training data.
+Therefore, the question arises whether these models, while learning from data,
+internally learn any geometric reasoning mechanisms similar to classical multi–view pipelines, or do their capabilities primarily arise from learned priors?
+If a geometric mechanism is indeed learned, it would guarantee a similar level of robustness to out–of–distribution cases as with traditional pipelines, while leveraging the complex learned priors in in–distribution scenarios.
+In this work, we examine the underlying mechanisms of three representative feed–forward 3D reconstruction models: DUSt3R, VGGT, and Depth Anything 3 (DA3).
+We aim to mechanistically understand how these models compute their predictions and to determine whether their performance arises from internalized geometric reasoning or predominantly from learned priors.
+In particular, we investigate whether their representations encode fundamental principles of multi–view geometry, such as correspondences and epipolar geometry.
+To this end, we design a controlled study using different object-centric and scenery datasets, and a controlled synthetic dataset built on ShapeNet [7] objects under various conditions, with complete scene information and all 3D attributes being available.
+Our systematic analysis adopts two perspectives: (1) a geometrical perspective, where we probe the internal representations and perform interventions to assess the causal effect of these representations on the fidelity of the network representation in terms of epipolar geometry, (2) a data perspective, where we test the model’s robustness to interventions on input images to study the (typically positive) influence of learned priors from data and training.
+The three studied models are jointly trained to predict dense scene structure and camera geometry directly from a set of images in a single forward pass. Although their architectural designs differ, none is explicitly trained to estimate classical geometric entities such as the fundamental matrix. To evaluate their use of geometric principles, we focus on a core property: epipolar geometry. The fundamental matrix \mathbf{F}\in\mathbb{R}^{3\times 3} provides a natural lens for this analysis, as it formalizes the epipolar geometry between different camera views and corresponding points observed in them. We therefore use \mathbf{F} prediction via probing as a proxy to assess how much geometric information is encoded in the model’s internal representations.
+Contributions.
+Our extensive study across three real-world and a synthetic dataset reveals several key insights.
+(1) We show that the intermediate representations in DUSt3R, VGGT, and DA3 encode epipolar geometry.
+(2) We identify a geometric phase transition in the middle layers, where fundamental matrix recovery coincides with the emergence of point correspondences in the attention space.
+(3) Through targeted attention-knockout interventions, we establish a causal link between correspondence formation and the encoding of epipolar geometry.
+(4) From a data perspective, we show, using VGGT, that such models remain robust to moderate disturbances, often outperforming classical pipelines. Under occlusions, they infer correspondences despite missing evidence, revealing reliance on learned priors and a trade-off between robustness and geometric consistency.
+2 Related work
+Classical 3D reconstruction and multi-view geometry.
+Classical structure-from-motion (SfM) pipelines [13, 32, 30, 1] comprise several stages: feature detection, correspondence matching, camera pose estimation, and bundle adjustment, and rely on hand-crafted features such as SIFT [21].
+A central component of these pipelines is estimating the fundamental matrix \mathbf{F} , which encodes the epipolar geometry between two views [13]. Minimal solvers such as the five-point [25] and eight-point [14] algorithms recover \mathbf{F} from sparse correspondences, usually combined with robust estimators like RANSAC [10] to handle noisy correspondences and outliers.
+Recent learned matching methods such as SuperGlue [29], LightGlue [20], and LoFTR [34] significantly improve correspondence matching. However, geometric relations such as the fundamental matrix are still estimated using classical algorithms.
+In this work, we use epipolar geometry as a principled lens to study whether modern feed-forward reconstruction models internally encode such geometric structure.
+Feed-forward reconstruction models.
+Recent deep learning approaches challenge the traditional multi-stage paradigm for 3D reconstruction.
+DUSt3R [37] introduced a feed-forward formulation for dense 3D reconstruction from image pairs without requiring known camera poses.
+MASt3R [18] improves robustness to large viewpoint changes by augmenting the architecture with a dense local feature head, while preserving DUSt3R’s robustness.
+VGGSfM [36] further demonstrated that fully differentiable end-to-end reconstruction pipelines can outperform classical SfM methods.
+More recent foundation models, such as VGGT [35] and Depth Anything 3 (DA3) [19], directly infer depth and scene geometry from image collections in a single feed-forward pass, achieving state-of-the-art performance while significantly reducing inference time.
+Follow-up work further accelerates inference [38] or extends these architectures to downstream tasks such as SLAM and real-time reconstruction [44, 23].
+Despite these advances, the internal mechanisms by which these models represent and reason about geometry remain poorly understood, a gap our work aims to address.
+Interpretability and causal analysis. Understanding neural network mechanisms has become increasingly important, with much of the work centered on LLMs [9, 26].
+A common approach is the use of probing classifiers [6, 2, 17] to test whether information is decodable from intermediate representations.
+For computer vision tasks, Network Dissection and related work [4, 42, 5] quantify the CNNs’ interpretability at individual units, whereas Chefer et al. [8] showed that naive attention visualization can be misleading for transformers.
+Different interventions, such as activation patching or causal mediation analysis [15, 40], provide more substantial evidence by measuring the effects of modified activations within a model.
+However, little work has been conducted on interpretability in geometric understanding for 3D vision models.
+Recently, Stary et al. [33] analyzed a variant of DUSt3R and studied the role of individual layers and correspondences in multi-view transformers. Maggio et al. [22] analyze the VGGT’s layers for image retrieval verification, while Han et al. [12] study the emergent outlier detection ability in VGGT.
+3 Background
+3.1 Epipolar Geometry
+Here we provide a brief overview of epipolar geometry, but an extensive analysis can be found in [13]. Epipolar geometry describes the projective relationship between two cameras viewing the same 3D point. If a 3D point \mathbf{X}\in\mathbb{R}^{3} is observed by two pinhole cameras, its image projections are
+|
+| \mathbf{x}_{1}=\mathbf{K}_{1}[\,\mathbf{I}\mid\mathbf{0}\,]\mathbf{X},\quad\mathbf{x}_{2}=\mathbf{K}_{2}[\,\mathbf{R}\mid\mathbf{t}\,]\mathbf{X},
+|
+| (1)
+where \mathbf{K}_{i} are the camera intrinsics and (\mathbf{R},\mathbf{t}) is the relative pose.
+A ray from the first camera center through \mathbf{x}_{1} defines an epipolar plane with the two camera centers.
+Its intersection with the second image plane gives the epipolar line \ell_{2} , on which the corresponding point \mathbf{x}_{2} must lie. All epipolar lines intersect at the epipole.
+This geometric relationship is expressed by the epipolar constraint:
+|
+| \mathbf{x}_{2}^{\top}\mathbf{E}\,\mathbf{x}_{1}=0,\quad\mathbf{E}=[\mathbf{t}]_{\times}\mathbf{R},
+|
+| (2)
+where \mathbf{E} is the essential matrix and [\mathbf{t}]_{\times} is the skew-symmetric matrix representing the cross product with \mathbf{t} . For uncalibrated cameras, the relation becomes
+|
+| \mathbf{x}_{2}^{\top}\mathbf{F}\,\mathbf{x}_{1}=0,\quad\mathbf{F}=\mathbf{K}_{2}^{-\top}\mathbf{E}\mathbf{K}_{1}^{-1},
+|
+| (3)
+where \mathbf{F} is the fundamental matrix.
+Both the essential matrix \mathbf{E} and fundamental matrix \mathbf{F} have rank 2, as \mathbf{E}=[\mathbf{t}]_{\times}\mathbf{R} inherits the rank deficiency from the skew-symmetric matrix [\mathbf{t}]_{\times} . This constraint reflects the fact that all epipolar lines intersect at the epipole. When estimating \mathbf{F} from point correspondences, the rank-2 constraint is typically enforced by projecting the unconstrained solution onto the manifold of rank-2 matrices. Given an initial estimate \hat{\mathbf{F}} , we compute its singular value decomposition \hat{\mathbf{F}}=\mathbf{U}\text{diag}(\sigma_{1},\sigma_{2},\sigma_{3})\mathbf{V}^{\top} where \sigma_{1}\geq\sigma_{2}\geq\sigma_{3} , and set the smallest singular value to zero:
+|
+| \mathbf{F}=\mathbf{U}\,\text{diag}(\sigma_{1},\sigma_{2},0)\,\mathbf{V}^{\top}.
+|
+| (4)
+This produces the closest rank-2 approximation in the Frobenius norm.
+Evaluating Epipolar Geometry. We can assess the quality of an estimated fundamental matrix using two metrics that quantify deviations from epipolar consistency.
+The algebraic error
+|
+| e_{\text{alg}}=\mathbf{x}_{2}^{\top}\mathbf{F}\,\mathbf{x}_{1}
+|
+| (5)
+measures the constraint satisfaction (which should be 0), but has no geometric meaning directly and is scale-dependent. More geometrically meaningful measures are the Sampson error and the smallest singular value of \mathbf{F} .
+The Sampson error [28] represents a first-order approximation of the true geometric error:
+|
+| d_{\text{Sampson}}=\frac{(\mathbf{x}_{2}^{\top}\mathbf{F}\,\mathbf{x}_{1})^{2}}{\|(\mathbf{F}\mathbf{x}_{1})_{1:2}\|^{2}+\|(\mathbf{F}^{\top}\mathbf{x}_{2})_{1:2}\|^{2}}
+|
+| (6)
+Sampson error approximates the reprojection error, avoiding iterative optimization.
+In practice, well-calibrated systems typically yield Sampson errors below 1 – 2 pixels, though acceptable values depend on image resolution, focal length, and the application’s precision requirements.
+The smallest singular value of \mathbf{F} must be zero to satisfy the rank-2 constraint of the fundamental matrix. In practice, the smallest singular value that is less than 10^{-3} of the largest singular value is generally considered acceptable.
+3.2 Feed-forward 3D Reconstruction Models
+We analyze three representative feed-forward 3D reconstruction models covering different architectural paradigms.
+DUSt3R [37] introduced the paradigm of feed-forward dense 3D reconstruction from arbitrary image pairs without requiring prior camera calibration or pose information. The model predicts pointmaps expressed in the reference frame of one view using an asymmetric transformer encoder–decoder architecture. For multi-view inputs, pairwise predictions are aligned into a common coordinate frame through a global alignment step performed at test time. This formulation unifies depth, pose, and dense reconstruction within a single model and laid the foundation for later feed-forward geometry models such as VGGT and DA3.
+Visual Geometry Grounded Transformer (VGGT) [35] is a transformer-based model that jointly predicts camera intrinsics, extrinsics, depth maps, pointmaps, and 3D point trajectories from multiple views.
+It builds on a DINOv2 [27] backbone with alternating frame-wise and global self-attention layers to aggregate information across views. VGGT is trained on a large mixture of publicly available 3D datasets using direct supervision for camera pose estimation, depth prediction, 3D point cloud reconstruction, and 3D point tracking.
+Depth Anything 3 [19] predicts scene geometry from arbitrary visual inputs using a transformer backbone trained in a teacher–student framework. Unlike the multi-task supervision used in VGGT, DA3 formulates the problem as the joint prediction of depth maps and ray maps using a unified prediction head. The model can optionally condition on input camera poses at inference and achieves state-of-the-art performance on camera pose estimation and geometric accuracy benchmarks, surpassing prior models, including VGGT.
+3.3 Dataset Design
+We conduct our study on synthetic and real-world datasets. Since all three models are trained on large, diverse datasets, ensuring meaningful out-of-distribution evaluation and analysis of certain scenarios requires careful dataset selection. Thus, we construct a custom ShapeNet-based synthetic dataset that provides complete geometric ground truth and allows systematic scene manipulation. Here we briefly describe the three real-world and custom synthetic datasets, while more details and visual examples are provided in the supplementary.
+Real-world datasets. DTU MVS [16] is a controlled dataset of 124
+object-centric scenes photographed from 49 fixed positions under structured-light ground truth. ETH3D [31] is a precise, high-resolution, multi-view dataset covering diverse indoor and outdoor scenes. MipNeRF360 [3] comprises nine unbounded outdoor and indoor scenes captured with a consumer camera and reconstructed via COLMAP. Camera poses and correspondences are derived from COLMAP sparse reconstructions, while for DTU, we use depth maps from MVSNet [39]. To ensure diversity in viewpoint separation while improving control over the data distribution, we bin image pairs by the true 3D angular distance between the cameras and sample from the bins for MipNeRF360 and DTU. For ETH3D, we include all pairs since its scenes, although diverse, contain only a relatively small number of images. We provide additional analysis using the semantic correspondences from the SPair71k dataset [24] in the supplementary.
+Custom ShapeNet dataset. To model diverse scenarios, we generated a controlled synthetic dataset from ShapeNet [7] assets rendered in Blender, which enables precise control over scene properties and complete geometric ground truth (camera parameters, depth, correspondences, fundamental and essential matrices) for precise analysis. We selected two types of objects: 10 different categories of unique assets with distinctive features and 5 different categories of symmetric assets (e.g., bottles, vases) that introduce correspondence ambiguity. We used focal lengths ranging from 24 mm to 100 mm with a standard 36 mm camera sensor, and distinguish between 4 camera configurations: a stereo setup with parallel image planes and a horizontal baseline, and three different non-parallel image planes with different angular baselines, categorized as small (10–25 degrees), medium (45–75), and large (90–120). For robustness experiments, we created ambiguous scenes with repetitive objects.
+4 Geometric interpretability
+DUSt3R, VGGT, and Depth Anything 3 (DA3) are trained to predict camera geometry and dense 3D structure through supervised objectives specific to their respective formulations. To evaluate whether these models develop geometric reasoning beyond their explicit training targets, we examine their ability to represent the fundamental matrix via a small MLP probing. Since the fundamental matrix is never directly supervised, this independent probing avoids confounding effects from task-specific heuristics and strong supervision on camera pose and intrinsics. Further, layer-wise probing also allows us to localize where this geometric information is encoded in the network layers, providing deeper insight into how geometric structure develops across the network.
+4.1 Do these models encode geometry? If so, where?
+We probe intermediate layers to determine where, and to what extent, the fundamental matrix can be recovered from these representations.
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+Synthetic
+|
+|
+|
+|
+Real data
+|
+|
+|
+Figure 1: Probing internal representations for fundamental matrix approximation. We successfully recover the fundamental matrix from all three models on both synthetic and real-world datasets. However, the emergence trends differ across models: models with camera-tokens (VGGT and DA3) exhibit a similar pattern, with clear change in the middle layers and strong performance in the final layers. DUSt3R shows strong performance already in the early layers, with slight degradation towards the final layers.
+Experiment setup. We train simple two-layer MLP probes on intermediate representations at each layer to predict the fundamental matrix. Given the differences between the architectures, we use camera tokens from each layer for VGGT and DA3, and averaged features after each decoder block for DUSt3R. Each probe utilizes a hidden dimension of 512 and is optimized for 30 epochs using the squared Sampson distance as the training loss on ground-truth correspondences, without directly enforcing the rank-2 constraint. We train probes on each dataset separately, and report the root Sampson error in pixel space across unseen data splits.
+We further perform a similar analysis using image triplets and probing for all available fundamental matrices. Additional details and results are provided in the supplementary.
+Results.
+Figure 1 shows that the fundamental matrix can be reliably recovered from all three models (VGGT, DA3, DUSt3R) across different datasets (ShapeNet, ETH3D, DTU). The location and the trends of the emergence, however, differ.
+In VGGT and DA3, the ability to recover the fundamental matrix emerges roughly in the middle layers (layers 12–14).
+Performance continues to be refined through the final layers. The sudden improvement in error within a few layers suggests that the necessary information for establishing epipolar geometry is formed in these layers. The layers in DA3 correspond to those immediately after global attention is introduced. As a second criterion, we also check the smallest singular value of the predicted \mathbf{F} . We observe that it attains its minimum within the same set of layers and is approximately 2.5\mathrm{e}{-4} smaller than the maximum value, further supporting the emergence of epipolar geometry within these layers (see supplementary).
+DUSt3R, on the other hand, exhibits a different trend, in which the fundamental matrix emerges in the early decoder blocks and refines throughout the layers with slight divergence in the last layers.
+We speculate that this divergence arises due to independent target heads in the model.
+Since all models encode the fundamental matrix in their representations, with the emergence followed by a sudden improvement over a few layers, this suggests that these layers serve a specific purpose. An obvious candidate is that the network’s attention maps capture a correspondence structure across views.
+Epipolar geometry emerges in the internal representations of feed-forward multi-view transformers. In camera-token based architectures, it appears in the middle layers and is progressively refined towards the final layers.
+4.2 How do attention maps encode correspondences?
+Probing reveals the emergence of learned epipolar geometry in the intermediate layers. However, we do not yet know how the model recovers this information. To this end, we aim to discover the underlying correspondence-matching patterns in the attention maps of those layers across two views. We hypothesize that these correspondences are computed by global (cross) attention layers.
+Experiment setup. We analyze the query-key (QK) attention space to identify correspondence matching. For each patch token in the source image, we locate the patch in the target image that receives the highest attention and calculate accuracy based on whether this target patch corresponds to the true matching patch. When a source patch maps to multiple target patches due to patch discretizations, we count a hit if any of the correct positions receive the maximum attention. We evaluate all unique patch correspondence pairs and report the average correspondence accuracy over our controlled ShapeNet’s test set of 5 scenes from different object categories, taken at a 50 mm focal length, averaged across sampling modes that cover different camera-pair configurations. We analyze all available cross- and global-attention layers in the model: 24 for VGGT, 8 for DA3 (starting at layer 9), and 12 for DUSt3R. We compare the forward direction (view 1 \xrightarrow{} view 2) and reverse (view 2 \xrightarrow{} view 1).
+Further, we analyze feature-space similarity to assess whether correspondence-matching information is retained in the representation outside of attention space. Details, real-world results, and feature-similarity results are provided in the supplementary.
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+F (1 \to 2)
+|
+|
+|
+|
+R (2 \to 1)
+|
+|
+|
+Figure 2: Correspondence matching per attention head. We compare correspondence matching performance using the QK attention space for forward (view 1 \xrightarrow{} view 2) and reverse (view 2 \xrightarrow{} view 1) directions.
+Strong matching performance is established in the layers, which immediately precede the transition observed in fig. 1. Middle layers are active for both VGGT and DA3, whereas DUSt3R exhibits correspondence matching already in the first block and asymmetrically active heads in different directions, stemming from its asymmetric decoders.
+Results. Figure 2 shows strong correspondence matching activity in multiple layers and heads across all three models.
+In VGGT, strong correspondence matching across multiple attention heads is observed in the middle layers, roughly between layers 10 and 16. This behavior begins around layer 10 and precedes the sharp improvement in fundamental matrix recovery at layers 13 and 14 (see fig. 1).
+This suggests a connection between correspondence estimation and the emergence of epipolar geometry within the network. We observe a similar trend for DA3, which, despite having layer 9 as the first global-attention layer, has the strongest correspondence matching across the middle layers of the complete architecture. DUSt3R, however, exhibits strong correspondence-matching performance from the early decoder layers, while performance continues to improve in the middle layers. This is again well aligned with the probing results in fig. 1, where DUSt3R exhibited some decent fundamental matrix recovery already in the early layers.
+Further, both VGGT and DA3 have symmetrical patterns, meaning that the same heads and layers perform correspondence matching equally well in both forward (F 1 \xrightarrow{} 2) and reverse (R 2 \xrightarrow{} 1) directions. On the other hand, DUSt3R’s activation patterns are asymmetric, with the reverse direction exhibiting stronger correspondence-matching performance and a greater number of active heads. We believe the difference stems from VGGT and DA3 using global attention layers, whereas DUSt3R has asymmetric cross-attention decoders.
+We also analyzed QK-space patterns across other layers to identify interpretable behavior.
+We observed that early layers in VGGT exhibit semantic alignment, where visually similar parts are matched (e.g. a chair leg in one view matches another chair leg in the second view), but not necessarily to the correct instance. More details are included in the supplementary.
+Point correspondence matching appears in the mid-layer attention heads as a key mechanism, enabling geometric alignment across views.
+4.3 Do these attention patterns play a causal role?
+The previous observations establish a correlation between the emergence of epipolar geometry via fundamental matrix recovery and the correspondence-matching patterns in the same set of intermediate layers. To determine whether the attention patterns are truly a cause of the geometric encoding observed in fig. 1, we perform targeted interventions on the attention heads that we hypothesize are responsible for the epipolar representation.
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R*
+|
+Whole heads
+|
+|
+|
+|
+Image map
+|
+|
+|
+|
+Block
+|
+|
+|
+|
+Patch
+|
+|
+|
+Figure 3: Performance degradation under attention interventions on 4 localities. Disrupting random early or late layers has minimal impact on performance, whereas intervention on high correspondence-matching-layers cause significant degradation. The degradation is consistent across all models and at all levels of locality. *For DUSt3R, we report results only for valid cases for Image map and Whole heads, since 72% of cases result in invalid predictions.
+Experiment setup. We intervene on the QK attention space using attention knockout, a method similar to Geva et al. [11], where we zero out activations for specific layer-head combinations of the attention map for different levels of locality, ranging from zeroing out the whole attention head (Whole head), to the most local with just the corresponding patches (Patch in fig. 3). We select interventions based on the high correspondence-matching performance of the layer-head combinations and two baselines of random early and late layers.
+To perform the analysis, we require dense correspondence ground truth. There, we conduct the experiment on our controlled ShapeNet data and report median results across all sampling modes at a 50 mm focal length over the test set of 5 categories. Additional combinations, details on the intervention locality, and results are provided in the supplementary material.
+We report the difference in the Sampson distance between the baseline and the intervened model, where we approximate the fundamental matrix using the model’s camera pose predictions. For DUSt3R, this requires post-processing steps that can result in invalid camera poses, which we consider a failure case.
+Results. Figure 3 demonstrates clear causal effects consistently for all three models and different levels of locality.
+In VGGT and DA3, disrupting the high-performing attention heads in the middle layers degrades the Sampson distance error to such a large degree that it can be regarded as a complete failure. Intervening on random early or late layers, on the other hand, has no significant impact.
+There are two types of effective interventions:
+(1) multiple heads within a single layer, and (2) fewer heads distributed across multiple layers. These correspond to the middle bars in fig. 3. For instance, in VGGT, disabling only four heads in a single layer already leads to substantial degradation.
+However, DUSt3R exhibits a slightly different behavior from VGGT and DA3.
+Intervening in the early layers significantly affects performance, consistent with the strong correspondence-matching observed in those layers.
+Thus, while the layer location differs, the overall trend remains aligned with the other models.
+Moreover, for the first two intervention types (Whole heads and Image map), where we zero out the entire head or the full attention map (keys set to 0), DUSt3R frequently produces invalid camera pose predictions.
+This suggests that its cross-attention mechanism is more sensitive to disruption than the global attention used in VGGT and DA3 in this setting.
+These results support our hypothesis: disabling attention heads that exhibit strong correspondence matching leads to significant degradation in the encoded epipolar geometry. However, this does not conclusively prove that correspondence matching alone is responsible for the emergence of epipolar geometry.
+These heads may also encode additional mechanisms that contribute to the effect. This becomes evident in more localized interventions: while the same degradation trend persists, but the error scale change. Even when exact patch-to-patch correspondences in the QK space are removed, nearby patches still provide sufficient signals for the model to partially recover geometric information.
+Intervening on the attention patterns for point correspondences shows a causal relationship between those attention heads and the epipolar geometry representation by the model.
+5 The role of learned priors in VGGT
+While our geometric analysis includes three models, we focus on VGGT here to study how much robustness arises from learned priors rather than geometry. We consider VGGT a strong representative model for this study because it provides a cleaner experimental setup and operates without pose-conditioning at inference, unlike DA3.
+Additionally, there is no clear indication of a fundamental difference between VGGT and DA3; therefore, we focus on VGGT to get deeper insights.
+Figure 4: Occlusion experiment. (Left) We occlude image two from a pair with white patches and report the correspondence matching ability in all layers only for the masked patches. The occluded model shows lower matching performance yet remains above zero. (Center) We measure the changes in the Sampson error for clean and occluded image pairs where VGGT has a minimal degradation in performance, but others are significantly affected. (Right) We show the average number of heads with correspondence matching on occluded patches for the clean and occluded models.
+Recent models such as VGGT and DA3 are trained on large datasets and leverage pretrained self-supervised models such as DINOv2.
+This raises an important question: to what extent does the model’s advantage come from data-based appearance priors and pre-training priors, and how well do these capabilities generalize beyond the training distribution?
+To explore this, we evaluate the robustness of VGGT’s geometric predictions under controlled input perturbations. We consider (i) appearance-based 2D perturbations, such as occlusions, and (ii) rendered 3D perturbations with structural ambiguities, light-source, and camera configuration changes. To assess the model’s robustness, we compare VGGT against classical geometry-based methods and learned correspondence methods.
+5.1 How well does VGGT handle occlusions?
+To evaluate how well VGGT performs under missing visual information, we examine the impact of occlusions on correspondence matching and resulting geometric predictions.
+We simulate occlusions by masking key regions of the image. In principle, the model could address this challenge in multiple ways: by utilizing global geometric reasoning, inferring missing information from learned priors, or simply ignoring the occluded areas.
+Experiment setup.
+We intervene on input images by randomly selecting patches with known correspondences and masking them along with their surrounding regions (3 \times 3 patch neighborhoods); see fig. 4. We perform inference twice: first on the clean image pair and then on a pair in which one image is partially occluded.
+We report the change in Sampson distance error (in pixels) and the number of attention heads in which the correspondence is matched, averaged over all intervened correspondences in a scene.
+Results are averaged over 40 scenes at a focal length of 50 mm, with small viewpoint differences (10-25 degrees) in our controlled ShapeNet dataset. We also compare VGGT’s performance with the 8-point algorithm on all matched correspondences from SIFT [21] and SuperGlue [29].
+Results.
+Figure 4 (left) shows the results for one case in which we masked four object patches for occlusion analysis, together with their corresponding ground-truth patches.
+For each occluded patch, we show the number of heads in which the occluded correspondence was matched (green for the clean version and red for the occluded version).
+Correspondence matching, measured by the number of matched heads (a maximum of 24 layers \times 16 heads = 384 heads), shows that matched heads decrease for corrupted patches but do not collapse entirely.
+Figure 4 (right) reports the average number of matching heads before and after occlusion for the occluded patches.
+While there is a clear drop in matching heads, approximately 50% of heads are retained, indicating that the model does not ignore occluded regions but recovers correspondences through some inpainting behavior. This phenomenon may arise from the mask-based IBOT [43] loss in DINOv2 [27], which is trained to recover the masked content.
+Additionally, VGGT shows only a slight degradation in the Sampson error, indicating that the epipolar geometry is still restored, whereas the other multi-stage baselines show clear degradation, shown in Figure 4 (center).
+VGGT shows robustness to occlusions, preserving epipolar geometry by partially recovering matching heads for the occluded correspondences.
+5.2 How robust is VGGT to scene perturbations?
+We investigate the role of learned priors under controlled 3D perturbations that introduce structural ambiguity (e.g., symmetric and repetitive objects) and variations in lighting, focal length, and camera configuration.
+As expected, we observe that VGGT remains stable under moderate appearance and viewpoint changes, including focal length variations, with only limited degradation in geometric accuracy.
+Notably, when we generate challenging scenes with repetition and symmetry, for example, identical objects arranged in a circular pattern, classical pipelines struggle to establish reliable correspondences, whereas VGGT remains comparatively robust when asymmetric lighting introduces subtle cues that help disambiguate the scene. In contrast, under fully symmetric lighting and object configurations, where no disambiguating signals are present, all methods fail as expected, confirming that the task is geometrically underconstrained.
+Overall, these results indicate that VGGT benefits from learned data-based appearance priors to resolve partial ambiguities, outperforming both classical and learned correspondence-based methods in such regimes, while still respecting the fundamental limits imposed by multi-view geometry when no disambiguating evidence exists. Detailed experimental setups, quantitative results, and additional analyses are provided in the supplementary material.
+VGGT leverages learned visual cues to resolve partially ambiguous scenes, but like classical methods, it fails when the scene is fully geometrically symmetric.
+6 Discussion
+Our geometric analysis provides evidence that modern feed-forward 3D reconstruction models such as DUSt3R, VGGT, and Depth Anything 3 encode epipolar structure in their intermediate layers.
+A closer examination of these layers shows that several attention heads also capture point correspondences across views. The strong alignment between these emergent correspondences and geometric constraints suggests that these models organize information (at least partially) geometrically. Intervening on the most involved attention heads further confirms their functional role in encoding geometry.
+While the overall behavior is consistent across the models, we observe small differences in where exactly this information emerges. In VGGT and DA3, which use global attention in the decoder and predict in a unified 3D space, correspondences and geometric information appear in the middle layers. DUSt3R, in contrast, encodes this information early in the decoder layers. These results show that models share similar geometric mechanisms, but their architecture changes where this encoding occurs.
+Our analysis of learned data priors reveals that VGGT partially fills in missing correspondences in scenes with occlusions. While input perturbations degrade both correspondence matching and geometric accuracy, the degradation is not significant. Particularly, the correspondence matching performance remains above zero in the occluded patches.
+This non-zero matching indicates that the model hallucinates missing correspondences rather than ignoring the occluded areas.
+While hallucinations could be beneficial if correct, it is fundamentally impossible to resolve single-view ambiguity when one of the two images is occluded, making this behavior potentially undesirable for reconstruction tasks. At the same time, VGGT remains robust in scenes with local feature ambiguity, leveraging global context and subtle cues such as shadows or lighting that classical pipelines fail to exploit.
+7 Conclusion
+We presented a systematic study of modern feed-forward 3D reconstruction models, focusing on DUSt3R, VGGT and Depth Anything 3, to determine whether they employ interpretable geometric concepts or rely primarily on learned priors from data and model.
+Our results show that these models encode geometric structure and strongly indicate that they use point correspondences to do so.
+Further, our input perturbation experiments reveal that the models rely strongly on learned priors, which provide robustness to input variations but can also lead to undesirable hallucinations.
+Acknowledgments
+This research was funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) under grant number 499552394–SFB 1597 Small Data, and grant number 539134284, through EFRE (FEIH_2698644) and the state of Baden-Württemberg. This research was also funded by the German Ministry for Economy and Climate Protection via a decision by the German parliament (19A23014R). The compute used in this project was also funded by the German Research Foundation (DFG) under grants 417962828 and 539134284.
+Jelena Bratulić is part of the European Lab for Learning and Intelligent Systems (ELLIS) PhD program, and the research visit within the ELLIS PhD program was supported through the ELSA mobility program.
+We want to thank Jianyuan Wang, Paul Englester, Orest Kupyn, Simon Schrodi, Karim Farid, and Rajat Sahay for valuable discussions and feedback during the development of this work.
+Appendix A Dataset details
+A.1 Real-world datasets
+We use 3 real-world datasets in our analysis, comprising object-centric and scenery scenarios with diverse camera poses. We show examples from each on fig. 5.
+DTU MVS [16] is a dataset comprising 124 object-centric scenes photographed from 49 fixed positions under structured-light ground truth. We use depth maps from MVSNet [39] for dense correspondence calculation. We leverage official train, validation, and test sets. To ensure diversity in viewpoint separation while improving control over the data distribution, we bin image pairs by the true 3D angular distance between the cameras, using bins of 15°, 30°, 45°, 60°, 75°, 90°, 105°, and 120°. We sample 75 image pairs from each bin per scene.
+ETH3D [31] is a precise, high-resolution, multi-view dataset covering diverse indoor and outdoor scenes. We use only high-resolution scenes, using all the official training scenes and a subset of official validation scenes for training, and split the remaining validation scenes into a validation set (1 scene) and a test subset (3 scenes). We include all pairs since the scenes, although diverse, contain only a relatively small number of images. Since we use part of the official validation scenes to train the probes, we use the official ground-truth data in COLMAP format and sparse correspondences.
+MipNeRF360 [3] comprises nine outdoor and indoor scenes captured with a consumer camera. We use 7 scenes for training, 1 for validation, and 1 for testing. We use the official ground truth data for camera poses and sparse correspondences in COLMAP format. To ensure diversity in viewpoint separation while improving control over the data distribution, we bin image pairs by the true 3D angular distance between the cameras, using bins of 15°, 30°, 45°, 60°, 75°, 90°, 105°, and 120°. We sample 100 image pairs from each bin per scene.
+SPair71k [24] is a semantic correspondence dataset. For a given pair of images, where the images are from different scenes, we have annotations of semantic correspondences, such as the left wing of one bird to the left wing of another. We sample 350 pairs from the official test split based on the highest number of correspondences between the images and use them for our analysis to explain the role of layers in the network. We show an example with marked correspondences on fig. 5.
+Figure 5: Dataset examples used in analysis. We leverage diverse real-world datasets:, DTU MVS objects [16] (first column), ETH3D [31] (second column), MipNeRF360 [3] (third column), and SPair71k [24] (last column).
+A.2 Synthetic ShapeNet dataset
+We generated a controlled synthetic dataset from ShapeNet [7] assets rendered in Blender. We opted for a simpler synthetic dataset with complete control over the scenes since complex scenes with ambiguity could bias our analysis of the model’s internal workings. Each scene was rendered with different camera configurations regarding focal length, angular distance between the cameras, and scene composition.
+We selected 13 different categories (bag, basket, bathtub, bed, bench, bottle, bowl, cap, car, chair, earphone, jar), where we define splits of unique assets with distinctive features and symmetric assets with object symmetry (basket, bottle, bowl, jar).
+For each category, we define splits for the probing experiment: 15 instances for training, 2 for validation, and 2 for testing, for a total of 10 categories (bottles, bowls, and symmetric jars are omitted).
+We further define smaller and larger testing splits, which we use for later experiments. Both testing splits are a combination of validation and testing splits used in the probing experiment. For the smaller version, we include only 5 instances from 5 categories (bed, cap, car, chair, and jar). For the larger version, we include all instances from the validation and test splits, yielding 40 instances across 10 categories.
+Finally, we also define another split with fully symmetric objects from the categories basket, bottle, bowl, and jar, which we use to create repetitive scenes.
+Figure 6: Few samples from our synthetic controlled dataset built from ShapeNet [7] objects with 2-view pairs in the first row and 3-view triplets in the second row.
+We generated the data in Blender by positioning the object at the origin and sampling five camera pairs in the scene. We first randomly chose a position of the first camera, and based on the selected camera configuration mode, we defined the position of the second camera in the scene. We rendered the scenes with different focal lengths (24 mm, 35 mm, 40 mm, 50 mm, 70 mm, 85 mm, 100 mm) and a sensor size of 36 mm, where larger focal lengths result in zoomed in images. We calculated ground truth data for pair combinations in both directions (camera 1-camera 2 and camera 2-camera 1) with ground truth data including camera poses, correspondences, and fundamental matrix.
+We included four camera configurations: a stereo camera pair with parallel image planes and a horizontal baseline, and non-parallel image planes with different angles between the cameras marked as small (10 - 25 degrees), medium (45 - 75), and large (90 - 120). Viewpoint differences present one aspect of task difficulty.
+We further use another version of the datasets, in which we generated triplets of images with the reference camera in the middle, on the left, or on the right, and use 3 distinct camera viewpoints, small (10–25), medium (45–75), and large (90–140). We use the same splits as for the pair-wise version of the datasets.
+Appendix B Two-view probing for fundamental matrix
+We probe model’s intermediate representation to uncover where and how the geometry is represented.
+B.1 Design and evaluation details
+We train simple two-layer MLP probes on VGGT’s and DA3’s camera tokens at each layer to predict the fundamental matrix, whereas for DUSt3R we use features from each decoder block. Each probe uses a hidden dimension of 512 and is optimized for 30 epochs with the Adam optimizer at a learning rate of 1e-4 and a step scheduler with a step size of 10 and a gamma of 0.5. We use the Sampson distance (in square-pixel space) as the training loss over all available ground-truth correspondences, without directly enforcing the rank-2 constraint. We perform early stopping based on the validation subset and report the final performance of the best-performing probe on the test dataset.
+We further report results for a much simpler linear probe, trained under the same conditions as the MLP probe, to confirm that the information about the fundamental matrix is present in the representation. With both probes, we observe the same trends, but we obtain smoother curves with the MLP probe, so we use the MLP probe as the default.
+B.2 Results on MipNeRF360
+We report the results on the MipNeRF360 datasets on fig. 7. We did not include the results in the main paper because the error scale differs from other real-world datasets. We observe the same trends as for other datasets.
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+MipNeRF
+|
+|
+|
+Figure 7: Probing internal representations for fundamental matrix approximation. We successfully recover the fundamental matrix from all three models, also on the MipNeRF360 dataset, but with higher error values. However, the emergence trends remain the same as for other datasets.
+B.3 Probe design ablations
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+Synthetic
+|
+|
+|
+|
+Real data
+|
+|
+|
+Figure 8: Probing internal representations for fundamental matrix approximation. We successfully recover the fundamental matrix from all three models on both synthetic and real-world datasets when using a linear probe. We report the same trends as for the MLP probe, but with higher errors.
+We show the results of a linear probe on fig. 8, where, compared to an MLP probe, we observe the same trends in the ability to retrieve the fundamental matrix, but the Sampson distance error is better for the MLP probe, and the general curve is less noisy.
+Further, on fig. 9 we report the results of an MLP probe after one epoch to show the same trends again, but with a larger total error. This confirms that the fundamental matrix information is present in the representation and that no overfitting occurred during probing.
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+Synthetic
+|
+|
+|
+|
+Real data
+|
+|
+|
+Figure 9: Probing internal representations for fundamental matrix approximation. We successfully recover the fundamental matrix from all three models on both synthetic and real-world datasets with an MLP probe trained only for 1 epoch. We report the same trends, but the error values are significantly higher.
+B.4 Rank 2 and singular value analysis
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+Synthetic
+|
+|
+|
+Figure 10: Rank ratio. Ratio of smallest and largest singular values across layers on different data splits for the probing experiment from fig. 1. A good fundamental matrix should have a significant difference between the largest and smallest singular values.
+We further analyze the rank-2 constraints. For VGGT and DA3, we show that the middle layers comprise a representation that enables recovery of the fundamental matrix F , as evidenced by a sudden drop in Sampson distance error, whereas for DUSt3R all layers exhibit reasonably good performance. Here, on fig. 10, we show another criterion for evaluating the fundamental matrix – the ratio between the smallest and largest singular values of the fundamental matrix. Since the fundamental matrix is of rank 2 [13], its smallest singular value should be around zero, and the largest singular value should be significantly larger for a well-estimated fundamental matrix. While the trend is not the cleanest between the models, we still observe the minimum values in the same set of layers where the sudden drop occurs. This further supports the emergence of epipolar geometry by satisfying the rank-2 constraint without directly enforcing it during probe training.
+B.5 Triplet 2-view consistency results
+Additional views add complementary constraints that strengthen correspondence estimation, so our results extend naturally to the multi-view setting. We confirm this by probing for fundamental matrices and computing correspondence matching across all pairs in a three-view sequence for VGGT and our ShapeNet dataset. Correspondence activation is consistent across the same layers and heads for all pairs, with comparable probing performance across views (Fig. 11), indicating that the identified mechanisms persist in multi-view configurations. For clarity, we focus on two views, though multi-view representations may also encode trifocal or multifocal tensors. We leave probing these higher-order structures for future work.
+Figure 11: Multi-view probing on VGGT shows that the fundamental matrix can be extracted for all image pairs in a sequence.
+Appendix C Correspondence matching analysis of intermediate layers
+Probing reveals the emergence of learned epipolar geometry in the intermediate layers. However, we do not yet know how the model recovers this information. To this end, we aim to discover the underlying correspondence-matching patterns in the attention maps of those layers across two views. We hypothesize that these correspondences are computed by global (cross) attention layers, as evidenced by our analysis of the QK attention space in our ShapeNet dataset.
+Here, we provide the same analysis on real-life datasets and extend it to feature similarity analysis rather than the QK attention space. We explore the semantic correspondence-matching ability and, finally, compare different model sizes of DA3.
+|
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+ETH3D
+|
+F (1 \to 2)
+|
+|
+|
+|
+R (2 \to 1)
+|
+|
+|
+|
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+DTU
+|
+F (1 \to 2)
+|
+|
+|
+|
+R (2 \to 1)
+|
+|
+|
+|
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+MipNeRF
+|
+F (1 \to 2)
+|
+|
+|
+|
+R (2 \to 1)
+|
+|
+|
+Figure 12: Correspondence matching per attention head for real-world datasets. We compare correspondence matching performance using the QK attention space for forward (view 1 \xrightarrow{} view 2) and reverse (view 2 \xrightarrow{} view 1) directions.
+Strong matching performance is observed in the layers immediately preceding the transition in the probing experiment. We observe the same trends as for our ShapeNet dataset.
+C.1 Analysis in the attention space
+We analyze the attention maps of the VGGT’s and DA3’s global attention layers for correspondence matching capabilities, while for DUSt3R we use its cross-attention layers from the asymmetrical decoder. Precisely, we analyze the query-key (QK) attention space after softmax, where for each pair of corresponding patches (patch from the first image and its corresponding patch in the second image and vice versa), we look for the location in the attention map with the highest value and calculate the accuracy whether the patch with highest accuracy corresponds to the true matching patches or not. Since there will be scenarios in which a patch from the first image has multiple matches in the second image, we count a hit if any of the correct positions receives the highest attention value. We report the results on the test splits.
+On fig. 12, we show the correspondence matching results for ETH3D (first 2 rows), DTU (middle 2 rows), and MipNeRF360 (last 2 rows). We observe the same trends as for our ShapeNet dataset, where correspondence-matching activity in the layers is connected with the well-performing layers in probing. For VGGT and DA3, the middle layers are the ones with high correspondence-matching activity, while for DUSt3R, we observe correspondence-matching activity already from the early layers.
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+Synthetic
+|
+|
+|
+|
+|
+|
+|
+ETH3D
+|
+|
+|
+|
+|
+|
+|
+DTU
+|
+|
+|
+|
+|
+|
+Figure 13: Correspondence matching through feature similarity. We compare correspondence matching performance using the feature similarity for forward (left in pair) and reverse (right in pair) directions. We observe that models retain geometric correspondence similarity in their features, and this similarity becomes stronger after the matching ability in the QK attention space emerges.
+C.2 Analysis through feature similarity
+Since QK attention space can be misleading [8], we further analyze the correspondence matching performance in the feature space. We aim to confirm whether the attention patterns observed in the QK space are retained in the features. We calculate the cosine similarity of the features at the end of the layer and calculate the nearest neighbors, where we assume a correspondence is matched accurately if its nearest neighbor (patch with maximum feature cosine similarity) is maximally 3 patches away spatially. We report the results on the test splits.
+In fig. 13, we present results on synthetic and real-world datasets, with each row corresponding to a different dataset (first row ShapeNet, second row ETH3D, third row DTU). We observe similar or the same trends.
+| VGGT
+| Depth Anything 3
+| DUSt3R
+|
+|
+|
+|
+|
+|
+Figure 14: Semantic correspondence matching through feature similarity. We compare semantic correspondence matching performance using the feature similarity for forward (left in pair) and reverse (right in pair) directions from SPair71k dataset. We observe different trends for different model families.
+For VGGT, we observe that early-to-middle layers have lower geometric feature similarity than middle-to-late layers, and we see that information about geometric similarity is retained in the features, with maximum similarity towards the end of the network, since this layer is also passed to the downstream heads.
+For DA3, we observe the highest geometric feature similarity in the middle layers. We believe this stems from the architectural design, in which multiple layers are provided to the downstream heads.
+Finally, for DUSt3R, we observe that geometric feature similarity is already present in the early layers and slightly decreases towards the end of the asymmetrical decoder layers.
+C.3 Analysis of the semantic correspondences
+Our initial analysis with VGGT and ShapeNet data shows that the early layers of VGGT perform semantic correspondence matching, meaning the model matches the same semantic parts in the scene, but not necessarily to the same instance. To quantify this matching, we follow the standard procedure in semantic correspondence benchmarking and report feature similarity for the semantic correspondences using cosine similarity and nearest-neighbor distance. We report the accuracy of the distance within 3 patches of the SPair71k test set.
+|
+|
+| DA3 Small
+| DA3 Large
+| DA3 Giant
+|
+Synthetic
+|
+F (1 \to 2)
+|
+|
+|
+|
+R (2 \to 1)
+|
+|
+|
+|
+ETH3D
+|
+F (1 \to 2)
+|
+|
+|
+|
+R (2 \to 1)
+|
+|
+|
+|
+DTU
+|
+F (1 \to 2)
+|
+|
+|
+|
+R (2 \to 1)
+|
+|
+|
+Figure 15: Correspondence matching for different DA3’s model sizes. We compare correspondence matching performance using the QK attention space for forward (view 1 \xrightarrow{} view 2) and reverse (view 2 \xrightarrow{} view 1) directions for the giant, large, and small versions of the model. We observe that the middle layers exhibit strong correspondence-matching activity across all three sizes, with slightly decreased activity towards the end.
+We show the results on fig. 14, and report interesting patterns. In VGGT, there is a clear transition in the model between the semantic correspondences and geometric correspondences, where early layers have stronger semantic correspondence matching, and only after the geometric matching emerges in the QK attention space, we see decrease in the semantic correspondences, and, as shown in fig. 13, increase in the geometric matching in the feature space. We believe this could stem from the model’s large capacity and its use of a DINOv2 backbone, which exhibits emergent semantic matching in its representations [41].
+For DA3, we observe the strongest semantic correspondence activity in the middle layers; that activity is lower than for the VGGT. And finally, for DUSt3R, we observe a similar trend as for geometric matching, where early layers have higher activity and it decreases towards the end of the network.
+C.4 Analysis of Depth Anything model sizes
+Since DA3 comes in different model sizes, we analyzed the correspondence-matching performance across 3 sizes: small, large, and giant. In fig. 15, we show the differences in model size and correspondence-matching ability on our ShapeNet dataset (first two rows), ETH3D (middle two rows), and DTU (last two rows) datasets. We observe that the correspondence-matching ability emerges in the middle layers of the network, meaning that for larger model sizes, it occurs later than for smaller ones. We further observe a slight decrease in correspondence-matching ability in the final layers.
+|
+| VGGT
+| Depth Anything 3
+| DUSt3R*
+|
+Whole heads
+|
+|
+|
+|
+Image map
+|
+|
+|
+|
+Block
+|
+|
+|
+|
+Patch
+|
+|
+|
+Figure 16: Performance degradation under attention interventions on 4 localities. We show additional combinations of interventions. *For DUSt3R, we report results only for valid cases for Image map and Whole heads.
+Appendix D Causal role of attention patterns
+To determine whether the previously identified attention patterns in the intermediate layers are truly the cause of the geometric understanding, we perform targeted interventions in the attention space. We perform the interventions using our ShapeNet data and 4 levels of locality. Here, we provide more information on our experiment design and the differences between the localities.
+We compare 4 localities: Whole heads, Image map, Block, and Patch. For each intervention locality level, we apply the interventions to the specified layer-head combinations, which we chose based on the layer’s matching performance, selecting the strongest matching heads to intervene on and using random early and later layers as a reference baseline.
+The least local intervention type is Whole heads, in which we set the global and cross-attention space to 0 for a given layer and head. This results in the most severe degradation in the model’s performance, as together with the geometry-related representation, we might be intervening on some other aspects, so a more local versions of the interventions are needed.
+Next, a more local intervention is applied on the Image maps, in which we set the tokens corresponding to the target image to 0 for a given layer-head combination and correspondence mapping. For example, for a patch x in image 1 (source), we set all patches in image 2 (target) to 0. In VGGT and DA3, this almost effectively enables global attention, as the global attention layers now also act as local ones for the corresponding pairs; in DUSt3R, it enables large portions of the cross-attention layers. With these interventions, we see large degradations in the model’s performance, but less severe than in the previous case.
+Further, in Block level, we apply the interventions directly following the correspondence mapping between the source and target views. For a given patch in image 1 (source), we set the corresponding patch in image 2 (target) and its 5 neighboring patches to zero (forming a 5x5 block). This allows us to have more targeted interventions and clearly assess the contribution of the layers with strong correspondence-matching ability. We observe again a degradation in the model’s performance, which, although less severe than earlier, still shows the connection between the correspondence-matching ability and the final model’s performance.
+And finally, we perform the most local intervention on the Patch level, where we follow the same approach as for Block, but set to zero only the direct correspondence mappings between the source and target patches. With this intervention, for some layer-head combinations, we might not observe significant degradation, as the model could still leverage similarities and match the immediate neighboring areas.
+We show additional layer-head combinations on fig. 16.
+Appendix E VGGT’s robustness to scene modifications
+Traditional multi-view geometry methods rely on locally unique correspondences and therefore degrade in noisy and difficult scenarios. Although VGGT is claimed to be robust to these challenges, this has not been systematically tested. Here, we evaluate VGGT on challenging cases that require reliable local matching and strong global spatial reasoning. We compare it against the classical SIFT + 8-point + RANSAC [21] pipeline as well as a learned matching method SuperGlue [29], and demonstrate that VGGT outperforms both methods.
+E.1 Lighting and color variations.
+We design controlled experiments to test robustness under diverse lighting conditions by replacing the standard three-point illumination with darker, brighter, and top-lit configurations, as well as colored lighting that alters object appearance. We evaluate both asymmetric (one image modified) and symmetric (both images modified) conditions by comparing median Sampson errors in pixels on success cases and report failure rates for VGGT and the SuperGlue + RANSAC, where failure is an invalid model output or a Sampson error greater than 10 pixels. We show examples of used modifications on fig. 17.
+(a) Normal
+Normal
+(b) Brighter
+Brighter
+(c) Darker
+Darker
+(d) Neon
+Neon
+(e) Rainbow
+Rainbow
+(f) Warm
+Warm
+Figure 17: Examples of the light and color modifications used in fig. 19 over one scene.
+Figure 18: Light and color robustness. We compare VGGT against SuperGlue + RANSAC on large viewpoint changes. VGGT shows only slight degradation under the changes, while SuperGlue shows higher sensitivity and a larger failure rate. However, VGGT’s failure rate (Sampson error larger than 10 pixels) increases under extreme lighting changes and shadow variations.
+Figure 19: Ambiguous scenes with repetitions. VGGT outperforms baselines, even when only shadows disambiguate symmetric objects, but fails on completely ambiguous scenes without shadows.
+Figure 19 shows the performance on medium viewpoint differences for VGGT and SuperGlue. VGGT demonstrates superior robustness compared to classical methods, likely due to the strong color augmentation used in training, with its performance practically unchanged and with a low failure rate. SuperGlue and other baselines have a high failure rate, and their performance is affected by these changes.
+However, VGGT exhibits a higher failure rate under large lighting and color changes, particularly for top-view lighting, which removes shadows from the scene, and for neon and rainbow lighting, which introduces color inconsistencies.
+However, when the same interventions are applied to both views, VGGT performs well. It is specifically the case where only one view is intervened, it fails (Sampson error over 10 pixels) more often than for other modifications.
+Figure 20: Few simulated examples for repetition analysis. Repetitive scene (left) corresponds to Ambiguous + shadow setup from fig. 19 with asymmetric lightning that creates shadows in the scene, ambiguous scene (right) corresponds to Ambiguous setup from fig. 19 with complete ambiguity in the scene.
+E.2 Repetition and symmetry.
+We generate challenging scenes with multiple instances of the same object arranged in a circular pattern. We distinguish between unique (easier) and fully symmetric objects, such as bottles and vases (harder), where geometric ambiguity arises. We present our results for symmetric objects in fig. 19, where even with asymmetric lighting that creates shadows that break symmetry, classical methods fail to establish reliable correspondences, whereas VGGT effectively leverages these subtle cues. For completely ambiguous scenes with symmetric objects and symmetric lighting, all methods fail as expected, confirming the task is geometrically underconstrained.
+E.3 Focal length variations.
+Figure 21: Robustness to focal length changes for different viewpoint differences between the cameras. VGGT outperforms the baselines for the case of large viewpoint differences, but performs on par with the baselines for stereo pair cameras.
+Focal length changes effectively zoom in or out, altering feature scales and correspondence difficulty. We test focal lengths from 24 mm to 100 mm (36 mm sensor) across different viewpoint difference configurations. We compare focal lengths of 35 mm, 50 mm, and 85 mm for different viewpoint differences on fig. 21, which shows that VGGT maintains consistent performance across all focal lengths, while classical methods exhibit high failure rates, particularly at extreme focal lengths and significant viewpoint differences. For close stereo pairs, classical methods achieve lower median error when successful, but VGGT demonstrates superior robustness by consistently producing valid predictions.
+References
+[1]
+S. Agarwal, Y. Furukawa, N. Snavely, I. Simon, B. Curless, S. M. Seitz, and R. Szeliski (2011)
+Building rome in a day.
+Communications of the ACM 54 (10), pp. 105–112.
+Cited by: §2.
+[2]
+G. Alain and Y. Bengio (2018)
+Understanding intermediate layers using linear classifier probes.
+External Links: 1610.01644,
+Link
+Cited by: §2.
+[3]
+J. T. Barron, B. Mildenhall, D. Verbin, P. P. Srinivasan, and P. Hedman (2022)
+Mip-nerf 360: unbounded anti-aliased neural radiance fields.
+CVPR.
+Cited by: Figure 5,
+Figure 5,
+§A.1,
+§3.3.
+[4]
+D. Bau, B. Zhou, A. Khosla, A. Oliva, and A. Torralba (2017)
+Network dissection: quantifying interpretability of deep visual representations.
+In Computer Vision and Pattern Recognition,
+Cited by: §2.
+[5]
+D. Bau, J. Zhu, H. Strobelt, A. Lapedriza, B. Zhou, and A. Torralba (2020)
+Understanding the role of individual units in a deep neural network.
+Proceedings of the National Academy of Sciences.
+External Links: Document,
+ISSN 0027-8424,
+Link
+Cited by: §2.
+[6]
+Y. Belinkov, N. Durrani, F. Dalvi, H. Sajjad, and J. Glass (2017)
+What do neural machine translation models learn about morphology?.
+In Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics (ACL),
+Vancouver.
+Cited by: §2.
+[7]
+A. X. Chang, T. Funkhouser, L. Guibas, P. Hanrahan, Q. Huang, Z. Li, S. Savarese, M. Savva, S. Song, H. Su, J. Xiao, L. Yi, and F. Yu (2015)
+ShapeNet: An Information-Rich 3D Model Repository.
+Technical report
+Technical Report arXiv:1512.03012 [cs.GR], Stanford University — Princeton University — Toyota Technological Institute at Chicago.
+Cited by: Figure 6,
+Figure 6,
+§A.2,
+§1,
+§3.3.
+[8]
+H. Chefer, S. Gur, and L. Wolf (2021)
+Transformer interpretability beyond attention visualization.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR),
+pp. 782–791.
+Cited by: §C.2,
+§2.
+[9]
+N. Elhage, N. Nanda, C. Olsson, T. Henighan, N. Joseph, B. Mann, A. Askell, Y. Bai, A. Chen, T. Conerly, N. DasSarma, D. Drain, D. Ganguli, Z. Hatfield-Dodds, D. Hernandez, A. Jones, J. Kernion, L. Lovitt, K. Ndousse, D. Amodei, T. Brown, J. Clark, J. Kaplan, S. McCandlish, and C. Olah (2021)
+A mathematical framework for transformer circuits.
+Transformer Circuits Thread.
+Note: https://transformer-circuits.pub/2021/framework/index.html
+Cited by: §2.
+[10]
+M. A. Fischler and R. C. Bolles (1981)
+Random sample consensus: a paradigm for model fitting with applications to image analysis and automated cartography.
+Communications of the ACM 24 (6), pp. 381–395.
+Cited by: §2.
+[11]
+M. Geva, J. Bastings, K. Filippova, and A. Globerson (2023)
+Dissecting recall of factual associations in auto-regressive language models.
+In Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing,
+Cited by: §4.3.
+[12]
+J. Han, S. Hong, J. Jung, W. Jang, H. An, Q. Wang, S. Kim, and C. Feng (2025)
+Emergent outlier view rejection in visual geometry grounded transformers.
+arXiv preprint arXiv:2512.04012.
+Cited by: §2.
+[13]
+R. I. Hartley and A. Zisserman (2004)
+Multiple view geometry in computer vision.
+Second edition, Cambridge University Press, ISBN: 0521540518.
+Cited by: §B.4,
+§2,
+§3.1.
+[14]
+R.I. Hartley (1997)
+In defense of the eight-point algorithm.
+IEEE Transactions on Pattern Analysis and Machine Intelligence 19 (6), pp. 580–593.
+External Links: Document
+Cited by: §2.
+[15]
+S. Heimersheim and N. Nanda (2024)
+How to use and interpret activation patching.
+External Links: 2404.15255,
+Link
+Cited by: §2.
+[16]
+R. Jensen, A. Dahl, G. Vogiatzis, E. Tola, and H. Aanæs (2014)
+Large scale multi-view stereopsis evaluation.
+In 2014 IEEE Conference on Computer Vision and Pattern Recognition,
+pp. 406–413.
+Cited by: Figure 5,
+Figure 5,
+§A.1,
+§3.3.
+[17]
+I. Laina, Y. M. Asano, and A. Vedaldi (2022)
+Measuring the interpretability of unsupervised representations via quantized reversed probing.
+In International Conference on Learning Representations,
+External Links: Link
+Cited by: §2.
+[18]
+V. Leroy, Y. Cabon, and J. Revaud (2024)
+Grounding image matching in 3d with mast3r.
+In ECCV,
+Cited by: §1,
+§2.
+[19]
+H. Lin, S. Chen, J. H. Liew, D. Y. Chen, Z. Li, G. Shi, J. Feng, and B. Kang (2025)
+Depth anything 3: recovering the visual space from any views.
+arXiv preprint arXiv:2511.10647.
+Cited by: §1,
+§2,
+§3.2.
+[20]
+P. Lindenberger, P. Sarlin, and M. Pollefeys (2023)
+LightGlue: Local Feature Matching at Light Speed.
+In ICCV,
+Cited by: §2.
+[21]
+D. G. Lowe (2004)
+Distinctive image features from scale-invariant keypoints.
+International journal of computer vision 60 (2), pp. 91–110.
+Cited by: Appendix E,
+§2,
+§5.1.
+[22]
+D. Maggio and L. Carlone (2026)
+VGGT-slam 2.0: real-time dense feed-forward scene reconstruction.
+External Links: 2601.19887,
+Link
+Cited by: §2.
+[23]
+D. Maggio, H. Lim, and L. Carlone (2025)
+VGGT-slam: dense rgb slam optimized on the sl(4) manifold.
+External Links: 2505.12549,
+Link
+Cited by: §2.
+[24]
+J. Min, J. Lee, J. Ponce, and M. Cho (2019)
+SPair-71k: a large-scale benchmark for semantic correspondence.
+arXiv preprint arXiv:1908.10543.
+Cited by: Figure 5,
+Figure 5,
+§A.1,
+§3.3.
+[25]
+D. Nister (2004)
+An efficient solution to the five-point relative pose problem.
+IEEE Transactions on Pattern Analysis and Machine Intelligence 26 (6), pp. 756–770.
+External Links: Document
+Cited by: §2.
+[26]
+C. Olsson, N. Elhage, N. Nanda, N. Joseph, N. DasSarma, T. Henighan, B. Mann, A. Askell, Y. Bai, A. Chen, T. Conerly, D. Drain, D. Ganguli, Z. Hatfield-Dodds, D. Hernandez, S. Johnston, A. Jones, J. Kernion, L. Lovitt, K. Ndousse, D. Amodei, T. Brown, J. Clark, J. Kaplan, S. McCandlish, and C. Olah (2022)
+In-context learning and induction heads.
+Transformer Circuits Thread.
+Note: https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html
+Cited by: §2.
+[27]
+M. Oquab, T. Darcet, T. Moutakanni, H. Vo, M. Szafraniec, V. Khalidov, P. Fernandez, D. Haziza, F. Massa, A. El-Nouby, et al. (2023)
+Dinov2: learning robust visual features without supervision.
+arXiv preprint arXiv:2304.07193.
+Cited by: §3.2,
+§5.1.
+[28]
+P. D. Sampson (1982)
+Fitting conic sections to “very scattered” data: an iterative refinement of the bookstein algorithm.
+Computer graphics and image processing 18 (1), pp. 97–108.
+Cited by: §3.1.
+[29]
+P. Sarlin, D. DeTone, T. Malisiewicz, and A. Rabinovich (2020)
+SuperGlue: learning feature matching with graph neural networks.
+In CVPR,
+External Links: Link
+Cited by: Appendix E,
+§2,
+§5.1.
+[30]
+J. L. Schönberger and J. Frahm (2016)
+Structure-from-motion revisited.
+CVPR.
+Cited by: §2.
+[31]
+T. Schöps, J. L. Schönberger, S. Galliani, T. Sattler, K. Schindler, M. Pollefeys, and A. Geiger (2017)
+A multi-view stereo benchmark with high-resolution images and multi-camera videos.
+CVPR.
+Cited by: Figure 5,
+Figure 5,
+§A.1,
+§3.3.
+[32]
+N. Snavely, S. M. Seitz, and R. Szeliski (2023)
+Photo tourism: exploring photo collections in 3d.
+In Seminal Graphics Papers: Pushing the Boundaries, Volume 2,
+External Links: ISBN 9798400708978,
+Link
+Cited by: §2.
+[33]
+M. Stary, J. Gaubil, A. Tewari, and V. Sitzmann (2025)
+Understanding multi-view transformers.
+External Links: 2510.24907,
+Link
+Cited by: §2.
+[34]
+J. Sun, Z. Shen, Y. Wang, H. Bao, and X. Zhou (2021)
+LoFTR: detector-free local feature matching with transformers.
+CVPR.
+Cited by: §2.
+[35]
+J. Wang, M. Chen, N. Karaev, A. Vedaldi, C. Rupprecht, and D. Novotny (2025)
+VGGT: visual geometry grounded transformer.
+In CVPR,
+Cited by: §1,
+§2,
+§3.2.
+[36]
+J. Wang, N. Karaev, C. Rupprecht, and D. Novotny (2024)
+VGGSfM: visual geometry grounded deep structure from motion.
+In CVPR,
+Cited by: §2.
+[37]
+S. Wang, V. Leroy, Y. Cabon, B. Chidlovskii, and J. Revaud (2024)
+DUSt3R: geometric 3d vision made easy.
+In CVPR,
+Cited by: §1,
+§2,
+§3.2.
+[38]
+J. Yang, A. Sax, K. J. Liang, M. Henaff, H. Tang, A. Cao, J. Chai, F. Meier, and M. Feiszli (2025)
+Fast3R: towards 3d reconstruction of 1000+ images in one forward pass.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §2.
+[39]
+Y. Yao, Z. Luo, S. Li, T. Fang, and L. Quan (2018)
+MVSNet: depth inference for unstructured multi-view stereo.
+European Conference on Computer Vision (ECCV).
+Cited by: §A.1,
+§3.3.
+[40]
+F. Zhang and N. Nanda (2024)
+Towards best practices of activation patching in language models: metrics and methods.
+In International Conference on Representation Learning, B. Kim, Y. Yue, S. Chaudhuri, K. Fragkiadaki, M. Khan, and Y. Sun (Eds.),
+Vol. 2024, pp. 1651–1678.
+External Links: Link
+Cited by: §2.
+[41]
+J. Zhang, C. Herrmann, J. Hur, L. P. Cabrera, V. Jampani, D. Sun, and M. Yang (2023)
+A tale of two features: stable diffusion complements dino for zero-shot semantic correspondence.
+Cited by: §C.3.
+[42]
+B. Zhou, Y. Sun, D. Bau, and A. Torralba (2018)
+Interpretable basis decomposition for visual explanation.
+In Proceedings of the European Conference on Computer Vision (ECCV),
+Cited by: §2.
+[43]
+J. Zhou, C. Wei, H. Wang, W. Shen, C. Xie, A. Yuille, and T. Kong (2021)
+Ibot: image bert pre-training with online tokenizer.
+arXiv preprint arXiv:2111.07832.
+Cited by: §5.1.
+[44]
+D. Zhuo, W. Zheng, J. Guo, Y. Wu, J. Zhou, and J. Lu (2025)
+Streaming 4d visual geometry transformer.
+arXiv preprint arXiv:2507.11539.
+Cited by: §2.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

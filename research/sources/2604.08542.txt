@@ -1,0 +1,1683 @@
+Scal3R: Scalable Test-Time Training for Large-Scale 3D Reconstruction
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Work
+3 Preliminary
+3.1 VGGT
+3.2 Test-Time Training
+4 Method
+4.1 Model Overview
+4.2 Test-Time Training as Memory
+4.3 Training
+4.4 Inference
+5 Experiment
+5.1 Pose Accuracy
+5.2 Geometry Accuracy
+5.3 Ablation Study
+6 Conclusion
+References
+A Model Details
+B Evaluation Details
+B.1 Dataset Details
+B.2 Evaluation Details
+C Additional Results
+C.1 Additional Benchmark Comparisons
+C.2 Runtime Scaling with Sequence Length
+C.3 Failure Cases
+License: arXiv.org perpetual non-exclusive license
+arXiv:2604.08542v1 [cs.CV] 09 Apr 2026
+Scal3R: Scalable Test-Time Training for Large-Scale 3D Reconstruction
+Tao Xie
+Affiliation: Zhejiang University
+Affiliation: Horizon Robotics
+Peishan Yang
+Affiliation: Zhejiang University
+Yudong Jin
+Affiliation: Zhejiang University
+Yingfeng Cai
+Affiliation: Horizon Robotics
+Wei Yin
+Affiliation: Horizon Robotics
+Weiqiang Ren
+Affiliation: Horizon Robotics
+Qian Zhang
+Affiliation: Horizon Robotics
+Wei Hua
+Affiliation: Zhejiang Lab
+Sida Peng
+Affiliation: Zhejiang University
+Xiaoyang Guo
+Xiaowei Zhou
+Abstract
+This paper addresses the task of large-scale 3D scene reconstruction from long video sequences.
+Recent feed-forward reconstruction models have shown promising results by directly regressing 3D geometry from RGB images without explicit 3D priors or geometric constraints. However, these methods often struggle to maintain reconstruction accuracy and consistency over long sequences due to limited memory capacity and the inability to effectively capture global contextual cues.
+In contrast, humans can naturally exploit the global understanding of the scene to inform local perception.
+Motivated by this, we propose a novel neural global context representation that efficiently compresses and retains long-range scene information, enabling the model to leverage extensive contextual cues for enhanced reconstruction accuracy and consistency.
+The context representation is realized through a set of lightweight neural sub-networks that are rapidly adapted during test time via self-supervised objectives, which substantially increases memory capacity without incurring significant computational overhead.
+The experiments on multiple large-scale benchmarks, including the KITTI Odometry [22] and Oxford Spires [70] datasets, demonstrate the effectiveness of our approach in handling ultra-large scenes, achieving leading pose accuracy and state-of-the-art 3D reconstruction accuracy while maintaining efficiency.
+Code is available at https://zju3dv.github.io/scal3r.
+Figure 1: Large-scale reconstruction on Oxford Spires dataset [70]. Scal3R reconstructs large-scale 3D scenes from long RGB sequences within a unified inference pipeline, yielding high reconstruction accuracy and efficiency on kilometer-scale scenes.
+††
+*The authors from Zhejiang University are affiliated with the State Key Lab of CAD&CG. \dagger Co-corresponding authors: Xiaoyang Guo, Xiaowei Zhou
+1 Introduction
+Large-scale 3D scene reconstruction plays a critical role in autonomous driving, robotics mapping, and digital twin modeling.
+Unlike object-centric or small-scale scenes, reconstructing entire environments that span kilometers brings distinct challenges, such as aligning thousands of viewpoints, integrating vastly varying depth and lighting conditions, and preserving both global consistency and fine local details.
+While traditional methods aim at large-scale reconstruction, they generally assume known camera intrinsic [43, 21, 71], or rely on auxiliary sensors (e.g., IMU [52, 98, 51], LiDAR [97, 13]) and complex multi-stage workflows [18], which restricts their flexibility.
+By contrast, the field has recently witnessed substantial advances in feed-forward models [81, 34, 89, 8, 80, 77] that directly regress scene geometry from multi-view RGB images.
+Among these, VGGT [77] stands out by adopting a unified Transformer [75] architecture to estimate camera parameters, depth maps, and point clouds in a single pass, yielding high reconstruction accuracy with low computation cost and scaling capability.
+However, the attention mechanism’s quadratic computation cost constrains their scalability to ultra-long large-scale sequences.
+FastVGGT [61] addresses the computational cost with a token-merging technique [6], which reduces attention redundancy and enables processing of larger image collections.
+However, aggressive token compression discards fine-grained spatial cues and weakens long-range dependencies, thereby undermining global structural consistency and performance.
+VGGT-Long [17], an alternative approach to improve VGGT [77], instead adopts a divide-and-conquer strategy that divides the whole sequence into overlapping chunks, reconstructs each with VGGT, and aligns adjacent chunks into a unified reconstruction.
+While this strategy alleviates the quadratic computation overhead, its alignment is highly sensitive to local accuracy.
+As each chunk is processed independently without global context, local prediction errors in large, complex scenes or with limited observations often lead to degraded performance.
+These observations highlight a key question: how can a 3D foundation model, akin to human perception, efficiently retain and leverage long-term contextual cues to improve the reconstruction accuracy across large-scale scenes?
+To address this challenge, our key idea is to develop a global context representation that effectively compresses and stores long-term scene context, coupled with an efficient aggregation and sharing mechanism to exploit this context during reconstruction.
+By bridging local observations with global context, this design improves local accuracy and enables scalable large-scale 3D reconstruction.
+To this end, we present Scal3R, a novel framework for reconstructing high-quality kilometer-scale 3D scenes from RGB-only sequences.
+Building upon VGGT [77]’s strong visual geometry reasoning capability, we address the loss of global information inherent in chunk-wise processing [17] by introducing a neural global context representation for sequence-level information aggregation.
+Inspired by recent advances in subquadratic sequence modeling [79, 100], we realize this representation with a set of online-adapted, lightweight sub-networks that efficiently aggregate long-range context during inference via self-supervised objectives.
+The resulting neural global context representation offers strong expressive capacity to compactly encode and preserve extensive context, effectively mitigating the long-range dependencies degradation caused by feature over-compression.
+However, a global context store alone is not enough, it must be exploited to enhance reconstruction.
+We therefore design a context aggregation mechanism built on our neural global context that, at test time, coordinates the self-supervised online adaptation of the lightweight sub-networks so that global cues are aggregated and shared across the entire sequence.
+Together, the representation and the aggregation endow local reconstruction with richer global priors, reducing sensitivity to sparse or ambiguous views.
+This coupling yields substantially better local accuracy and consistency while preserving the scalability and efficiency of VGGT [77], enabling large-scale training on diverse datasets.
+Extensive experiments on Virtual KITTI [7], and zero-shot evaluations on KITTI [22] and Oxford Spires [70] demonstrate Scal3R’s state-of-the-art pose estimation accuracy, showcasing its effectiveness in ultra-long sequence handling.
+Additional 3D reconstruction evaluations corroborate Scal3R’s robustness and geometric accuracy across diverse scenes, as illustrated in Section 5.
+In summary, we make the following contributions.
+•
+We present Scal3R, a novel framework capable of reconstructing high-quality kilometer-scale 3D scenes from RGB-only sequences.
+•
+We introduce a global context representation together with a context aggregation mechanism that jointly compresses, retains, and shares long-term information across sequences, enabling globally consistent and scalable reconstruction over vast environments.
+•
+Extensive evaluations on diverse large-scale datasets demonstrate that Scal3R achieves state-of-the-art performance with superior accuracy and global consistency.
+2 Related Work
+SfM and SLAM.
+Classical structure-from-motion (SfM) methods [62, 1, 59, 84, 12, 45] estimate camera poses and 3D structure through feature matching, triangulation, and bundle adjustment (BA). While accurate, they often fail in textureless areas or repetitive patterns where reliable feature correspondences are scarce.
+Learning-based extensions enhance robustness and scalability by integrating neural feature detection [19, 20, 73, 93], matching [10, 38, 65, 83, 25], or more robust 3D geometric representations [87], yet they still depend on expensive global optimization and struggle to scale to long trajectories or complex scenes.
+More recent end-to-end approaches proposed to directly regress [47, 96, 16] or solve poses via differentiable BA [68, 24, 78] or optimization [37], while eliminating explicit feature matching, they have scalability or efficiency limitations on real-world settings.
+Visual simultaneous localization and mapping (SLAM) methods, in contrast, estimate camera poses and build maps incrementally, achieving real-time performance [43, 21, 71, 72, 40, 50]. However, they typically rely on known camera intrinsics [43, 21, 71, 72, 40] or auxiliary sensors [52, 98, 51, 97, 13, 29], and can be brittle in challenging reflective scenes [26], which limits their flexibility in unconstrained settings.
+Feed-forward reconstruction models.
+A recent trend is to directly regress 3D geometry from RGB images using feed-forward neural networks, without relying on explicit 3D priors or geometric constraints.
+DUSt3R [81] and MASt3R [44] take early steps in this direction by directly predicting dense pointmaps from uncalibrated image pairs with a Transformer-based architecture, removing the need for known camera intrinsics or poses. However, their two-view design limits scalability to larger scenes.
+Subsequent studies [69, 8, 89, 99, 77] extend these ideas to multi-view settings.
+Among them, VGGT [77] achieves state-of-the-art performance, but its quadratic attention limits scalability to very long sequences.
+Online variants introduce memory state tokens [76, 80, 11] or causal Transformer structures [101, 33] to amortize computation over time, but fixed memory size or limited causal horizon still causes drift and accumulated error on long sequences. TTT3R [11] further casts memory update as test-time learning, but still relies on a fixed-size token set.
+We instead propose a scalable global context representation with larger memory capacity for long-range dependencies.
+Memory mechanisms.
+Modern recurrent neural networks (RNNs), particularly linear-attention [31, 58] variants such as Mamba [15, 23], RWKV [49], and DeltaNet [57, 90], provide an efficient alternative to standard quadratic complexity attention for context modeling and have demonstrated impressive performance in natural language tasks.
+However, these models compress the entire history into a finite-size hidden state, which limits their ability to capture complex long-range dependencies, especially in tasks like large-scale 3D perception [80, 11] and long video generation [14].
+To overcome this limitation, test-time training (TTT) [67] and its follow-ups [5, 100] have emerged as a promising technique that extends the recurrent state to an online-adapted non-linear network, substantially increasing memory capacity and improving long-term context modelling.
+In parallel, other approaches [85, 94] employ explicit caches or memory banks to store historical features. While these methods mitigate forgetting, they often face practical challenges in controlling memory growth and computational overhead.
+3 Preliminary
+We begin by introducing the preliminary concepts, including VGGT [77] and Test-Time Training (TTT) [67].
+3.1 VGGT
+Given an input RGB sequence \mathcal{I}=\{I_{i}\in\mathbb{R}^{3\times H\times W}\mid i=1,\ldots,N\} observing the same 3D scene, VGGT adopts a unified transformer f to map each frame in the sequence to its corresponding 3D annotations:
+|
+| f\bigl(\{I_{i}\}_{i=1}^{N}\bigr)=\{\boldsymbol{c}_{i},D_{i},P_{i},T_{i}\}_{i=1}^{N},
+|
+| (1)
+where \boldsymbol{c}_{i}\in\mathbb{R}^{9} , D_{i}\in\mathbb{R}^{1\times H\times W} , P_{i}\in\mathbb{R}^{3\times H\times W} , and T_{i}\in\mathbb{R}^{C\times H\times W} denote the camera parameters (intrinsic and extrinsic), depth map, point cloud, and the feature grid for point tracking of frame I_{i} , respectively.
+VGGT consists of three core components. First, a DINOv2 [9] encoder that patchfies and extracts features for each frame, which are then concatenated into image tokens \mathcal{F}=\bigcup_{i=1}^{N}\{F_{i}|F_{i}\in\mathbb{R}^{K\times C}\} .
+These tokens are then processed by a stack of 24 attention layers that alternate between frame-wise self-attention (within each image) and global self-attention (across images). This alternation enables effective modeling of both intra-frame detail and inter-frame geometry consistency.
+Finally, multiple dedicated output heads predict the camera parameters, depth maps, point clouds, and feature grids from the processed tokens.
+3.2 Test-Time Training
+Consider a one-dimensional sequence \{x_{t}\mid t=1,\ldots,N\} of N tokens, where each token x_{t}\in\mathbb{R}^{d} is a d -dimensional vector.
+To alleviate the quadratic complexity of softmax attention, recurrent neural networks (RNNs) and their variants [27, 23, 49, 49] compress sequence context into a fixed-size hidden state h_{t}\in\mathbb{R}^{d} .
+At each timestamp t , the hidden state is updated based on the current input x_{t} and the previous hidden state h_{t-1} as:
+|
+| h_{t}=\sigma(\theta_{ss}h_{t-1}+\theta_{sx}x_{t}).
+|
+| (2)
+However, this compression is inherently constrained by the representational capacity of the hidden state, leading to information degradation, especially in long sequences.
+Figure 2: Overview of Scal3R. Our model takes a long sequence of RGB images as input and reconstructs the 3D scene within a unified inference pipeline. Specifically, the input sequence is divided into overlapping chunks that are processed in parallel across multiple GPUs. Each chunk is processed by our Scal3R backbone, which incorporates our proposed neural global context representation and aggregation mechanism to capture and share global context across the entire sequence. The resulting camera poses and depth maps from all chunks are then aligned and fused to generate the final 3D reconstruction of the scene.
+To overcome this limitation, Test-Time Training (TTT) [67] introduces fast weights, a set of rapidly adaptable neural parameters W that dynamically store contextual information during inference through self-supervised updates [53].
+Unlike conventional static model parameters, TTT optimizes fast weights in an inner loop to capture contextual dependencies, while the main network parameters are trained in an outer loop for stable generalization.
+Following standard attention formulations, each input token x_{t} is projected into
+query q , key k , and value v , which are learned in the outer loop defining the attention behavior.
+While the fast weights W , updated in the inner loop, serve as dynamic memory that accumulates contextual information over time.
+TTT then defines two key operations:
+|
+| \text{{update}}:W\leftarrow W-\eta\nabla_{W}\mathcal{L}\left(f_{W}(k),v\right),
+|
+| (3)
+where \mathcal{L}(\cdot,\cdot) is loss function between the transformed key f_{W}(k) and value v , encouraging the fast weights to store accurate key–value mappings [79]. The updated fast weights W are then used to compute the output o for the current token as:
+|
+| \text{{apply}}:o=f_{W}(q).
+|
+| (4)
+By treating the context as an unlabeled dataset and the hidden state as the weights of a machine learning model, TTT effectively enlarges the context capacity beyond fixed-size vectors while retaining the scalability, as shown by recent studies [100].
+4 Method
+We introduce Scal3R, a novel framework for kilometer-scale 3D reconstruction from RGB-only sequences.
+To address the challenge of thousands of input images in VGGT [77], we embed an efficient context aggregation mechanism based on Test-Time Training to capture global contextual cues across entire sequences, while preserving VGGT’s strong geometric reasoning capabilities.
+Figure 2 gives an overview of our approach.
+In this section, we begin with the overall model architecture (Section 4.1), followed by details of our global context representation and context aggregation mechanism (Section 4.2), and finally describe the training and inference procedures (Section 4.3, 4.4).
+4.1 Model Overview
+Given a large set of input RGB images \mathcal{I} as defined in Section 3.1, directly applying VGGT [77] is infeasible due to the quadratic complexity of the attention [75] operation.
+VGGT-Long [17] mitigates this issue by partitioning the input sequence into overlapping chunks, processing each chunk independently, and then aligning adjacent results. However, this approach fails to leverage long-range contextual information and is sensitive to local inconsistencies in VGGT’s predictions.
+Inspired by the recent success of Test-Time Training (TTT) [67, 14, 100] in long-context modeling as discussed in Section 3.2, our key insight is to incorporate the TTT modules into VGGT to capture and utilize long-range dependencies across the entire sequence effectively.
+To handle the large amount of input images, we first divide the sequence \mathcal{I} into K overlapping chunks \{\mathcal{I}_{k}\mid k=1,\ldots,K\} . Let M be the chunk size and O be the overlap size, then each chunk \mathcal{I}_{k} contains images \{I_{(k-1)(M-O)+1},\ldots,I_{(k-1)(M-O)+M}\} . These chunks are then distributed across different GPUs and processed by our model in parallel, where the corresponding camera parameters \mathcal{\boldsymbol{c}}_{k} , depth maps \mathcal{D}_{k} , and point clouds \mathcal{P}_{k} are predicted.
+Global Context Memory.
+Following VGGT [77], we build our model as a large Transformer[75] comprising a DINOv2 [9] encoder, alternating attention layers, and multiple output heads for 3D predictions.
+At the core of our architecture lies a novel neural Global Context Memory (GCM) module, whose adaptive memory parameters are implemented by several Adaptive Memory Units (AMUs), as illustrated in Figure 2.
+Each AMU is implemented as a lightweight neural sub-network that is rapidly adapted during inference through self-supervised updates [67].
+The GCM module is attached after the global attention layer to capture and store long-range contextual information, as illustrated in Figure 2, we attach 4 GCM modules across our experiments.
+Formally, let \mathcal{X}_{k}^{i} denote the output tokens of the i -th global attention layer for chunk \mathcal{I}_{k} .
+The GCM module produces the updated tokens as:
+|
+| \text{gate}(\mathrm{GCM},\mathcal{X}_{k}^{i};\alpha)=\alpha\otimes\mathrm{GCM}(\mathcal{X}_{k}^{i})+\mathcal{X}_{k}^{i},
+|
+| (5)
+where \mathrm{GCM}(\cdot) denotes the context update and apply operation (detailed in Section 4.2), and \alpha\in\mathbb{R}^{d} is a learnable gate vector that adaptively balances the relative contributions of the GCM output and the original tokens.
+We formulate the standard alternating attention operation as:
+|
+| \bar{\mathcal{X}}_{k}^{i}=\text{gattn}\big(\text{fattn}(\mathcal{X}_{k}^{i})\big)+\mathcal{X}_{k}^{i},
+|
+| (6)
+where \text{fattn}(\cdot) and \text{gattn}(\cdot) denote the intra-frame and inter-frame attention operations, respectively.
+With the integration of our GCM module, the formulation now becomes:
+|
+| \bar{\mathcal{X}}_{k}^{i}=\text{gate}(\mathrm{GCM},\text{gattn}\big(\text{fattn}(\mathcal{X}_{k}^{i})\big);\alpha)+\mathcal{X}_{k}^{i},
+|
+| (7)
+and the resulting global-context enhanced tokens are then passed to the dedicated output heads to predict the 3D scene representations for each chunk.
+This simple yet effective architecture enables our model to capture long-range dependencies through the GCM modules, while preserving VGGT’s strong geometric reasoning and scalability, making large-scale training across diverse datasets possible.
+Table 1: Camera pose and resource evaluation on Virtual KITTI [7], KITTI Odometry [22], and Oxford Spires [70]. We report RRE (∘/100m), RTE (m/100m), and ATE (m). Failed scenes are assigned the worst valid score when computing dataset averages. Methods marked with † require known camera intrinsics. Best and second-best results are shown in bold and underlined.
+| Method
+| VKITTI2
+| KITTI
+| Oxford Spires
+| Resources
+| 223–837 frames, 52–711 meters
+| 271–4661 frames, 394–5067 meters
+| 351–787 frames, 280–773 meters
+| KITTI 03/04/10, avg. 758 frames
+|
+RRE \downarrow
+|
+RTE \downarrow
+|
+ATE \downarrow
+|
+RRE \downarrow
+|
+RTE \downarrow
+|
+ATE \downarrow
+|
+RRE \downarrow
+|
+RTE \downarrow
+|
+ATE \downarrow
+|
+Memory \downarrow
+|
+Time \downarrow
+|
+FPS \uparrow
+| MASt3R-SLAM [44]
+|
+15.81
+|
+70.48
+|
+78.33
+|
+22.42
+|
+67.72
+|
+191.71
+|
+59.67
+|
+29.82
+|
+29.22
+|
+6.74
+|
+99.30
+|
+7.37
+| VGGT-SLAM [41]
+|
+12.92
+|
+21.27
+|
+17.18
+|
+33.27
+|
+78.95
+|
+214.88
+|
+55.60
+|
+32.14
+|
+26.85
+|
+10.67
+|
+39.72
+|
+19.85
+| StreamVGGT [101]
+|
+13.47
+|
+58.07
+|
+68.97
+|
+24.06
+|
+84.46
+|
+226.15
+|
+71.28
+|
+37.14
+|
+34.35
+|
+6.66
+|
+32.61
+|
+23.14
+| STream3R [33]
+|
+13.46
+|
+76.06
+|
+70.87
+|
+24.06
+|
+81.63
+|
+227.77
+|
+71.29
+|
+36.65
+|
+34.65
+|
+4.70
+|
+111.23
+|
+8.19
+| CUT3R [80]
+|
+7.93
+|
+40.42
+|
+50.75
+|
+24.24
+|
+73.65
+|
+209.78
+|
+54.69
+|
+32.15
+|
+28.01
+|
+6.50
+|
+22.96
+|
+32.87
+| TTT3R [11]
+|
+5.88
+|
+16.34
+|
+23.49
+|
+21.90
+|
+68.55
+|
+177.73
+|
+62.68
+|
+35.51
+|
+31.57
+|
+4.59
+|
+23.65
+|
+31.95
+| FastVGGT [61]
+|
+3.13
+|
+38.64
+|
+21.83
+|
+22.47
+|
+69.58
+|
+206.69
+|
+65.35
+|
+37.55
+|
+31.18
+|
+22.58
+|
+48.13
+|
+18.22
+| VGGT-Long [17]
+|
+0.71
+|
+2.01
+|
+1.03
+|
+1.71
+|
+9.67
+|
+25.94
+|
+30.91
+|
+20.79
+|
+15.46
+|
+11.77
+|
+168.83
+|
+4.80
+| COLMAP [59]
+|
+2.53
+|
+7.63
+|
+9.09
+|
+0.62
+|
+15.88
+|
+37.79
+|
+0.32
+|
+0.24
+|
+0.15
+|
+0.00
+|
+6614.73
+|
+0.17
+| MASt3R-SfM [34]
+|
+18.28
+|
+23.79
+|
+40.57
+|
+25.43
+|
+53.70
+|
+171.28
+|
+25.83
+|
+28.60
+|
+25.83
+|
+8.04
+|
+2766.76
+|
+0.27
+| DROID-SLAM† [71]
+|
+26.90
+|
+41.41
+|
+2.47
+|
+25.38
+|
+58.37
+|
+50.71
+|
+23.97
+|
+45.11
+|
+23.97
+|
+10.29
+|
+56.14
+|
+13.58
+| DPVO++† [40]
+|
+0.07
+|
+0.39
+|
+0.48
+|
+0.23
+|
+15.17
+|
+52.69
+|
+29.17
+|
+30.71
+|
+29.17
+|
+0.89
+|
+20.71
+|
+35.35
+| Ours
+|
+0.41
+|
+0.78
+|
+0.85
+|
+0.97
+|
+4.61
+|
+14.55
+|
+7.87
+|
+6.55
+|
+4.45
+|
+10.32
+|
+300.76
+|
+2.53
+4.2 Test-Time Training as Memory
+Although the adaptable neural sub-networks substantially enlarge memory capacity compared to the fixed-size state token of traditional RNNs (as discussed in Section 3), existing TTT [79, 4, 30, 67] approaches still struggle to scale to long contexts.
+This limitation primarily stems from inefficient small-batch updates and sub-optimal GPU utilization, where frequent fine-grained updates hinder throughput and constrain the maximum sequence length.
+Inspired by recent work LaCT [100], which adopts extremely large chunks as the update unit in TTT to improve parallelism and GPU utilization,
+we treat all tokens \mathcal{X}_{k} within each chunk as a single update unit in our Global Context Memory (GCM) module.
+This design enables scalable updates of the non-linear Adaptive Memory Units (AMUs) (Section 4.1) within the GCM module, thereby enhancing both memory capacity and computational efficiency during training and inference.
+Specifically, as illustrated in Figure 2, the GCM module consists of three components: a query-key-value projection layer, a compact MLP network serving as the AMUs, and an output projection layer.
+Given the input tokens \mathcal{X}_{k}\in\mathbb{R}^{M\times d} of chunk \mathcal{I}_{k} , the GCM module first projects them into key and value matrices K,V\in\mathbb{R}^{M\times d} , representing the current context.
+This context is then encoded into the AMUs W\in\mathbb{R}^{H} through a chunk-wise update operation:
+|
+| \displaystyle W\leftarrow W-\nabla_{W}\sum_{i=1}^{M}\eta_{i}\mathcal{L}\big(f_{W}(k_{i}),v_{i}\big),
+|
+| (8)
+where M is the chunk size, and \eta_{i} is a token-wise learning rate predicted from the input tokens.
+We adopt a standard dot-product loss as the self-supervised objective, following the practice of [67, 100]:
+|
+| \displaystyle\mathcal{L}\big(f_{W}(K),V\big)=\sum_{i=1}^{M}-f_{W}(k_{i})^{\top}v_{i}.
+|
+| (9)
+After the update, the AMUs W store the contextual information of the current chunk \mathcal{I}_{k} , which is subsequently used to transform the query tokens Q\in\mathbb{R}^{M\times d} (also projected from \mathcal{X}_{k} ) to produce the output tokens f_{W}(Q) .
+Global Context Synchronization.
+While the GCM module effectively captures intra-chunk context, it remains confined within individual chunks and lacks the ability to exploit sequence-wide global context.
+To address this limitation, we introduce a Global Context Synchronization (GCS) mechanism that enables efficient cross-chunk aggregation and exploitation of global context during both training and inference, which is crucial for achieving consistent large-scale 3D reconstruction.
+To elaborate, we frame the partitioning of the input image set across different GPUs as a form of context parallelism [88].
+Each GPU computes the updates of its local AMUs, after which these updates are synchronized by summing the gradients and broadcasting the result across all GPUs to realize global context sharing.
+Formally, the synchronized gradient is expressed as:
+|
+| \displaystyle g=\nabla_{W}\sum_{j=1}^{K}\sum_{i=1}^{M}\eta_{i}\mathcal{L}_{i}=\sum_{j=1}^{K}\nabla_{W}\sum_{i=1}^{M}\eta_{i}\mathcal{L}_{i}
+|
+| (10)
+where K is the number of chunks and M is the chunk size.
+The aggregated gradient g is then applied to update the adaptive memory unit W on all GPUs.
+This operation is efficiently implemented using the all-reduce primitives of PyTorch [48], ensuring minimal communication overhead during both training and inference.
+By doing so, each local chunk is enriched with substantial global observations, which improves local accuracy, strengthens cross-chunk consistency, and elevates overall reconstruction performance.
+4.3 Training
+Training datasets.
+Our model is trained on the following datasets: Co3Dv2 [55], BlendedMVS [91], DL3DV [39], MegaDepth [36], WildRGB [86], ScanNet++ [92], HyperSim [56], Mapillary [2], Replica [63], MVS-Synth [28], Virtual KITTI [7], Aria Synthetic Environments [46], Aria Digital Twin [46], Taskonomy [95], Tartanair [82], Mapfree [3], SceneNet RGB-D [42], MatrixCity [35]. They span indoor/outdoor, synthetic/real-world, and different scene scales.
+For sequential datasets, we directly sample a whole consecutive image sequence as input. For unordered datasets, we randomly sample images observing the same scene and shuffle them as input. This approach ensures that the model can effectively learn from both structured and unstructured data inputs.
+Training objectives.
+Following VGGT [77], we train our model using the multi-task loss:
+|
+| \displaystyle\mathcal{L}=\lambda\mathcal{L}_{cam}+\mathcal{L}_{dpt}+\mathcal{L}_{xyz}
+|
+| (11)
+where \mathcal{L}_{cam} denotes the L1 loss supervising the camera head, while \mathcal{L}_{dpt} and \mathcal{L}_{xyz} combine confidence-weighted terms with gradient-based regularisation to supervise the depth and point-cloud heads, respectively.
+Implementation details.
+We jointly train the GCM modules and the VGGT backbone end-to-end.
+We use AdamW optimizer with a peak learning rate of 1\times 10^{-4} for GCM and 1\times 10^{-5} for the backbone. The learning rates follow a cosine decay with a 2k-iteration linear warm-up, and we apply gradient clipping with a max norm of 1.0.
+Training runs for 60k iterations on 32 A800 GPUs and completes in about 3 days.
+To improve length generalization, at each iteration, we randomly partition the 32 GPUs into different groups, each group processes different sequences and performs global context synchronization (GCS) only within the group, resulting in variable effective sequence lengths spanning from 1 to 32 chunks during training.
+4.4 Inference
+During inference, as described in Section 4.1, we first divide the input image set into overlapping chunks and assign them to multiple GPUs for parallel processing. Each GPU processes its local chunk through our model individually, while our Global Context Synchronization (GCS) mechanism (Section 4.2) enables communication of sequence-wide context across devices.
+After obtaining the 3D predictions for each chunk, we follow VGGT-Long [17] to align and fuse results across chunks.
+Specifically, we exploit the overlapping regions between adjacent chunks to compute similarity transformations for point-cloud alignment, then merge all chunks into the final kilometre-scale 3D reconstruction.
+For trajectories with revisits, we additionally use retrieval-based loop candidate discovery followed by pose-graph refinement to reduce global drift.
+Note that our method can also run on a single GPU by processing chunks sequentially, albeit with increased inference time.
+5 Experiment
+Figure 3: Camera trajectory comparison on KITTI Odometry [22] and Oxford Spires [70]. Scal3R preserves global structure with lower drift, whereas baselines often lose tracking or diverge on long sequences.
+We evaluate Scal3R on multiple benchmarks, including long sequence pose accuracy and 3D reconstruction accuracy. In addition, we conduct several ablation studies to analyze the impact of our key design choices.
+5.1 Pose Accuracy
+Datasets and metrics.
+We evaluate pose accuracy on three representative datasets: Virtual KITTI (v2.0.3) [7], KITTI Odometry [22], and Oxford Spires [70].
+Virtual KITTI [7] is an in-domain synthetic dataset with 5 sequences spanning diverse weather and lighting conditions.
+The other two are out-of-domain, real-world benchmarks:
+KITTI Odometry [22], containing 11 sequences collected from urban driving scenarios with varying lengths, and
+Oxford Spires [70], consisting of 6 sequences with challenging loop closures across indoor and outdoor scenes.
+We report the Absolute Trajectory Error (ATE), Relative Rotation Error (RRE), and Relative Translation Error (RTE) after Sim(3) alignment with the ground truth. Details of the evaluation protocol are provided in the supplementary material.
+We further report extended pose comparisons on two dense long-video benchmarks, ScanNet++ [92] and TUM-RGBD [64], as well as Waymo [66] for outdoor driving scenes. Detailed results are provided in Table 4 of the supplementary material.
+Figure 4: Qualitative comparison of point-cloud reconstruction on outdoor and indoor scenes. Scal3R reconstructs large-scale outdoor scenes more reliably and preserves more consistent local geometry indoors.
+Table 2: 3D reconstruction evaluation on ETH3D [60], Oxford Spires [70], and Virtual KITTI [7]. We report Chamfer Distance (CD) and F1 score. Best and second-best results are shown in bold and underlined.
+| Method
+| ETH3D
+| Oxford Spires
+| VKITTI2
+| CD \downarrow
+| F1 \uparrow
+| CD \downarrow
+| F1 \uparrow
+| CD \downarrow
+| F1 \uparrow
+| MASt3R-SLAM [44]
+| 0.89
+| 0.31
+| 7.78
+| 0.53
+| 17.08
+| 0.33
+| VGGT-SLAM [41]
+| 0.78
+| 0.72
+| 10.16
+| 0.22
+| 9.74
+| 0.57
+| StreamVGGT [101]
+| 1.86
+| 0.14
+| 12.23
+| 0.25
+| 20.45
+| 0.35
+| STream3R [33]
+| 1.81
+| 0.14
+| 12.20
+| 0.25
+| 18.77
+| 0.36
+| CUT3R [80]
+| 0.41
+| 0.60
+| 6.93
+| 0.45
+| 5.67
+| 0.39
+| TTT3R [11]
+| 0.43
+| 0.59
+| 9.03
+| 0.31
+| 3.49
+| 0.49
+| FastVGGT [61]
+| 0.50
+| 0.70
+| 2.76
+| 0.76
+| 1.73
+| 0.67
+| VGGT-Long [17]
+| 0.24
+| 0.84
+| 3.41
+| 0.80
+| 1.78
+| 0.70
+| Ours
+| 0.11
+| 0.91
+| 0.96
+| 0.96
+| 0.40
+| 0.91
+Baseline comparisons.
+We compare our Scal3R against extensive baselines, including VGGT-Long [17], FastVGGT [61], foundation models with memory mechanisms CUT3R [80], STream3R [33], StreamVGGT [101], TTT3R [11], and recent learning-based SLAM methods MASt3R-SLAM [44] and VGGT-SLAM [41]. We also include SfM baselines COLMAP [59], MASt3R-SfM [34] and classical SLAM baselines DROID-SLAM [71], DPVO++ [40], which assume known camera intrinsics.
+As shown in Table 1 and Figure 3, Scal3R consistently outperforms feed-forward and streaming baselines across the reported metrics.
+On long, challenging sequences, several baselines suffer from tracking failures (e.g., MASt3R-SLAM [44], VGGT-SLAM [41]) or out-of-memory errors (e.g., FastVGGT [61]).
+Notably, while TTT3R [11] improves over CUT3R [80] by introducing online learning for better memory updates, it still struggles on long sequences due to limited memory capacity.
+Even the most competitive baseline VGGT-Long [17], while strong on KITTI Odometry, lags behind Scal3R and degrades notably on other datasets.
+Classical SfM can remain competitive when feature matching and global optimization are well conditioned, as seen from COLMAP on Oxford Spires. However, it degrades on the longer, larger-scale video benchmarks considered here and is extremely slow.
+These results validate the effectiveness of our global context and aggregation mechanism in capturing long-term dependencies, yielding substantial gains in pose estimation accuracy.
+Resource comparison.
+The last three columns of Table 1 report peak GPU memory, total inference time, and throughput on KITTI sequences 03, 04, and 10 (avg. 758 frames). All methods run on a single RTX 4090 except FastVGGT, which requires an A800.
+Compared with FastVGGT, Scal3R remains practical on a single GPU with moderate memory consumption while avoiding the substantial memory growth of long-context models.
+Although lightweight online systems such as DPVO++ and CUT3R achieve higher throughput, our method provides substantially stronger accuracy on long sequences, while COLMAP is over 20\times slower than Scal3R.
+Runtime scaling with sequence length is further analyzed in the supplementary material, where runtime grows smoothly while Relative Pose Error (RPE) remains stable.
+5.2 Geometry Accuracy
+Datasets and metrics.
+We evaluate 3D reconstruction on ETH3D [60], Virtual KITTI [7], and Oxford Spires [70], with 11, 50, and 6 scenes, respectively. These datasets cover diverse indoor and outdoor environments with varying scales and complexities.
+We report Chamfer distance and F1 score on point clouds reconstructed from the predicted poses and depth maps, after aligning them to the ground truth using the Umeyama algorithm [74].
+Baseline comparisons.
+Under the same setting as Sec. 5.1, Scal3R achieves strong geometric accuracy in Table 2.
+As in pose evaluation, methods that encounter tracking failures, OOM errors, or large pose deviations typically cannot produce valid reconstructions.
+Moreover, performance on ETH3D [60] demonstrates good transfer to shorter indoor sequences, indicating the robustness of Scal3R.
+Figure 4 illustrates qualitative comparisons, where Scal3R produces more accurate large-scale reconstructions and more consistent local geometry.
+5.3 Ablation Study
+We ablate two key design choices in Scal3R: the state size of the lightweight sub-networks and the global context design. All ablation models are trained and evaluated on a subset of the datasets listed in Sec. 4.3, as detailed in the supplementary material.
+State size of sub-networks.
+Increasing the lightweight sub-network state size from 1M to 4M improves ATE, RTE, and RRE in the left block of Table 3, suggesting that larger state capacity helps preserve long-range context.
+Table 3: Ablation studies. Left: varying GCM state size. Right: ablating global context on a complementary long-sequence setting. The two blocks are not directly comparable. Best and second-best results are shown in bold and underlined.
+| State Size
+| Global Context
+| Variants
+| RRE \downarrow
+| RTE \downarrow
+| ATE \downarrow
+| Variants
+| RRE \downarrow
+| RTE \downarrow
+| ATE \downarrow
+| 1M size
+| 1.01
+| 1.01
+| 0.99
+| w/o GCM
+| 1.30
+| 7.03
+| 19.00
+| 2M size
+| 0.95
+| 0.91
+| 0.93
+| w/o GCS
+| 1.28
+| 7.01
+| 15.80
+| 4M size
+| 0.87
+| 0.84
+| 0.85
+| Full model
+| 1.17
+| 5.99
+| 13.70
+Global context mechanism.
+We also ablate ‘w/o GCS’, which removes cross-chunk context synchronization, and ‘w/o GCM’, which removes the global context memory. In the right block of Table 3, both variants worsen ATE relative to the full model, with the larger drop for ‘w/o GCM’ showing that GCM carries primary long-range context while GCS helps propagate it across chunks.
+6 Conclusion
+We present Scal3R, a scalable framework for 3D reconstruction from long RGB sequences. It combines neural global context with online-adapted lightweight sub-networks and context aggregation to preserve long-range dependencies efficiently. Extensive experiments demonstrate Scal3R’s state-of-the-art pose estimation and 3D geometry accuracy.
+Acknowledgment. This work was partially supported by National Key R&D Program of China (No. 2024YFB2809105), NSFC (No. U24B20154), and Information Technology Center and State Key Lab of CAD&CG, Zhejiang University. We thank Tianyuan Zhang for helpful discussions on LaCT and Dongli Tan for valuable discussions.
+References
+[1]
+S. Agarwal, Y. Furukawa, N. Snavely, I. Simon, B. Curless, S. M. Seitz, and R. Szeliski (2011)
+Building rome in a day.
+Communications of the ACM 54 (10), pp. 105–112.
+Cited by: §2.
+[2]
+M. L. Antequera, P. Gargallo, M. Hofinger, S. R. Bulo, Y. Kuang, and P. Kontschieder (2020)
+Mapillary planet-scale depth dataset.
+In European Conference on Computer Vision,
+pp. 589–604.
+Cited by: §4.3.
+[3]
+E. Arnold, J. Wynn, S. Vicente, G. Garcia-Hernando, Á. Monszpart, V. A. Prisacariu, D. Turmukhambetov, and E. Brachmann (2022)
+Map-free visual relocalization: metric pose relative to a single image.
+In ECCV,
+Cited by: §4.3.
+[4]
+A. Behrouz, M. Razaviyayn, P. Zhong, and V. Mirrokni (2025)
+It’s all connected: a journey through test-time memorization, attentional bias, retention, and online optimization.
+arXiv preprint arXiv:2504.13173.
+Cited by: §4.2.
+[5]
+A. Behrouz, P. Zhong, and V. Mirrokni (2024)
+Titans: learning to memorize at test time.
+arXiv preprint arXiv:2501.00663.
+Cited by: §2.
+[6]
+D. Bolya and J. Hoffman (2023)
+Token merging for fast stable diffusion.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 4599–4603.
+Cited by: §1.
+[7]
+Y. Cabon, N. Murray, and M. Humenberger (2020)
+Virtual kitti 2.
+arXiv preprint arXiv:2001.10773.
+Cited by: §B.1,
+§B.1,
+§B.2,
+§B.2,
+§1,
+§4.3,
+Table 1,
+Table 1,
+§5.1,
+§5.2,
+Table 2.
+[8]
+Y. Cabon, L. Stoffl, L. Antsfeld, G. Csurka, B. Chidlovskii, J. Revaud, and V. Leroy (2025)
+Must3r: multi-view network for stereo 3d reconstruction.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 1050–1060.
+Cited by: §1,
+§2.
+[9]
+M. Caron, H. Touvron, I. Misra, H. Jégou, J. Mairal, P. Bojanowski, and A. Joulin (2021)
+Emerging properties in self-supervised vision transformers.
+In Proceedings of the International Conference on Computer Vision (ICCV),
+Cited by: §3.1,
+§4.1.
+[10]
+H. Chen, Z. Luo, J. Zhang, L. Zhou, X. Bai, Z. Hu, C. Tai, and L. Quan (2021)
+Learning to match features with seeded graph matching network.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 6301–6310.
+Cited by: §2.
+[11]
+X. Chen, Y. Chen, Y. Xiu, A. Geiger, and A. Chen (2025)
+TTT3R: 3d reconstruction as test-time training.
+arXiv preprint arXiv:2509.26645.
+Cited by: §B.2,
+Table 4,
+§2,
+§2,
+Table 1,
+§5.1,
+Table 2.
+[12]
+Z. Cui and P. Tan (2015)
+Global structure-from-motion by similarity averaging.
+In Proceedings of the IEEE international conference on computer vision,
+pp. 864–872.
+Cited by: §2.
+[13]
+K. Ćwian, M. R. Nowicki, J. Wietrzykowski, and P. Skrzypczyński (2021)
+Large-scale lidar slam with factor graph optimization on high-level geometric features.
+Sensors 21 (10), pp. 3445.
+Cited by: §1,
+§2.
+[14]
+K. Dalal, D. Koceja, J. Xu, Y. Zhao, S. Han, K. C. Cheung, J. Kautz, Y. Choi, Y. Sun, and X. Wang (2025)
+One-minute video generation with test-time training.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 17702–17711.
+Cited by: §2,
+§4.1.
+[15]
+T. Dao and A. Gu (2024)
+Transformers are ssms: generalized models and efficient algorithms through structured state space duality.
+arXiv preprint arXiv:2405.21060.
+Cited by: §2.
+[16]
+J. Deng, H. Li, T. Xie, W. Ren, Q. Zhang, P. Tan, and X. Guo (2025)
+SAIL-recon: large sfm by augmenting scene regression with localization.
+arXiv preprint arXiv:2508.17972.
+Cited by: §2.
+[17]
+K. Deng, Z. Ti, J. Xu, J. Yang, and J. Xie (2025)
+VGGT-long: chunk it, loop it, align it–pushing vggt’s limits on kilometer-scale long rgb sequences.
+arXiv preprint arXiv:2507.16443.
+Cited by: §B.2,
+§B.2,
+§C.1,
+Table 4,
+§1,
+§1,
+§4.1,
+§4.4,
+Table 1,
+§5.1,
+Table 2.
+[18]
+K. Deng, Y. Zhang, J. Yang, and J. Xie (2025)
+GigaSLAM: large-scale monocular slam with hierarchical gaussian splats.
+arXiv preprint arXiv:2503.08071.
+Cited by: §1.
+[19]
+D. DeTone, T. Malisiewicz, and A. Rabinovich (2018)
+Superpoint: self-supervised interest point detection and description.
+In Proceedings of the IEEE conference on computer vision and pattern recognition workshops,
+pp. 224–236.
+Cited by: §2.
+[20]
+M. Dusmanu, I. Rocco, T. Pajdla, M. Pollefeys, J. Sivic, A. Torii, and T. Sattler (2019)
+D2-net: a trainable cnn for joint description and detection of local features.
+In Proceedings of the ieee/cvf conference on computer vision and pattern recognition,
+pp. 8092–8101.
+Cited by: §2.
+[21]
+X. Gao, R. Wang, N. Demmel, and D. Cremers (2018)
+LDSO: direct sparse odometry with loop closure.
+In 2018 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS),
+pp. 2198–2204.
+Cited by: §1,
+§2.
+[22]
+A. Geiger, P. Lenz, and R. Urtasun (2012)
+Are we ready for autonomous driving? the kitti vision benchmark suite.
+In Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §B.1,
+§B.1,
+§B.2,
+§B.2,
+§1,
+Table 1,
+Table 1,
+Figure 3,
+Figure 3,
+§5.1,
+Abstract.
+[23]
+A. Gu and T. Dao (2024)
+Mamba: linear-time sequence modeling with selective state spaces.
+In First conference on language modeling,
+Cited by: §2,
+§3.2.
+[24]
+X. Gu, W. Yuan, Z. Dai, C. Tang, S. Zhu, and P. Tan (2021)
+Dro: deep recurrent optimizer for structure-from-motion.
+arXiv preprint arXiv:2103.13201 2 (3), pp. 7.
+Cited by: §2.
+[25]
+X. He, J. Sun, Y. Wang, S. Peng, Q. Huang, H. Bao, and X. Zhou (2024)
+Detector-free structure from motion.
+CVPR.
+Cited by: §2.
+[26]
+P. Herbert, J. Wu, Z. Ji, and Y. Lai (2024)
+Benchmarking visual slam methods in mirror environments.
+Computational Visual Media 10 (2), pp. 215–241.
+Cited by: §2.
+[27]
+S. Hochreiter and J. Schmidhuber (1997)
+Long short-term memory.
+Neural computation 9 (8), pp. 1735–1780.
+Cited by: §3.2.
+[28]
+P. Huang, K. Matzen, J. Kopf, N. Ahuja, and J. Huang (2018)
+Deepmvs: learning multi-view stereopsis.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 2821–2830.
+Cited by: §4.3.
+[29]
+J. Jiao, Y. Zhu, H. Ye, H. Huang, P. Yun, L. Jiang, L. Wang, and M. Liu (2021)
+Greedy-based feature selection for efficient lidar slam.
+In 2021 IEEE international conference on robotics and automation (ICRA),
+pp. 5222–5228.
+Cited by: §2.
+[30]
+M. Karami and V. Mirrokni (2025)
+Lattice: learning to efficiently compress the memory.
+arXiv preprint arXiv:2504.05646.
+Cited by: §4.2.
+[31]
+A. Katharopoulos, A. Vyas, N. Pappas, and F. Fleuret (2020)
+Transformers are rnns: fast autoregressive transformers with linear attention.
+In International conference on machine learning,
+pp. 5156–5165.
+Cited by: §2.
+[32]
+A. Knapitsch, J. Park, Q. Zhou, and V. Koltun (2017)
+Tanks and temples: benchmarking large-scale scene reconstruction.
+ACM Transactions on Graphics (ToG) 36 (4), pp. 1–13.
+Cited by: §B.2.
+[33]
+Y. Lan, Y. Luo, F. Hong, S. Zhou, H. Chen, Z. Lyu, S. Yang, B. Dai, C. C. Loy, and X. Pan (2025)
+STream3R: scalable sequential 3d reconstruction with causal transformer.
+arXiv preprint arXiv:2508.10893.
+Cited by: §B.2,
+§B.2,
+Table 4,
+§2,
+Table 1,
+§5.1,
+Table 2.
+[34]
+V. Leroy, Y. Cabon, and J. Revaud (2024)
+Grounding image matching in 3d with mast3r.
+In European Conference on Computer Vision,
+pp. 71–91.
+Cited by: Table 4,
+§1,
+Table 1,
+§5.1.
+[35]
+Y. Li, L. Jiang, L. Xu, Y. Xiangli, Z. Wang, D. Lin, and B. Dai (2023)
+MatrixCity: a large-scale city dataset for city-scale neural rendering and beyond.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 3205–3215.
+Cited by: §4.3.
+[36]
+Z. Li and N. Snavely (2018)
+Megadepth: learning single-view depth prediction from internet photos.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 2041–2050.
+Cited by: §4.3.
+[37]
+C. Lin, C. Sun, F. Yang, M. Chen, Y. Lin, and Y. Liu (2025)
+Longsplat: robust unposed 3d gaussian splatting for casual long videos.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 27412–27422.
+Cited by: §2.
+[38]
+P. Lindenberger, P. Sarlin, and M. Pollefeys (2023)
+Lightglue: local feature matching at light speed.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 17627–17638.
+Cited by: §2.
+[39]
+L. Ling, Y. Sheng, Z. Tu, W. Zhao, C. Xin, K. Wan, L. Yu, Q. Guo, Z. Yu, Y. Lu, et al. (2024)
+Dl3dv-10k: a large-scale scene dataset for deep learning-based 3d vision.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 22160–22169.
+Cited by: §4.3.
+[40]
+L. Lipson, Z. Teed, and J. Deng (2024)
+Deep patch visual slam.
+In European Conference on Computer Vision,
+pp. 424–440.
+Cited by: Table 4,
+§2,
+Table 1,
+§5.1.
+[41]
+D. Maggio, H. Lim, and L. Carlone (2025)
+Vggt-slam: dense rgb slam optimized on the sl (4) manifold.
+arXiv preprint arXiv:2505.12549.
+Cited by: §B.2,
+Table 4,
+Table 1,
+§5.1,
+Table 2.
+[42]
+J. McCormac, A. Handa, S. Leutenegger, and A. J. Davison (2016)
+Scenenet rgb-d: 5m photorealistic images of synthetic indoor trajectories with ground truth.
+arXiv preprint arXiv:1612.05079.
+Cited by: §4.3.
+[43]
+R. Mur-Artal, J. M. M. Montiel, and J. D. Tardos (2015)
+ORB-slam: a versatile and accurate monocular slam system.
+IEEE transactions on robotics 31 (5), pp. 1147–1163.
+Cited by: §1,
+§2.
+[44]
+R. Murai, E. Dexheimer, and A. J. Davison (2025)
+MASt3R-slam: real-time dense slam with 3d reconstruction priors.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 16695–16705.
+Cited by: §B.2,
+Table 4,
+§2,
+Table 1,
+§5.1,
+Table 2.
+[45]
+L. Pan, D. Baráth, M. Pollefeys, and J. L. Schönberger (2024)
+Global structure-from-motion revisited.
+In European Conference on Computer Vision,
+pp. 58–77.
+Cited by: §2.
+[46]
+X. Pan, N. Charron, Y. Yang, S. Peters, T. Whelan, C. Kong, O. Parkhi, R. Newcombe, and Y. C. Ren (2023)
+Aria digital twin: a new benchmark dataset for egocentric 3d machine perception.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 20133–20143.
+Cited by: §B.2,
+§4.3.
+[47]
+C. M. Parameshwara, G. Hari, C. Fermüller, N. J. Sanket, and Y. Aloimonos (2022)
+Diffposenet: direct differentiable camera pose estimation.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 6845–6854.
+Cited by: §2.
+[48]
+A. Paszke, S. Gross, F. Massa, A. Lerer, J. Bradbury, G. Chanan, T. Killeen, Z. Lin, N. Gimelshein, L. Antiga, A. Desmaison, A. Köpf, E. Yang, Z. DeVito, M. Raison, A. Tejani, S. Chilamkurthy, B. Steiner, L. Fang, J. Bai, and S. Chintala (2019)
+PyTorch: an imperative style, high-performance deep learning library.
+External Links: 1912.01703,
+Link
+Cited by: §4.2.
+[49]
+B. Peng, E. Alcaide, Q. Anthony, A. Albalak, S. Arcadinho, S. Biderman, H. Cao, X. Cheng, M. Chung, M. Grella, et al. (2023)
+Rwkv: reinventing rnns for the transformer era.
+arXiv preprint arXiv:2305.13048.
+Cited by: §2,
+§3.2.
+[50]
+Z. Peng, K. Zhou, and T. Shao (2025)
+Gaussian-plus-sdf slam: high-fidelity 3d reconstruction at 150+ fps.
+Computational Visual Media.
+Cited by: §2.
+[51]
+T. Qin, P. Li, and S. Shen (2018)
+Relocalization, global optimization and map merging for monocular visual-inertial slam.
+In 2018 IEEE International Conference on Robotics and Automation (ICRA),
+pp. 1197–1204.
+Cited by: §1,
+§2.
+[52]
+T. Qin, P. Li, and S. Shen (2018)
+Vins-mono: a robust and versatile monocular visual-inertial state estimator.
+IEEE transactions on robotics 34 (4), pp. 1004–1020.
+Cited by: §1,
+§2.
+[53]
+R. Raina, A. Battle, H. Lee, B. Packer, and A. Y. Ng (2007)
+Self-taught learning: transfer learning from unlabeled data.
+In Proceedings of the 24th international conference on Machine learning,
+pp. 759–766.
+Cited by: §3.2.
+[54]
+R. Ranftl, A. Bochkovskiy, and V. Koltun (2021)
+Vision transformers for dense prediction.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 12179–12188.
+Cited by: Appendix A.
+[55]
+J. Reizenstein, R. Shapovalov, P. Henzler, L. Sbordone, P. Labatut, and D. Novotny (2021)
+Common objects in 3d: large-scale learning and evaluation of real-life 3d category reconstruction.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 10901–10911.
+Cited by: §B.2,
+§4.3.
+[56]
+M. Roberts, J. Ramapuram, A. Ranjan, A. Kumar, M. A. Bautista, N. Paczan, R. Webb, and J. M. Susskind (2021)
+Hypersim: a photorealistic synthetic dataset for holistic indoor scene understanding.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 10912–10922.
+Cited by: §4.3.
+[57]
+I. Schlag, K. Irie, and J. Schmidhuber (2021)
+Linear transformers are secretly fast weight programmers.
+In International conference on machine learning,
+pp. 9355–9366.
+Cited by: §2.
+[58]
+J. Schmidhuber (1992)
+Learning to control fast-weight memories: an alternative to dynamic recurrent networks.
+Neural Computation 4 (1), pp. 131–139.
+Cited by: §2.
+[59]
+J. L. Schonberger and J. Frahm (2016)
+Structure-from-motion revisited.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 4104–4113.
+Cited by: Table 4,
+§2,
+Table 1,
+§5.1.
+[60]
+T. Schöps, T. Sattler, and M. Pollefeys (2019)
+BAD SLAM: bundle adjusted direct RGB-D SLAM.
+In Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §B.1,
+§B.1,
+§B.2,
+§5.2,
+§5.2,
+Table 2.
+[61]
+Y. Shen, Z. Zhang, Y. Qu, and L. Cao (2025)
+Fastvggt: training-free acceleration of visual geometry transformer.
+arXiv preprint arXiv:2509.02560.
+Cited by: §B.2,
+Table 4,
+§1,
+Table 1,
+§5.1,
+Table 2.
+[62]
+N. Snavely, S. M. Seitz, and R. Szeliski (2006)
+Photo tourism: exploring photo collections in 3d.
+In ACM siggraph 2006 papers,
+pp. 835–846.
+Cited by: §2.
+[63]
+J. Straub, T. Whelan, L. Ma, Y. Chen, E. Wijmans, S. Green, J. J. Engel, R. Mur-Artal, C. Ren, S. Verma, et al. (2019)
+The replica dataset: a digital replica of indoor spaces.
+arXiv preprint arXiv:1906.05797.
+Cited by: §4.3.
+[64]
+J. Sturm, N. Engelhard, F. Endres, W. Burgard, and D. Cremers (2012)
+A benchmark for the evaluation of rgb-d slam systems.
+In 2012 IEEE/RSJ international conference on intelligent robots and systems,
+pp. 573–580.
+Cited by: §C.1,
+§5.1.
+[65]
+J. Sun, Z. Shen, Y. Wang, H. Bao, and X. Zhou (2021)
+LoFTR: detector-free local feature matching with transformers.
+CVPR.
+Cited by: §2.
+[66]
+P. Sun, H. Kretzschmar, X. Dotiwalla, A. Chouard, V. Patnaik, P. Tsui, J. Guo, Y. Zhou, Y. Chai, B. Caine, et al. (2020)
+Scalability in perception for autonomous driving: waymo open dataset.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 2446–2454.
+Cited by: §C.1,
+§5.1.
+[67]
+Y. Sun, X. Li, K. Dalal, J. Xu, A. Vikram, G. Zhang, Y. Dubois, X. Chen, X. Wang, S. Koyejo, et al. (2024)
+Learning to (learn at test time): rnns with expressive hidden states.
+arXiv preprint arXiv:2407.04620.
+Cited by: §2,
+§3.2,
+§3,
+§4.1,
+§4.1,
+§4.2,
+§4.2.
+[68]
+C. Tang and P. Tan (2018)
+Ba-net: dense bundle adjustment network.
+arXiv preprint arXiv:1806.04807.
+Cited by: §2.
+[69]
+Z. Tang, Y. Fan, D. Wang, H. Xu, R. Ranjan, A. Schwing, and Z. Yan (2024)
+MV-dust3r+: single-stage scene reconstruction from sparse views in 2 seconds.
+arXiv preprint arXiv:2412.06974.
+Cited by: §2.
+[70]
+Y. Tao, M. Á. Muñoz-Bañón, L. Zhang, J. Wang, L. F. T. Fu, and M. Fallon (2025)
+The oxford spires dataset: benchmarking large-scale lidar-visual localisation, reconstruction and radiance field methods.
+International Journal of Robotics Research.
+Cited by: §B.1,
+§B.1,
+§B.2,
+§B.2,
+Figure 1,
+Figure 1,
+§1,
+Table 1,
+Table 1,
+Figure 3,
+Figure 3,
+§5.1,
+§5.2,
+Table 2,
+Abstract.
+[71]
+Z. Teed and J. Deng (2021)
+Droid-slam: deep visual slam for monocular, stereo, and rgb-d cameras.
+Advances in neural information processing systems 34, pp. 16558–16569.
+Cited by: Table 4,
+§1,
+§2,
+Table 1,
+§5.1.
+[72]
+Z. Teed, L. Lipson, and J. Deng (2023)
+Deep patch visual odometry.
+Advances in Neural Information Processing Systems 36, pp. 39033–39051.
+Cited by: §2.
+[73]
+M. Tyszkiewicz, P. Fua, and E. Trulls (2020)
+Disk: learning local features with policy gradient.
+Advances in neural information processing systems 33, pp. 14254–14265.
+Cited by: §2.
+[74]
+S. Umeyama (2002)
+Least-squares estimation of transformation parameters between two point patterns.
+IEEE Transactions on pattern analysis and machine intelligence 13 (4), pp. 376–380.
+Cited by: §B.2,
+§5.2.
+[75]
+A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. Polosukhin (2017)
+Attention is all you need.
+Advances in neural information processing systems 30.
+Cited by: §1,
+§4.1,
+§4.1.
+[76]
+H. Wang and L. Agapito (2024)
+3D reconstruction with spatial memory.
+arXiv preprint arXiv:2408.16061.
+Cited by: §2.
+[77]
+J. Wang, M. Chen, N. Karaev, A. Vedaldi, C. Rupprecht, and D. Novotny (2025)
+Vggt: visual geometry grounded transformer.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5294–5306.
+Cited by: Appendix A,
+§1,
+§1,
+§1,
+§1,
+§2,
+§3,
+§4.1,
+§4.1,
+§4.3,
+§4.
+[78]
+J. Wang, N. Karaev, C. Rupprecht, and D. Novotny (2024)
+Vggsfm: visual geometry grounded deep structure from motion.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 21686–21697.
+Cited by: §2.
+[79]
+K. A. Wang, J. Shi, and E. B. Fox (2025)
+Test-time regression: a unifying framework for designing sequence models with associative memory.
+arXiv preprint arXiv:2501.12352.
+Cited by: §1,
+§3.2,
+§4.2.
+[80]
+Q. Wang, Y. Zhang, A. Holynski, A. A. Efros, and A. Kanazawa (2025)
+Continuous 3d perception model with persistent state.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 10510–10522.
+Cited by: §B.2,
+Table 4,
+§1,
+§2,
+§2,
+Table 1,
+§5.1,
+Table 2.
+[81]
+S. Wang, V. Leroy, Y. Cabon, B. Chidlovskii, and J. Revaud (2024)
+Dust3r: geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20697–20709.
+Cited by: §1,
+§2.
+[82]
+W. Wang, D. Zhu, X. Wang, Y. Hu, Y. Qiu, C. Wang, Y. Hu, A. Kapoor, and S. Scherer (2020)
+TartanAir: a dataset to push the limits of visual slam.
+Cited by: §4.3.
+[83]
+Y. Wang, X. He, S. Peng, D. Tan, and X. Zhou (2024)
+Efficient LoFTR: semi-dense local feature matching with sparse-like speed.
+In CVPR,
+Cited by: §2.
+[84]
+K. Wilson and N. Snavely (2014)
+Robust global translations with 1dsfm.
+In European conference on computer vision,
+pp. 61–75.
+Cited by: §2.
+[85]
+Y. Wu, W. Zheng, J. Zhou, and J. Lu (2025)
+Point3R: streaming 3d reconstruction with explicit spatial pointer memory.
+arXiv preprint arXiv:2507.02863.
+Cited by: §2.
+[86]
+H. Xia, Y. Fu, S. Liu, and X. Wang (2024)
+Rgbd objects in the wild: scaling real-world 3d object learning from rgb-d videos.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 22378–22389.
+Cited by: §B.2,
+§4.3.
+[87]
+M. Xu, Z. Zhou, Y. Wang, and Y. Qiao (2024)
+Towards robustness and generalization of point cloud representation: a geometry coding method and a large-scale object-level dataset.
+Computational Visual Media 10 (1), pp. 27–43.
+Cited by: §2.
+[88]
+A. Yang, J. Yang, A. Ibrahim, X. Xie, B. Tang, G. Sizov, J. Reizenstein, J. Park, and J. Huang (2024)
+Context parallelism for scalable million-token inference.
+arXiv preprint arXiv:2411.01783.
+Cited by: §4.2.
+[89]
+J. Yang, A. Sax, K. J. Liang, M. Henaff, H. Tang, A. Cao, J. Chai, F. Meier, and M. Feiszli (2025)
+Fast3r: towards 3d reconstruction of 1000+ images in one forward pass.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 21924–21935.
+Cited by: §1,
+§2.
+[90]
+S. Yang, B. Wang, Y. Zhang, Y. Shen, and Y. Kim (2024)
+Parallelizing linear transformers with the delta rule over sequence length.
+Advances in neural information processing systems 37, pp. 115491–115522.
+Cited by: §2.
+[91]
+Y. Yao, Z. Luo, S. Li, J. Zhang, Y. Ren, L. Zhou, T. Fang, and L. Quan (2020)
+Blendedmvs: a large-scale dataset for generalized multi-view stereo networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 1790–1799.
+Cited by: §4.3.
+[92]
+C. Yeshwanth, Y. Liu, M. Nießner, and A. Dai (2023)
+Scannet++: a high-fidelity dataset of 3d indoor scenes.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 12–22.
+Cited by: §C.1,
+§4.3,
+§5.1.
+[93]
+K. M. Yi, E. Trulls, V. Lepetit, and P. Fua (2016)
+Lift: learned invariant feature transform.
+In European conference on computer vision,
+pp. 467–483.
+Cited by: §2.
+[94]
+J. Yu, J. Bai, Y. Qin, Q. Liu, X. Wang, P. Wan, D. Zhang, and X. Liu (2025)
+Context as memory: scene-consistent interactive long video generation with memory retrieval.
+arXiv preprint arXiv:2506.03141.
+Cited by: §2.
+[95]
+A. R. Zamir, A. Sax, W. B. Shen, L. Guibas, J. Malik, and S. Savarese (2018)
+Taskonomy: disentangling task transfer learning.
+In 2018 IEEE Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §4.3.
+[96]
+J. Y. Zhang, D. Ramanan, and S. Tulsiani (2022)
+Relpose: predicting probabilistic relative rotation for single objects in the wild.
+In European Conference on Computer Vision,
+pp. 592–611.
+Cited by: §2.
+[97]
+J. Zhang S. Singh et al. (2014)
+LOAM: lidar odometry and mapping in real-time..
+In Robotics: Science and systems,
+Vol. 2, pp. 1–9.
+Cited by: §1,
+§2.
+[98]
+J. Zhang and S. Singh (2015)
+Visual-lidar odometry and mapping: low-drift, robust, and fast.
+In 2015 IEEE international conference on robotics and automation (ICRA),
+pp. 2174–2181.
+Cited by: §1,
+§2.
+[99]
+S. Zhang, J. Wang, Y. Xu, N. Xue, C. Rupprecht, X. Zhou, Y. Shen, and G. Wetzstein (2025)
+FLARE: feed-forward geometry, appearance and camera estimation from uncalibrated sparse views.
+External Links: 2502.12138,
+Link
+Cited by: §2.
+[100]
+T. Zhang, S. Bi, Y. Hong, K. Zhang, F. Luan, S. Yang, K. Sunkavalli, W. T. Freeman, and H. Tan (2025)
+Test-time training done right.
+arXiv preprint arXiv:2505.23884.
+Cited by: §1,
+§2,
+§3.2,
+§4.1,
+§4.2,
+§4.2.
+[101]
+D. Zhuo, W. Zheng, J. Guo, Y. Wu, J. Zhou, and J. Lu (2025)
+Streaming 4d visual geometry transformer.
+arXiv preprint arXiv:2507.11539.
+Cited by: §B.2,
+Table 4,
+§2,
+Table 1,
+§5.1,
+Table 2.
+Supplementary Material
+Appendix A Model Details
+We provide the detailed model architecture in this section.
+Overall architecture.
+As stated in Section 4.1, we build our model up as a large transformer, as VGGT [77].
+We then attach a Global Context Memory (GCM) module after 4 specific global attention layers, namely 4th, 11th, 17th, and 24th, whose outputs are used as input features of the two DPT [54] decoders to predict the depth maps and point clouds.
+The total number parameters of the newly added GCM module is 75.55M, namely 0.076B.
+Global Context Memory module.
+The GCM module consists of three components: a query-key-value projection layer, three compact MLP networks W_{1},W_{2},W_{3} serving as the Adaptive Memory Units (AMUs), and an output projection layer.
+The forward pass of the GCM module is performed as follows:
+|
+| \displaystyle f_{W}(x)=W_{2}\big(\mathrm{SiLU}(W_{1}x)\circ(W_{3}x)\big),
+|
+| (12)
+where \circ denotes the element-wise product, after we update the AMUs W_{1},W_{2},W_{3} in the inner loop using K,V as detailed in the Section 4.2, we can use the updated AMUs to compute the GCM output f_{W}(Q) .
+The query-key-value projection layer is the standard linear projection layer, which projects the upstream feature x\in\mathbb{R}^{M\times d} into multi-head query Q\in\mathbb{R}^{M\times nh\times hd} , key K\in\mathbb{R}^{M\times nh\times hd} , and value V\in\mathbb{R}^{M\times nh\times hd} , where nh is the number of heads and hd is the dimension of each head, where nh\times hd=d .
+Define the hidden dimension of the AMUs as hd\times k , with k being a scaling factor, then W_{1},W_{3}\in\mathbb{R}^{hd\times hd\times k} and W_{2}\in\mathbb{R}^{hd\times k\times hd} .
+The total state size of the GCM module is calculated as:
+|
+| \displaystyle\text{state size}=nh\times hd\times hd\times k=\frac{d^{2}}{nh}\times k.
+|
+| (13)
+Specifically, we set the number of heads nh to 1 to maximize the state size for larger memory capacity, and set the scaling factor k to 4 to balance the memory capacity and computational efficiency.
+Appendix B Evaluation Details
+B.1 Dataset Details
+Our benchmarks are built on four datasets: Virtual KITTI [7], KITTI Odometry [22], Oxford Spires [70], and ETH3D [60]. These datasets feature long, large-scale sequences with diverse weather and lighting conditions, urban driving scenarios, and indoor and outdoor scenes, respectively. We present more details about the datasets in the following.
+Virtual KITTI
+[7] is a synthetic dataset comprising 50 outdoor street-scene sequences spanning diverse weather and lighting conditions (e.g., fog, morning, overcast, overcast, rain and sunset).
+Sequence lengths range from 223–837 frames, with path lengths spanning 52–711 meters.
+KITTI Odometry
+[22] is a real-world benchmark of 11 sequences collected from urban driving scenarios with varied lengths and street layouts.
+Sequence lengths range from 271–4,661 frames, covering 0.39–5.07 km of travel, and pose challenging long-sequence tracking conditions.
+Oxford Spires
+[70] is a real-world dataset with 6 sequences, 2024-03-12-keble-college-02, 2024-03-12-keble-college-03, 2024-03-12-keble-college-04, 2024-03-12-keble-college-05, 2024-03-13-observatory-quarter-01, 2024-03-13-observatory-quarter-02, featuring challenging loop closures and extreme view sparsity across indoor and outdoor scenes.
+Sequence lengths range from 351–787 frames, covering 280–773 meters.
+To ensure reliable supervision and fair evaluation, we filtered out views with large LiDAR–RGB timestamp discrepancies and removed scenes that consequently contained fewer than 50 frames despite spanning several hundred meters.
+ETH3D
+[60] provides high-resolution indoor and outdoor images with ground-truth depth from laser sensors. We select 11 scenes: courtyard, electro, kicker, pipes, relief, delivery area, facade, office, playground, relief 2, terrains, for the benchmark. The number of frames in each scene ranges from 14 to 76.
+B.2 Evaluation Details
+We provide the detailed evaluation in this section.
+Pose metrics.
+For pose accuracy evaluation, we follow the protocol introduced in [33, 17] , and report results using the Absolute Trajectory Error (ATE), Relative Rotation Error (RRE in ∘/100m), and Relative Translation Error (RTE in m/100m), providing a comprehensive assessment of both translation and rotation accuracy.
+All metrics are calculated after Sim(3) alignment of predicted pose trajectories with the ground truth.
+Figure 5: Camera trajectory comparison. Scal3R preserves global structure with substantially lower drift, whereas baselines frequently lose tracking or diverge, demonstrating our capability of reconstructing large-scale scenarios with high accuracy.
+Reconstruction metrics.
+We evaluate 3D reconstruction with Chamfer Distance (CD) and F1-score.
+Let \mathcal{G} be the ground-truth point cloud and \mathcal{P} the predicted point cloud after Sim(3) alignment with the ground-truth using the Umeyama algorithm [74].
+Denote by \operatorname{dist}(A\rightarrow B) the average nearest-neighbour distance from each point in \mathcal{A} to \mathcal{B} .
+We define accuracy as \operatorname{dist}(\mathcal{P}\rightarrow\mathcal{G}) and completeness as \operatorname{dist}(\mathcal{G}\rightarrow\mathcal{P}) , then the Chamfer Distance (CD) is defined as the average of accuracy and completeness.
+Given a distance threshold d , we define the precision and recall as:
+|
+| precision
+| \displaystyle=\frac{1}{|\mathcal{P}|}\sum_{i}[\operatorname{dist}(\mathcal{P}_{i}\rightarrow\mathcal{G})<d],
+|
+| (14)
+|
+| recall
+| \displaystyle=\frac{1}{|\mathcal{G}|}\sum_{i}[\operatorname{dist}(\mathcal{G}_{i}\rightarrow\mathcal{P})<d],
+|
+| (15)
+where [\cdot] denotes the Iverson bracket [32]. Then, the F1-score is computed as:
+|
+| \displaystyle\mathrm{F1}=\frac{2\times\text{precision}\times\text{recall}}{\text{precision}+\text{recall}}.
+|
+| (16)
+Figure 6: Point-cloud reconstruction comparison. Scal3R produces more accurate large-scale reconstructions for large-scale outdoor environments where baselines often fail, and achieves higher local geometric accuracy and consistency in indoor scenes.
+Evaluation details.
+All evaluations use the full set of frames per sequence.
+We set chunk size to 60 and overlap to 30 for both Scal3R and VGGT-Long [17] across all datasets, and we follow official evaluation protocols for the remaining baselines [61, 80, 33, 101, 11, 44, 41].
+Pose metrics are directly evaluated on Virtual KITTI [7], KITTI Odometry [22], and Oxford Spires [70] datasets with no extra hyperparameters.
+Reconstruction metrics are evaluated on ETH3D [60], Virtual KITTI [7], and Oxford Spires [70] datasets, using dataset-specific distance thresholds (ETH3D: 0.25, Virtual KITTI: 1.0, Oxford Spires: 4.0) to reflect differences in scale and sparsity.
+For baselines that fail to produce valid camera trajectories or reconstructions on a scene, we assign the worst valid score among the compared methods on that scene when computing dataset averages in Sections 5.1 and 5.2.
+Ablation details.
+To simplify training while preserving the generality of our conclusions, we train all ablation models on a subset of the datasets listed in Section 4.3, excluding the object-centric datasets WildRGB [86], Co3Dv2 [55], and Aria Digital Twin [46].
+State size ablations are trained on 16 NVIDIA A800 GPUs for 60k iterations for a fair comparison.
+We randomly select 7 sequences from Virtual KITTI [7] (Scene01 15-deg-left, Scene02 30-deg-left, Scene06 clone, Scene18 morning, Scene20 rain), Oxford Spires [70] (2024-03-12-keble-college-04, 2024-03-13-observatory-quarter-01) for evaluation, covering diverse weather and lighting conditions, urban driving scenarios, and indoor and outdoor scenes.
+Global context ablations are trained on 8 NVIDIA A800 GPUs for 60k iterations for a fair comparison.
+We select KITTI Odometry [22] sequences 01, 03, 04, 10, and Virtual KITTI [7] sequences Scene20 for evaluation, featuring challenging long-sequence tracking conditions.
+Appendix C Additional Results
+We provide additional long-sequence camera trajectory results in Figure 5.
+As demonstrated in Figure 5, our method is capable of reconstructing extremely large-scale long sequences with small drift, whereas baselines frequently lose tracking or diverge significantly, showcasing the effectiveness of our proposed global context representation and aggregation mechanism.
+We provide additional long-sequence reconstruction results in Figure 6, the results illustrate the improvement of our method over baselines on both large-scale accurate reconstruction and local geometric consistency.
+C.1 Additional Benchmark Comparisons
+We further evaluate pose accuracy on three additional benchmarks in Table 4. For ScanNet++ [92], we use five sequences: 419cbe7c11, 98b4ec142f, bb87c292ad, c24f94007b, and ebc200e928. For TUM-RGBD [64], we evaluate all scenes. For Waymo [66], we follow VGGT-Long [17] and use the same nine test scenes. Compared with the main paper benchmarks, these datasets are denser video regimes with stronger short-range overlap, so they are useful for checking whether our gains persist when recent streaming and video-based baselines are relatively better matched to the evaluation setting.
+We follow the same evaluation protocol as in the main paper and report ATE after Sim(3) alignment with the ground truth.
+We set the chunk size and overlap to 120 and 60, respectively, for both Scal3R and VGGT-Long [17] on ScanNet++ [92] and TUM-RGBD [64], and to 60 and 30, respectively, on Waymo [66].
+As shown in Table 4, Scal3R achieves the best ATE on ScanNet++ (0.08) and TUM-RGBD (0.07), with clear margins over strong video-based baselines such as STream3R and TTT3R. This shows that the proposed global context mechanism is not only helpful for the large-scale sparse settings emphasized in the main paper, but also remains effective on denser long-video benchmarks. On Waymo, Scal3R remains competitive on long driving sequences, indicating good transfer across different video regimes.
+Table 4: Additional pose benchmark comparisons. We report ATE (m, lower is better) on three supplementary benchmarks. The best results are in bold, and the second best are underlined.
+| Method
+| ScanNet++
+| TUM-RGBD
+| Waymo
+| avg. 924 fr.
+| avg. 926 fr.
+| avg. 198 fr.
+| MASt3R-SLAM [44]
+| 0.47
+| 0.08
+| 7.63
+| VGGT-SLAM [41]
+| 0.29
+| 0.12
+| 7.43
+| StreamVGGT [101]
+| 1.70
+| 0.63
+| 45.10
+| STream3R [33]
+| 1.75
+| 0.63
+| 42.20
+| CUT3R [80]
+| 1.27
+| 0.54
+| 9.40
+| TTT3R [11]
+| 0.55
+| 0.31
+| 3.49
+| FastVGGT [61]
+| 1.56
+| 0.42
+| 1.28
+| VGGT-Long [17]
+| 0.13
+| 0.08
+| 1.78
+| COLMAP [59]
+| GT
+| 0.19
+| 25.63
+| MASt3R-SfM [34]
+| 1.50
+| 0.39
+| 3.95
+| DROID-SLAM [71]
+| 0.97
+| 0.11
+| 6.67
+| DPVO++ [40]
+| 0.91
+| 0.10
+| 1.35
+| Ours
+| 0.08
+| 0.07
+| 1.52
+C.2 Runtime Scaling with Sequence Length
+We further analyze runtime scaling with sequence length in Table 5. As the sequence length increases from 150 to 990 frames, the total runtime grows approximately linearly, while throughput remains stable at around 2.6–2.9 FPS. Meanwhile, the relative pose error remains within 0.07–0.08 m, indicating that Scal3R maintains stable pose accuracy as the sequence length increases.
+Table 5: Runtime scaling with sequence length. Using the same single-GPU evaluation setting as the main-paper resource comparison, we report relative pose error (RPE, m), total inference time, and FPS as the input length increases. Runtime grows smoothly with sequence length while RPE remains stable.
+| Frames
+| 150
+| 270
+| 510
+| 990
+| RPE (m) \downarrow
+| 0.08
+| 0.08
+| 0.07
+| 0.08
+| Time (s) \downarrow
+| 51.19
+| 98.81
+| 195.24
+| 382.80
+| FPS \uparrow
+| 2.93
+| 2.73
+| 2.61
+| 2.59
+C.3 Failure Cases
+Figure 7: Failure case under abrupt illumination changes. Large appearance shifts within a sequence weaken cross-chunk correspondences and can lead to inaccurate global alignment.
+We further summarize representative failure modes of Scal3R.
+The first arises from severe appearance inconsistency within a sequence (e.g., abrupt illumination or color shifts), as illustrated in Figure 7. In such cases, the appearance gap across chunks weakens the reliability of cross-chunk correspondences.
+The second occurs under extreme view sparsity, for example when only tens of images cover scenes spanning hundreds of meters or even kilometers. In such extreme cases, even local predictions can fail due to the lack of sufficient geometric constraints.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

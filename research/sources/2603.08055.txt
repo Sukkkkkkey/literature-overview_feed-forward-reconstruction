@@ -1,0 +1,1114 @@
+Speed3R: Sparse Feed-forward 3D Reconstruction Models
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Works
+Optimization-based Multi-view Reconstruction.
+Feed-forward 3D Reconstruction.
+Sparse Attention.
+3 Method
+3.1 Architecture Overview
+3.2 Global Sparse Attention (GSA)
+Full Attention for Special Tokens.
+Sparse Attention for Image Tokens.
+Compression Branch.
+Selection Branch.
+Gated Aggregation.
+Final Output.
+Efficient Kernel Implementation.
+3.3 Speed3R-VGGT
+3.4 Speed3R- \boldsymbol{\pi^{3}}
+3.5 Training Details
+4 Experiments
+4.1 Two-view Pose Estimation
+4.2 Multi-view Pose Estimation
+4.3 Long-sequence Pose Estimation
+4.4 Pointmap Estimation
+4.5 Ablation Study
+4.6 Latency Benchmarking
+5 Discussions
+Dense vs Sparse Attention.
+Test-time adaptation.
+Sparsification Challenges.
+Limitations.
+6 Conclusion
+7 Acknowledgement
+References
+1 Efficient Kernel Implementation
+1.1 Implementation Details
+2 Speed3R-VGGT Benchmarking
+3 Training/Evaluation Details
+Datasets
+Speed3R-VGGT Training Loss
+Speed3R- \mathbf{\pi^{3}} Training Loss
+Train from Scratch
+4 Sparsity Calculation
+License: CC BY-NC-SA 4.0
+arXiv:2603.08055v1 [cs.CV] 09 Mar 2026
+Speed3R: Sparse Feed-forward 3D Reconstruction Models
+Weining Ren
+Affiliation: The University of Hong Kong
+Xiao Tan
+Affiliation: Baidu AMUhttps://visual-ai.github.io/speed3r/
+Kai Han
+††thanks: Corresponding author.
+Affiliation: The University of Hong Kong
+Abstract
+While recent feed-forward 3D reconstruction models accelerate 3D reconstruction by jointly inferring dense geometry and camera poses in a single pass, their reliance on dense attention imposes a quadratic complexity, creating a prohibitive computational bottleneck that severely limits inference speed. To resolve this, we introduce Speed3R, an end-to-end trainable model inspired by the core principle of Structure-from-Motion: that a sparse set of keypoints is sufficient for robust pose estimation. Speed3R features a dual-branch attention mechanism where a compression branch creates a coarse contextual prior to guide a selection branch, which performs fine-grained attention only on the most informative image tokens. This strategy mimics the efficiency of traditional keypoint matching, achieving a remarkable 12.4x inference speedup on 1000-view sequences, while introducing a minimal, controlled trade-off in geometric accuracy. Validated on standard benchmarks with both VGGT and \pi^{3} backbones, our method delivers high-quality reconstructions at a fraction of computational cost, paving the way for efficient large-scale scene modeling.
+1 Introduction
+Figure 1: Performance comparison of different methods. CO3Dv2 pose estimation accuracy vs. sparsity ratio, highlighting the trade-off between sparsity and accuracy. The Ideal Region marks the desired balance of high accuracy and high sparsity.
+Classical 3D reconstruction methods are fundamentally rooted in the principle of sparsity. They traditionally begin with the detection and matching of a sparse set of salient keypoints. Early methods relied on handcrafted descriptors [22, 2, 28, 10, 29] to establish 2D correspondences across views. Initial geometric relationships are estimated from these matches, followed by a large-scale, iterative optimization Bundle Adjustment [13], which refines both the camera parameters and the sparse 3D structure. This multi-stage process, exemplified by highly successful and robust systems [30, 31, 25], demonstrates a core insight: a sparse, carefully selected set of 2D features is sufficient to establish robust geometric constraints and reconstruct an accurate sparse point cloud.
+Recently, the advent of feed-forward models [43, 48, 40, 44] has revolutionized 3D reconstruction, enabling the joint inference of dense geometry and camera poses from multiple views in a single network pass. These methods, often built upon powerful vision transformer architectures [24, 11], bypass the complex, multi-stage pipelines of classical approaches like Structure-from-Motion (SfM) and Multi-View Stereo (MVS). However, this progress comes at a price. The dense global attention along all image tokens imposes a quadratic complexity with respect to the number of input image tokens. This creates a prohibitive computational bottleneck that severely limits inference speed, making the processing of a large number of views or high-resolution images intractable.
+To address the computational bottleneck, we propose Speed3R, an end-to-end trainable model that accelerates inference while retaining the benefits of feed-forward reconstruction. Our approach integrates two key inspirations: the classical Structure-from-Motion (SfM) principle that robust geometric estimation relies on sparse keypoints rather than dense pixel comparisons, and the success of sparse attention in Large Language Models [51, 23, 12] and Video Diffusion Models [53, 6]. Speed3R operationalizes these insights through a dual-branch attention mechanism. A compression branch generates a global scene summary, guiding a selection branch that performs fine-grained attention on a small subset of informative tokens. This design emulates traditional keypoint-based methods, concentrating computation where it is most impactful, and achieves significant efficiency gains without sacrificing accuracy.
+Through this tailored sparse attention mechanism, Speed3R achieves a remarkable 12.4x inference speedup on 1000-view sequences. Our extensive experiments demonstrate that this substantial acceleration is achieved while introducing only a minimal and controlled trade-off in geometric accuracy, establishing a new Pareto-optimal frontier in the efficiency-fidelity landscape. We validate the robustness and generalizability of our method by integrating it with state-of-the-art backbones, including VGGT [40] and \pi^{3} [44], and demonstrate consistently superior performance on standard benchmarks than training-free methods. With zero-shot test-time adaptation, our method can outperform dense models on long sequences. By rethinking the attention mechanism for the global attention layer, Speed3R delivers high-quality reconstructions at a fraction of the computational cost, paving the way for practical and efficient large-scale scene modeling. Overall, we make the following contributions:
+•
+We propose Speed3R, a novel dual-branch feed-forward reconstruction models with trainable sparse attention mechanism that mimics classical SfM by focusing computation on a small, informative subset of tokens.
+•
+We achieve a new SoTA in the efficiency-accuracy trade-off, demonstrating a 12.4x speedup for a 1000-view sequence with a minimal impact on geometric accuracy.
+•
+We validate the robustness and generalizability of Speed3R, showing it integrates with various backbones and outperforms competing training-free methods.
+2 Related Works
+Optimization-based Multi-view Reconstruction.
+Traditional 3D reconstruction methods operate on a sparse-to-dense paradigm. The process begins with Structure-from-Motion (SfM) [30, 25], where a sparse set of matched keypoints [22, 2, 28] is used to optimize camera poses and a sparse point cloud via bundle adjustment [13]. This sparse geometric backbone is then densified using Multi-View Stereo (MVS) algorithms [31]. While deep learning has modernized this pipeline with learned feature matchers [29, 19], learned MVS cost volumes [49, 54], and differentiable optimization [35, 39], the core methodology remains dependent on an initial sparse representation and iterative optimization, making it inherently slow and computationally demanding.
+Feed-forward 3D Reconstruction.
+A recent family of methods enables the joint inference of camera poses and dense geometry in a single forward pass. This paradigm, pioneered by DUSt3R [43] for pairwise input, was quickly refined with dedicated feature heads for improved matching (MASt3R [18]) and extended to handle sequential inputs (CUT3R [41], Spann3R [38]). Architectural innovations, such as the elegant and effective design of VGGT [40] and the permutation-equivariant structure of \pi^{3} [44], have pushed the state of the art. However, the reliance of these advanced models on dense, all-to-all attention for global information exchange creates a significant computational bottleneck, especially for long sequences. To mitigate this, several training-free sparsification approaches have been proposed. For instance, FastVGGT [33] employs a token merge-and-unmerge strategy, while Block Sparse VGGT [37] applies top-k attention. Because these methods are not training-aware, their ability to sparsify the model is limited; aggressive pruning results in a notable degradation of reconstruction accuracy.
+Sparse Attention.
+To mitigate the quadratic complexity of standard attention, various sparse attention methods have been proposed. Early approaches employed fixed, data-agnostic patterns like local windows (StreamingLLM [47]) or dilated windows (Longformer [3]). More advanced methods are dynamic, such as those that prune the KV cache during inference (H2O [55]), although these post-hoc optimizations do not accelerate the training phase. Another class of dynamic methods performs query-aware token selection using techniques like clustering [21] or heuristic scoring [34]; however, these often suffer from non-differentiable operations or non-contiguous memory access, hindering end-to-end training. To resolve these issues, recent works NSA [51] and MOBA [23] present a breakthrough with their trainable sparse attention and show comparable results with full attention. The success of these methods has led to their application in various domains, including video generation [53, 6] and 3D generation [45, 15]. Its core philosophy of adaptively selecting important tokens is particularly well-suited to the sparse nature of 3D reconstruction. Highly inspired by NSA, our work aims to develop an efficient sparse attention mechanism tailored for 3D feed-forward reconstruction.
+3 Method
+Figure 2: Architecture. Our model processes a sequence of input images through a shared feature encoder. The resulting tokens are then processed by a series of transformer blocks that alternate between local Frame Attention (within each view) and our proposed Global Sparse Attention (across all views). The GSA module efficiently integrates global information by decomposing attention into a Compression Branch for coarse context and a Selection Branch for fine-grained details, guided by a Top-k selection mechanism. Finally, updated tokens are passed to task-specific heads to predict camera pose and dense depth maps.
+Our primary goal is to develop a feed-forward 3D reconstruction model capable of efficiently processing a large number of views. To address the scalability bottleneck, we introduce a novel attention mechanism, Global Sparse Attention (GSA), designed as a drop-in replacement for the original global attention module.
+3.1 Architecture Overview
+We adopt the foundational architecture of recent feed-forward reconstruction models, illustrated in Figure 2. The model processes a sequence of input images to jointly predict camera parameters (pose and focal length) and dense depth maps. The architecture consists of three main stages:
+•
+Per-frame Feature Encoder: A sequence of N images \{I_{i}\}_{i=1}^{N} are independently passed through vision encoder (e.g., DINOv2 [24]) to extract patch-based feature tokens.
+•
+Alternating Attention Transformer: A series of transformer blocks process the tokens. These blocks alternate between local Attention, which operates on tokens within a single frame, and our proposed Global Sparse Attention, which efficiently fuses information across all frames.
+•
+Task-Specific Prediction Heads: The refined tokens are used by downstream heads to predict per-view camera parameters \{\hat{C_{i}}\}_{i=1}^{N} , depth maps \{\hat{D_{i}}\}_{i=1}^{N} and their associated uncertainty \{\hat{\alpha_{i}}\}_{i=1}^{N} .
+Our key innovation lies in the second stage, where we replace the computationally intensive global full-attention layer with our GSA module. For all other components, including the feature encoder, frame attention, and prediction heads, we follow the design of the original base models (VGGT [40] or \pi^{3} [44]).
+3.2 Global Sparse Attention (GSA)
+The GSA module is designed to approximate full attention with significantly reduced computational complexity, making it scalable to a large number of views. Its core principle is to leverage a coarse, low-resolution representation of the scene, computed by the Compression Branch, to guide the selection of a sparse subset of high-resolution tokens for the Selection Branch. This coarse-to-fine strategy enables the model to efficiently build a global understanding of the scene while focusing its limited computational budget on the most salient, keypoint region details.
+Let the input to the GSA block be a sequence of tokens X\in\mathbb{R}^{M\times C} (batch dimension is omitted), which is a concatenation of special tokens X_{\text{spec}}\in\mathbb{R}^{M_{\text{spec}}\times C} and image tokens X_{\text{img}}\in\mathbb{R}^{M_{\text{img}}\times C} , where M=M_{\text{spec}}+M_{\text{img}} . We first project the entire sequence into queries, keys, and values with dimension d using linear transformations W_{Q},W_{K},W_{V} . The resulting tensors are then partitioned corresponding to their original token types:
+|
+| Q=\begin{bmatrix}Q_{\text{spec}}\\
+Q_{\text{img}}\end{bmatrix},\quad K=\begin{bmatrix}K_{\text{spec}}\\
+K_{\text{img}}\end{bmatrix},\quad V=\begin{bmatrix}V_{\text{spec}}\\
+V_{\text{img}}\end{bmatrix}
+|
+| (1)
+The attention computation then proceeds differently for the two token types.
+Full Attention for Special Tokens.
+Special tokens serve as global information bottlenecks and are critical for tasks like pose estimation. To ensure they have a comprehensive view of the entire scene, they perform standard, dense self-attention over all other tokens. The output for these tokens, O_{\text{spec}} , is computed as:
+|
+| O_{\text{spec}}=\text{Attention}(Q_{\text{spec}},K,V)=\text{softmax}\left(\frac{Q_{\text{spec}}K^{T}}{\sqrt{d_{k}}}\right)V
+|
+| (2)
+This operation, while quadratic, is inexpensive as the number of special tokens ( M_{\text{spec}} ) is very small.
+Sparse Attention for Image Tokens.
+For the vast number of image tokens, we employ a two-branch strategy that computes a coarse global summary and fine-grained local details in sequential. The outputs from these branches are then dynamically fused using a learned gating mechanism, allowing the model to adaptively balance global context against local specificity for each token.
+Compression Branch.
+This branch provides a coarse but comprehensive summary of the scene in a highly efficient manner. To create a computationally inexpensive proxy for global attention, we spatially downsample QKV tensors ( Q_{\text{img}} , K_{\text{img}} , V_{\text{img}} ). This is achieved using a non-overlapping average pooling operation with a window size of s\times s , yielding compressed tensors Q_{\text{comp}} , K_{\text{comp}} , and V_{\text{comp}} , all of size \mathbb{R}^{M^{\prime}_{\text{img}}\times d} , where M^{\prime}_{\text{img}}=M_{\text{img}}/s^{2} .
+The attention calculation of this branch is then performed entirely within this compressed space, producing a coarse output tensor O^{\prime}_{\text{comp}} . Additionally, to guide the subsequent selection process, a score matrix S_{\text{guide}} is computed from the compressed queries and keys. The coarse output O^{\prime}_{\text{comp}} is subsequently upsampled to the original image token resolution using nearest-neighbor interpolation, which assigns the same context vector to all fine-grained tokens that belong to the same spatial window. This yields the final branch output, O_{\text{comp}} .
+|
+| \displaystyle O^{\prime}_{\text{comp}}
+| \displaystyle=\text{Attention}(Q_{\text{comp}},K_{\text{comp}},V_{\text{comp}})\in\mathbb{R}^{M^{\prime}_{\text{img}}\times d}
+|
+| (3)
+|
+| \displaystyle S_{\text{guide}}
+| \displaystyle=Q_{\text{comp}}K_{\text{comp}}^{T}\in\mathbb{R}^{M^{\prime}_{\text{img}}\times M^{\prime}_{\text{img}}}
+|
+| (4)
+|
+| \displaystyle O_{\text{comp}}
+| \displaystyle=\text{Upsample}(O^{\prime}_{\text{comp}})\in\mathbb{R}^{M_{\text{img}}\times d}
+|
+| (5)
+Selection Branch.
+To recover fine-grained attention, this branch performs attention on a small subset of the original, full-resolution key-value pairs. To guide the selection, we use the pre-computed relevance score matrix S_{\text{guide}} to identify the most relevant coarse regions for each query. For each query, we use a \text{TopKSelect}(\cdot) function on S_{\text{guide}} to identify the indices of the most relevant regions. Queries belonging to the same compression window share the same set of KV pairs. The original, full-resolution key-value pairs ( K_{\text{img}},V_{\text{img}} ) corresponding to these top regions are then selected, forming the sparse sets K_{\text{sel}} and V_{\text{sel}} . The fine-grained output O_{\text{sel}} is computed by attending only to this small subset:
+|
+| O_{\text{sel}}=\text{Attention}(Q_{\text{img}},K_{\text{sel}},V_{\text{sel}})
+|
+| (6)
+This operation is highly efficient as each query only attends to k\ll M_{\text{img}} tokens.
+Gated Aggregation.
+The outputs from the two branches are combined using a learnable gating mechanism that weights their contributions based on the query itself. A gating vector g\in\mathbb{R}^{M_{\text{img}}\times d} is computed from the image queries, and the final output for the image tokens, O_{\text{img}} , is a dynamic, weighted sum:
+|
+| \displaystyle g
+| \displaystyle=\sigma(W_{g}Q_{\text{img}})
+|
+| (7)
+|
+| \displaystyle O_{\text{img}}
+| \displaystyle=g\odot O_{\text{comp}}+(1-g)\odot O_{\text{sel}}
+|
+| (8)
+where \sigma is the sigmoid function, W_{g} is a learned projection matrix, and \odot denotes element-wise multiplication. This allows the model to decide for each token whether to rely more on the global summary from the Compression Branch or the specific details from the Selection Branch.
+Final Output.
+The final output of the GSA layer, O_{\text{GSA}} , is produced by concatenating the outputs from the two pathways in their original order:
+|
+| O_{\text{GSA}}=\text{concat}(O_{\text{spec}},O_{\text{img}})\in\mathbb{R}^{M\times d}
+|
+| (9)
+Efficient Kernel Implementation.
+A naive implementation of the Compression Branch with \text{TopKSelect}(\cdot) is inefficient, bottlenecked by the large memory footprint of the full score matrix S_{\text{guide}} . To overcome this, we developed a fused GSA kernel in Triton [36]. Our approach integrates a streaming Top-K algorithm directly into the FlashAttention [8] workflow. As our kernel computes score matrix tiles in fast on-chip SRAM, it not only performs the online softmax but simultaneously maintains a running set of the top-k indices and scores for each query. This allows the selection of the most relevant keys and the calculation of compression output to occur in a single, fused pass over the input data. By doing so, we avoid materializing the full score matrix and maximize data locality. Implementation details are provided in the supplementary material.
+3.3 Speed3R-VGGT
+We instantiate our method on the VGGT architecture, terming this variant Speed3R-VGGT. The VGGT model architecture is unique in that it designates the first frame of a sequence as a global reference and utilizes dedicated camera tokens to encode pose information.
+To ensure this critical global reference is not lost by the sparse attention mechanism, we adapt the GSA’s Selection Branch. For any given query, its attention set (K_{\text{sel}},V_{\text{sel}}) is constructed from the concatenation of two groups:
+(i) A fixed global context set comprising all tokens from the reference frame and frames sampled at 100-frame intervals.
+(ii) The dynamically selected Top-K image tokens windows from non-reference frames, identified by our standard selection process.
+This hybrid approach guarantees that while the model can efficiently focus on salient local details in subsequent frames, it never loses sight of the foundational reference frame and camera parameters.
+To transfer the performance of the original dense model to our efficient sparse variant, we employ a knowledge distillation strategy. The student model (Speed3R-VGGT) is trained to replicate the outputs of its pre-trained dense teacher. The teacher’s predictions for depth and camera pose serve as the pseudo ground truth for the student. The total training loss is a weighted sum of a depth distillation loss and a camera pose distillation loss:
+|
+| \mathcal{L}_{\text{total}}=\mathcal{L}_{\text{depth}}+\lambda\mathcal{L}_{\text{camera}}
+|
+| (10)
+where the losses are inherent from original VGGT losses.
+3.4 Speed3R- \boldsymbol{\pi^{3}}
+Similarly, we apply our method to the \pi^{3} [44] architecture to create Speed3R- \boldsymbol{\pi^{3}} . Unlike VGGT [40], \pi^{3} [44] does not rely on reference frame or camera tokens, which allows for a more direct application of our GSA module as described in Section 3.2. Additionally, we observe empirically that the register tokens used in the original \pi^{3} can be omitted in our sparse variant without performance drop, further simplifying the model without special tokens. We follow the same distillation strategy, using the original dense \pi^{3} model as the teacher to train our Speed3R- \pi^{3} student with relative pose loss and depth loss. The total loss function is identical in form to that used for original \pi^{3} .
+3.5 Training Details
+We train our model on a mixture of seven datasets: ArkitScene [1], Scannet++ [50], DL3DV [20], CO3D [26], Hypersim [27], WildRGBD [46], and VirtualKitti2 [4]. Some datasets were downsampled for storage efficiency (see supplementary material), and the sparse model’s weights were initialized from its pre-trained dense counterpart. The model was trained for 80 epochs (800 steps per epoch) over approximately 7 days on 8 NVIDIA H20 GPUs. We followed most original dense model’s setting, but with two adjustments: the learning rate was initialized to 1\times 10^{-5} , and a gradient accumulation factor of 4 was used to achieve an effective batch size of 32.
+4 Experiments
+We evaluate our sparse models against their dense counterparts and two training-free baselines: FastVGGT [33] and Block-Sparse VGGT [37]. Variants of these baselines with VGGT/ \pi^{3} are referred to as FastVGGT-VGGT/ \pi^{3} and Block-Sparse VGGT/ \pi^{3} , respectively. Unless stated otherwise, we use following parameters. Our method employs a 4x4 compression window and selects the top-32 blocks for selective attention. For the baselines, we adopt their default configurations: a 0.9 merge ratio for FastVGGT [33] and a 0.75 sparsity ratio for Block-Sparse VGGT/ \pi^{3} [37]. All inference times are benchmarked on a single H100 GPU.
+4.1 Two-view Pose Estimation
+Table 1:
+Pair-wise pose results on ScanNet-1500 [7, 29]. We report the Area Under the Curve (AUC) of the pose error at different thresholds. Best results per backbone are marked in bold.
+Methods
+ScanNet1500
+AUC@5 \uparrow
+AUC@10 \uparrow
+AUC@20 \uparrow
+VGGT [40]
+37.45
+59.24
+75.69
+Block Sparse-VGGT [37]
+33.21
+55.11
+72.51
+FastVGGT-VGGT [33]
+33.59
+56.21
+73.47
+Speed3R-VGGT
+37.02
+59.11
+75.62
+\pi^{3} [44]
+38.76
+61.57
+77.61
+Block Sparse- \pi^{3} [37]
+35.13
+57.74
+74.98
+FastVGGT- \pi^{3} [33]
+34.87
+58.31
+75.51
+Speed3R- \pi^{3}
+36.97
+59.83
+76.38
+We first evaluate our method on the ScanNet relative pose estimation task [7, 29], reporting the Area Under the Curve (AUC) of the pose error. This metric is the area under an accuracy-threshold curve where per-pair accuracy is defined as the minimum of the Relative Rotation Accuracy (RRA) and Relative Translation Accuracy (RTA) at different thresholds. The results in Table 1 show that our method (Speed3R) consistently outperforms competing training-free sparse methods. Given that this benchmark evaluates performance under large viewpoint changes, this result highlights our method’s superior robustness to such variations. Notably, Speed3R-VGGT also achieves performance nearly on par with the original dense VGGT model, and this advantage holds for the more powerful \pi^{3} backbone, confirming the general effectiveness of our approach.
+4.2 Multi-view Pose Estimation
+Table 2: Pose Estimation on RE10k [56] and CO3Dv2 [26]. These datasets contain an average of 10 images per scene.
+Method
+Sparse Ratio (%)/
+Anchor Number
+RE10K
+AUC@30 \uparrow
+CO3Dv2
+AUC@30 \uparrow
+VGGT [40]
+0
+74.17
+88.33
+Block Sparse-VGGT [37]
+25
+71.79
+86.98
+50
+68.25
+84.71
+75
+63.82
+79.92
+SAIL-Recon [9]
+10 anchor
+74.31
+87.63
+5 anchor
+72.66
+84.25
+2 anchor
+69.11
+80.03
+FastVGGT [33]
+25
+72.97
+87.74
+50
+71.55
+86.01
+82
+69.99
+84.03
+Speed3R-VGGT
+84
+74.81
+87.71
+\pi^{3} [44]
+0
+87.37
+89.67
+Block Sparse- \pi^{3} [37]
+25
+85.18
+88.25
+50
+81.29
+85.36
+75
+75.39
+80.72
+FastVGGT- \pi^{3} [33]
+25
+87.26
+88.15
+50
+86.67
+87.62
+90
+86.04
+86.39
+Speed3R- \pi^{3}
+94
+87.17
+89.41
+We further validate our approach on the multi-view RE10k [56] and CO3Dv2 [26] benchmarks, which include 10 frames per scene, with comparisons to SAIL-Recon [9]. As shown in Table 2 and visualized in Figure 1, Speed3R establishes a new Pareto-optimal frontier for accuracy and efficiency. It consistently outperforms all competing sparse and anchor-based methods, often at significantly higher sparsity ratios. This superiority is demonstrated by two key results: first, our Speed3R-VGGT model (84% sparsity) surpasses the dense VGGT baseline on RE10k; second, the Speed3R- \pi^{3} model (94% sparsity) nearly matches the performance of its dense counterpart. These findings demonstrate that Speed3R effectively prunes redundant computations while preserving performance-critical information.
+4.3 Long-sequence Pose Estimation
+Table 3: Pose Estimation on Tanks & Temples [17]. This dataset contains, an average of 300 images per scene. Best results and second best results are in bold and underlined separately.
+Method
+RRA@5 \uparrow
+RTA@5 \uparrow
+AUC@30 \uparrow
+Time [s] \downarrow
+VGGT [40]
+70.29
+79.30
+77.67
+34.51
+Block Sparse-VGGT [37]
+66.83
+71.29
+74.15
+10.79
+SAIL-Recon(20 anchor) [9]
+68.34
+73.77
+74.98
+20.35
+SAIL-Recon(100 anchor) [9]
+69.72
+75.16
+75.70
+53.02
+FastVGGT [33]
+69.28
+77.98
+76.29
+15.98
+Speed3R-VGGT
+69.51
+77.81
+76.57
+6.55
+\pi^{3} [44]
+72.14
+81.26
+79.63
+22.32
+Block Sparse- \pi^{3} [37]
+67.85
+78.91
+76.64
+8.16
+FastVGGT- \pi^{3} [33]
+69.78
+79.51
+77.76
+11.96
+Speed3R- \pi^{3}
+70.72
+80.72
+79.77
+4.19
+We further evaluate on the large-scale Tanks & Temples (T&T) benchmark [17] with an average of 300 images per sequence. As shown in Table 3, Speed3R demonstrates a state-of-the-art balance of accuracy and speed. With the VGGT backbone, our method is by far the fastest (6.65s), achieving a 5.2x speedup over the dense baseline while maintaining top-tier accuracy, including the best AUC@30 score among all sparse methods. The same holds for the \pi^{3} backbone. Speed3R- \pi^{3} simultaneously achieving the highest accuracy across all metrics and the lowest runtime (4.19s) among all sparse methods. It nearly matches the performance of the dense \pi^{3} model while being 5.3x faster. These results confirm that Speed3R excels at Pareto-optimal that are both highly accurate and exceptionally efficient for large-scale feed-forward pose estimation.
+4.4 Pointmap Estimation
+Table 4: Pointmap Estimation on the DTU [16] and ETH3D [32] datasets. The arrows ( \downarrow / \uparrow ) indicate whether lower or higher values are better. Best results are highlighted in bold.
+| Method
+| DTU [16]
+| ETH3D [32]
+|
+| Acc. \downarrow
+| Comp. \downarrow
+| N.C. \uparrow
+| Acc. \downarrow
+| Comp. \downarrow
+| N.C. \uparrow
+|
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+| VGGT [40]
+| 1.403
+| 0.802
+| 2.566
+| 1.307
+| 0.658
+| 0.742
+| 0.289
+| 0.192
+| 0.294
+| 0.173
+| 0.847
+| 0.953
+| Block Sparse-VGGT [37]
+| 1.966
+| 1.052
+| 2.311
+| 1.135
+| 0.647
+| 0.715
+| 0.861
+| 0.754
+| 1.171
+| 0.812
+| 0.681
+| 0.772
+| FastVGGT-VGGT [33]
+| 1.466
+| 0.786
+| 2.385
+| 1.188
+| 0.654
+| 0.736
+| 0.510
+| 0.379
+| 0.580
+| 0.354
+| 0.788
+| 0.913
+| Speed3R-VGGT
+| 1.426
+| 0.827
+| 2.179
+| 1.101
+| 0.657
+| 0.740
+| 0.295
+| 0.190
+| 0.289
+| 0.168
+| 0.853
+| 0.953
+| \pi^{3} [44]
+| 1.151
+| 0.622
+| 1.793
+| 0.629
+| 0.668
+| 0.754
+| 0.194
+| 0.130
+| 0.220
+| 0.135
+| 0.867
+| 0.965
+| Block Sparse- \pi^{3} [37]
+| 2.434
+| 1.130
+| 2.714
+| 1.004
+| 0.664
+| 0.749
+| 0.313
+| 0.235
+| 0.439
+| 0.276
+| 0.816
+| 0.951
+| FastVGGT- \pi^{3} [33]
+| 1.255
+| 0.737
+| 2.250
+| 0.857
+| 0.650
+| 0.730
+| 0.291
+| 0.215
+| 0.291
+| 0.179
+| 0.841
+| 0.961
+| Speed3R- \pi^{3}
+| 1.175
+| 0.710
+| 2.037
+| 0.731
+| 0.657
+| 0.739
+| 0.198
+| 0.136
+| 0.213
+| 0.126
+| 0.878
+| 0.970
+(a) Input Image
+(b) Ground Truth
+(c) Dense Model [40, 44]
+(d) Block Sparse [37]
+(e) FastVGGT [33]
+(f) Ours
+VGGT
+\Pi^{3}
+Figure 3: Qualitative comparison of predicted point clouds from our method and baselines. Compared with sparse baselines, our method produces visually more accurate reconstructions and reduces the multi-layer wall phenomenon across both architectures.
+Following \pi^{3} [44], we compare our predicted point cloud with baseline methods. We report the mean and median of accuracy, completeness, and normal consistency. As shown in Table 4 and illustrated in Figure 3, our proposed Speed3R method demonstrates a superior trade-off between performance and efficiency for pointmap estimation. When compared against other sparse methods, Speed3R consistently achieves the best results across nearly all metrics on both the DTU and ETH3D datasets, establishing it as the state-of-the-art among efficiency-focused techniques. More importantly, while the dense baseline models (VGGT and \pi^{3} ) exhibit slightly better accuracy, our Speed3R variants remain highly competitive, incurring only a marginal performance degradation. This indicates that the learned sparse attention patterns effectively preserve the most critical information for high-quality reconstruction.
+4.5 Ablation Study
+Table 5: Ablation study for Speed3R- \boldsymbol{\pi^{3}} . The “Time” column reports the average inference time on the T&T [17] dataset.
+Method
+RE10K [56]
+AUC@30 \uparrow
+T&T [17]
+AUC@30 \uparrow
+Time
+s \downarrow
+Base
+86.35
+78.69
+4.19
+(1) w/o Compress. Branch Value
+86.29
+77.90
+3.99
+(2) w/o Select. Branch
+83.44
+76.84
+3.56
+(3) w/ register
+86.39
+78.57
+4.25
+(4) Top-8
+85.37
+78.17
+3.72
+(5) Top-16
+85.98
+78.55
+3.92
+(6) Top-64
+86.42
+78.90
+4.64
+(7) 8x8 window
+86.49
+78.71
+5.27
+(8) w/o distillation
+85.18
+77.81
+4.19
+Table 6: Ablation Study of Speed3R-VGGT. Analysis of the selection attention branch of GSA in Speed3R-VGGT.
+Method
+RE10K [56]
+AUC@30 \uparrow
+T&T [17]
+AUC@30 \uparrow
+Time
+s \downarrow
+Base
+74.56
+76.57
+6.52
+(1) w/o reference frame attn.
+73.87
+75.69
+5.91
+(2) w/o register token
+74.14
+76.21
+6.50
+(3) w/ all special token
+74.91
+74.77
+7.05
+We first conduct ablation studies on the Speed3R- \pi^{3} , with a baseline using a 4x4 window and top-32. We train all models with 40 epochs and gradient accumulation factor of 2. As detailed in Table 5, we first analyze our GSA module. Removing the compression branch value (1) impairs long-sequence performance on the T&T [17] dataset by sacrificing global context, while removing the selection branch (2) is uniformly detrimental, causing a significant drop on both datasets. Adding a register token (3) has a negligible effect. In our hyperparameter analysis(4-7), we find that our choice (4x4 window with top-32 indices) strikes the balance between accuracy and efficiency. Finally, removing knowledge distillation (8) substantially degrades performance across both datasets. This result highlights its importance in mitigating the impact of noisy labels from the real-world dataset.
+Due to the utilization of reference-frame and camera token of VGGT [40], the design of Speed3R-VGGT differs from that of Speed3R- \pi^{3} , we ablate the special design choice of the selection branch of Speed3R-VGGT in Table 6. Removing the reference frame attention (1) Impairs performance on both datasets, reflecting the inherent inductive bias of the original VGGT. Following Speed3R- \pi^{3} , we also try to remove the register token. However we find that removing the register tokens (2) also degrades performance. We find these tokens provide crucial stability by acting as an assistant to the camera token; while it is not used for the final pose prediction, its absence clearly impairs model accuracy. Finally, forcing patch tokens to attend to all special tokens hurts long-sequence performance. We hypothesize that for longer sequences, these appended special tokens will dominate over the more crucial top-k patch selection, thereby impairing performance.
+4.6 Latency Benchmarking
+Figure 4: Inference Time for Different Models. Mean latency (in seconds) for varying sequence lengths. Our method achieves a 12.4× speedup on sequences of 1024 images.
+| Seq Length
+| 32
+| 64
+| 128
+| 256
+| 512
+| 1024
+| Full Attn.( \pi^{3} )
+| 0.50
+| 1.31
+| 3.97
+| 13.41
+| 50.01
+| 202.39
+| Block Sparse [37]
+| 0.46
+| 0.85
+| 1.69
+| 3.77
+| 9.64
+| 29.58
+| FastVGGT [33]
+| 0.44
+| 0.88
+| 1.96
+| 4.95
+| 14.13
+| 45.49
+| Ours
+| 0.37
+| 0.71
+| 1.44
+| 3.06
+| 6.83
+| 16.38
+As shown in Figure 4, the Speed3R- \pi^{3} model demonstrates superior inference speed compared to all baselines. This efficiency arises from its computational complexity, which avoids the quadratic O(n^{2}) of the standard full-attention baseline. The performance advantage becomes increasingly pronounced with sequence length, reaching a 12.4\times speedup at an input length of 1024. This result highlights our model’s efficacy for high-throughput, long-sequence processing. The benchmarking results for Speed3R-VGGT can be found in the supplementary materials.
+5 Discussions
+Dense vs Sparse Attention.
+While our method establishes a new efficiency-accuracy Pareto frontier, the accuracy of our sparse model on short sequences does not yet match its dense counterparts. We attribute this gap primarily to limitations in data and computational resources. To investigate this, we train both the full-attention and our sparse-attention models under identical conditions (Details in Supplementary). As illustrated in Figure 5, our sparse model achieves a comparable training loss to the full-attention model, while completing the training process 1.12x faster. This suggests that the models possess similar learning capacities. Therefore, despite not yet exceeding the dense model’s accuracy, Speed3R demonstrates a viable path toward greater efficiency.
+Test-time adaptation.
+Although our flagship model is trained with top-32, we observe that increasing the top-k value to top-64 and top-128 during inference consistently improves performance on long-sequence datasets (T&T [17]) in Table 7. Notably, this adjustment enables our model to outperform dense models on RTA@5 and AUC@30 during testing, highlighting the robustness of our method and its flexibility in handling long sequences.
+Sparsification Challenges.
+The nature of reconstruction tasks distinguishes them from domains where sparse methods have flourished, such as Large Language Models (LLMs)[51, 23] and generation models[53, 45]. The pose regression requires high numerical precision and is extremely sensitive. This contrasts with the probabilistic and often perceptual objectives of text or image generation. While our sparse method achieves comparable accuracy on the AUC@30 pose estimation metric, it still underperforms relative to the dense model at the stricter AUC@5 threshold. Recognizing these domain-specific challenges, our work presents an initial exploration into developing a sparse attention mechanism, providing a foundational step towards reconciling efficiency with precision.
+Limitations.
+The dual-branch architecture of GSA, while enabling sparsity, incurs a 15% memory overhead compared to full attention. In practice, this is manageable, as the model can accommodate up to 1024 images on an 80GB GPU. Looking forward, the strategy proposed in SAIL-Recon [9] provides a path to extend our method to arbitrarily long sequences, removing the memory constraint.
+Table 7: Test-time adaptation on Tanks & Temples. [17].
+Method
+RRA@5 \uparrow
+RTA@5 \uparrow
+AUC@30 \uparrow
+Time [s] \downarrow
+\pi^{3} [44]
+72.14
+81.26
+79.63
+22.32
+Speed3R- \pi^{3} (top-8)
+69.73
+77.60
+78.21
+3.72
+Speed3R- \pi^{3} (top-16)
+70.26
+79.49
+79.21
+3.92
+Speed3R- \pi^{3} (top-32)
+70.72
+80.72
+79.77
+4.19
+Speed3R- \pi^{3} (top-64)
+71.60
+81.54
+80.10
+4.64
+Speed3R- \pi^{3} (top-128)
+71.89
+82.00
+80.33
+6.07
+Figure 5: Training loss curve of dense attention and our GSA.
+6 Conclusion
+In this paper, we introduced Speed3R, a novel sparse attention model designed to mitigate the prohibitive computational cost of feed-forward 3D reconstruction. Inspired by the efficiency of classical SfM and recent advancements in sparse attention, Speed3R employs a trainable dual-branch mechanism to focus computation on a small subset of informative tokens. Our approach establishes a new SoTA in the efficiency-accuracy trade-off, achieving a 12.4x speedup on 1024-images sequences with minimal impact on geometric accuracy. We validated the robustness of Speed3R by integrating it with two backbones, where it consistently outperformed training-free alternatives, paving the way for practical and scalable large-scale 3D scene modeling.
+7 Acknowledgement
+This work is supported by Hong Kong Research Grant Council - General Research Fund (Grant No. 17213825) and HKU Seed Fund for PI Research. The authors would like to thank Hongjun Wang for insightful discussions regarding kernel implementation, and Zhiheng Wu and Yumeng Zhang for generously sharing GPU resources during the computationally intensive phases of the experiments.
+References
+[1]
+Gilad Baruch, Zhuoyuan Chen, Afshin Dehghan, Tal Dimry, Yuri Feigin, Peter Fu, Thomas Gebauer, Brandon Joffe, Daniel Kurz, Arik Schwartz, and Elad Shulman.
+ARKitscenes - a diverse real-world dataset for 3d indoor scene understanding using mobile RGB-d data.
+In NeurIPS, 2021.
+[2]
+Herbert Bay, Andreas Ess, Tinne Tuytelaars, and Luc Van Gool.
+Speeded-up robust features (surf).
+Computer vision and image understanding, 2008.
+[3]
+Iz Beltagy, Matthew E. Peters, and Arman Cohan.
+Longformer: The long-document transformer.
+arXiv preprint arXiv:2004.05150, 2020.
+[4]
+Yohann Cabon, Naila Murray, and Martin Humenberger.
+Virtual kitti 2.
+arXiv preprint arXiv:2001.10773, 2020a.
+[5]
+Yohann Cabon, Naila Murray, and Martin Humenberger.
+Virtual kitti 2, 2020b.
+[6]
+Shengqu Cai, Ceyuan Yang, Lvmin Zhang, Yuwei Guo, Junfei Xiao, Ziyan Yang, Yinghao Xu, Zhenheng Yang, Alan Yuille, Leonidas Guibas, Maneesh Agrawala, Lu Jiang, and Gordon Wetzstein.
+Mixture of contexts for long video generation.
+2025.
+[7]
+Angela Dai, Angel X. Chang, Manolis Savva, Maciej Halber, Thomas Funkhouser, and Matthias Nießner.
+Scannet: Richly-annotated 3d reconstructions of indoor scenes.
+In CVPR, 2017.
+[8]
+Tri Dao.
+FlashAttention-2: Faster attention with better parallelism and work partitioning.
+In ICLR, 2024.
+[9]
+Junyuan Deng, Heng Li, Tao Xie, Weiqiang Ren, Qian Zhang, Ping Tan, and Xiaoyang Guo.
+Sail-recon: Large sfm by augmenting scene regression with localization.
+arXiv preprint arXiv:2508.17972, 2025.
+[10]
+Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabinovich.
+Superpoint: Self-supervised interest point detection and description.
+In CVPR, 2018.
+[11]
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby.
+An image is worth 16x16 words: Transformers for image recognition at scale.
+ICLR, 2021.
+[12]
+Yizhao Gao, Zhichen Zeng, Dayou Du, Shijie Cao, Peiyuan Zhou, Jiaxing Qi, Junjie Lai, Hayden Kwok-Hay So, Ting Cao, Fan Yang, et al.
+Seerattention: Learning intrinsic sparse attention in your llms.
+arXiv preprint arXiv:2410.13276, 2024.
+[13]
+Richard Hartley and Andrew Zisserman.
+Multiple View Geometry in Computer Vision.
+Cambridge University Press, 2000.
+[14]
+Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+Delving deep into rectifiers: Surpassing human-level performance on imagenet classification.
+In ICCV, 2015.
+[15]
+Xianglong He, Zi-Xin Zou, Chia-Hao Chen, Yuan-Chen Guo, Ding Liang, Chun Yuan, Wanli Ouyang, Yan-Pei Cao, and Yangguang Li.
+Sparseflex: High-resolution and arbitrary-topology 3d shape modeling.
+arXiv preprint arXiv:2503.21732, 2025.
+[16]
+Rasmus Jensen, Anders Dahl, George Vogiatzis, Engil Tola, and Henrik Aanæs.
+Large scale multi-view stereopsis evaluation.
+In CVPR, 2014.
+[17]
+Arno Knapitsch, Jaesik Park, Qian-Yi Zhou, and Vladlen Koltun.
+Tanks and temples: Benchmarking large-scale scene reconstruction.
+ACM TOG, 2017.
+[18]
+Vincent Leroy, Yohann Cabon, and Jerome Revaud.
+Grounding image matching in 3d with mast3r, 2024.
+[19]
+Philipp Lindenberger, Paul-Edouard Sarlin, and Marc Pollefeys.
+Lightglue: Local feature matching at light speed.
+arXiv preprint arXiv:2306.13643, 2023.
+[20]
+Lu Ling, Yichen Sheng, Zhi Tu, Wentian Zhao, Cheng Xin, Kun Wan, Lantao Yu, Qianyu Guo, Zixun Yu, Yawen Lu, et al.
+Dl3dv-10k: A large-scale scene dataset for deep learning-based 3d vision.
+In CVPR, pages 22160–22169, 2024.
+[21]
+Guangda Liu, Chengwei Li, Jieru Zhao, Chenqi Zhang, and Minyi Guo.
+Clusterkv: Manipulating llm kv cache in semantic space for recallable compression.
+In 2025 62nd ACM/IEEE Design Automation Conference (DAC), 2025.
+[22]
+David G Lowe.
+Object recognition from local scale-invariant features.
+In ICCV, 1999.
+[23]
+Enzhe Lu, Zhejun Jiang, Jingyuan Liu, Yulun Du, Tao Jiang, Chao Hong, Shaowei Liu, Weiran He, Enming Yuan, Yuzhi Wang, et al.
+Moba: Mixture of block attention for long-context llms.
+arXiv preprint arXiv:2502.13189, 2025.
+[24]
+Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al.
+Dinov2: Learning robust visual features without supervision.
+arXiv preprint arXiv:2304.07193, 2023.
+[25]
+Linfei Pan, Daniel Barath, Marc Pollefeys, and Johannes Lutz Schönberger.
+Global Structure-from-Motion Revisited.
+In ECCV, 2024.
+[26]
+Jeremy Reizenstein, Roman Shapovalov, Philipp Henzler, Luca Sbordone, Patrick Labatut, and David Novotny.
+Common objects in 3d: Large-scale learning and evaluation of real-life 3d category reconstruction.
+In ICCV, 2021.
+[27]
+Mike Roberts, Jason Ramapuram, Anurag Ranjan, Atulit Kumar, Miguel Angel Bautista, Nathan Paczan, Russ Webb, and Joshua M. Susskind.
+Hypersim: A photorealistic synthetic dataset for holistic indoor scene understanding.
+In ICCV, 2021.
+[28]
+Ethan Rublee, Vincent Rabaud, Kurt Konolige, and Gary Bradski.
+Orb: An efficient alternative to sift or surf.
+In ICCV, 2011.
+[29]
+Paul-Edouard Sarlin, Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabinovich.
+Superglue: Learning feature matching with graph neural networks.
+In CVPR, pages 4938–4947, 2020.
+[30]
+Johannes Lutz Schönberger and Jan-Michael Frahm.
+Structure-from-motion revisited.
+In CVPR, 2016.
+[31]
+Johannes Lutz Schönberger, Enliang Zheng, Marc Pollefeys, and Jan-Michael Frahm.
+Pixelwise view selection for unstructured multi-view stereo.
+In ECCV, 2016.
+[32]
+Thomas Schops, Johannes L Schonberger, Silvano Galliani, Torsten Sattler, Konrad Schindler, Marc Pollefeys, and Andreas Geiger.
+A multi-view stereo benchmark with high-resolution images and multi-camera videos.
+In CVPR, pages 3260–3269, 2017.
+[33]
+You Shen, Zhipeng Zhang, Yansong Qu, and Liujuan Cao.
+Fastvggt: Training-free acceleration of visual geometry transformer.
+arXiv preprint arXiv:2509.02560, 2025.
+[34]
+Jiaming Tang, Yilong Zhao, Kan Zhu, Guangxuan Xiao, Baris Kasikci, and Song Han.
+Quest: Query-aware sparsity for efficient long-context llm inference.
+ICML, 2024.
+[35]
+Zachary Teed and Jia Deng.
+Droid-slam: Deep visual slam for monocular, stereo, and rgb-d cameras.
+NeurIPS, 2021.
+[36]
+Philippe Tillet, Hsiang-Tsung Kung, and David Cox.
+Triton: an intermediate language and compiler for tiled neural network computations.
+In Proceedings of the 3rd ACM SIGPLAN International Workshop on Machine Learning and Programming Languages, 2019.
+[37]
+Chung-Shien Brian Wang, Christian Schmidt, Jens Piekenbrinck, and Bastian Leibe.
+Faster vggt with block-sparse global attention.
+arXiv preprint arXiv:2509.07120, 2025a.
+[38]
+Hengyi Wang and Lourdes Agapito.
+3d reconstruction with spatial memory.
+arXiv preprint arXiv:2408.16061, 2024.
+[39]
+Jianyuan Wang, Nikita Karaev, Christian Rupprecht, and David Novotny.
+Vggsfm: Visual geometry grounded deep structure from motion.
+In CVPR, 2024a.
+[40]
+Jianyuan Wang, Minghao Chen, Nikita Karaev, Andrea Vedaldi, Christian Rupprecht, and David Novotny.
+Vggt: Visual geometry grounded transformer.
+In CVPR, 2025b.
+[41]
+Qianqian Wang, Yifei Zhang, Aleksander Holynski, Alexei A. Efros, and Angjoo Kanazawa.
+Continuous 3d perception model with persistent state, 2025c.
+[42]
+Ruicheng Wang, Sicheng Xu, Cassie Dai, Jianfeng Xiang, Yu Deng, Xin Tong, and Jiaolong Yang.
+Moge: Unlocking accurate monocular geometry estimation for open-domain images with optimal training supervision.
+arXiv preprint arXiv:2410.19115, 2024b.
+[43]
+Shuzhe Wang, Vincent Leroy, Yohann Cabon, Boris Chidlovskii, and Jerome Revaud.
+Dust3r: Geometric 3d vision made easy.
+In CVPR, 2024c.
+[44]
+Yifan Wang, Jianjun Zhou, Haoyi Zhu, Wenzheng Chang, Yang Zhou, Zizun Li, Junyi Chen, Jiangmiao Pang, Chunhua Shen, and Tong He.
+\pi^{3} : Scalable permutation-equivariant visual geometry learning.
+arXiv preprint 2507.13347, 2025d.
+[45]
+Shuang Wu, Youtian Lin, Feihu Zhang, Yifei Zeng, Yikang Yang, Yajie Bao, Jiachen Qian, Siyu Zhu, Philip Torr, Xun Cao, and Yao Yao.
+Direct3d-s2: Gigascale 3d generation made easy with spatial sparse attention.
+NeurIPS, 2025.
+[46]
+Hongchi Xia, Yang Fu, Sifei Liu, and Xiaolong Wang.
+Rgbd objects in the wild: Scaling real-world 3d object learning from rgb-d videos, 2024.
+[47]
+Guangxuan Xiao, Yuandong Tian, Beidi Chen, Song Han, and Mike Lewis.
+Efficient streaming language models with attention sinks.
+ICLR, 2024.
+[48]
+Jianing Yang, Alexander Sax, Kevin J Liang, Mikael Henaff, Hao Tang, Ang Cao, Joyce Chai, Franziska Meier, and Matt Feiszli.
+Fast3r: Towards 3d reconstruction of 1000+ images in one forward pass.
+arXiv preprint arXiv:2501.13928, 2025.
+[49]
+Yao Yao, Zixin Luo, Shiwei Li, Tian Fang, and Long Quan.
+Mvsnet: Depth inference for unstructured multi-view stereo.
+In ECCV, 2018.
+[50]
+Chandan Yeshwanth, Yueh-Cheng Liu, Matthias Nießner, and Angela Dai.
+Scannet++: A high-fidelity dataset of 3d indoor scenes.
+In ICCV, 2023.
+[51]
+Jingyang Yuan, Huazuo Gao, Damai Dai, Junyu Luo, Liang Zhao, Zhengyan Zhang, Zhenda Xie, Yuxing Wei, Lean Wang, Zhiping Xiao, et al.
+Native sparse attention: Hardware-aligned and natively trainable sparse attention.
+In ACL, 2025.
+[52]
+Jintao Zhang, Chendong Xiang, Haofeng Huang, Jia Wei, Haocheng Xi, Jun Zhu, and Jianfei Chen.
+Spargeattn: Accurate sparse attention accelerating any model inference.
+In ICML, 2025a.
+[53]
+Peiyuan Zhang, Yongqi Chen, Haofeng Huang, Will Lin, Zhengzhong Liu, Ion Stoica, Eric Xing, and Hao Zhang.
+Vsa: Faster video diffusion with trainable sparse attention.
+arXiv preprint arXiv:2505.13389, 2025b.
+[54]
+Zhe Zhang, Rui Peng, Yuxi Hu, and Ronggang Wang.
+Geomvsnet: Learning multi-view stereo with geometry perception.
+In CVPR, 2023a.
+[55]
+Zhenyu Zhang, Ying Sheng, Tianyi Zhou, Tianlong Chen, Lianmin Zheng, Ruisi Cai, Zhao Song, Yuandong Tian, Christopher Ré, Clark Barrett, et al.
+H2o: Heavy-hitter oracle for efficient generative inference of large language models.
+NeurIPS, 2023b.
+[56]
+Tinghui Zhou, Richard Tucker, John Flynn, Graham Fyffe, and Noah Snavely.
+Stereo magnification: learning view synthesis using multiplane images.
+ACM TOG, 2018.
+Supplementary Material
+1 Efficient Kernel Implementation
+1.1 Implementation Details
+Our Gated Sparse Attention (GSA) utilizes a dedicated kernel for each branch. For the compression branch, we adapt the official FlashAttention implementation in Triton by integrating a streaming top-k selection, which employs a bitonic search algorithm, directly within the online softmax computation. The pseudocode for this forward kernel is presented in Algorithm 1.
+For the selection kernel, it shares a similar idea with block-sparse attention of original Flash Attention2. But add custom api to get topk-idx from the compression kernel and mask the first frame token for vggt, as shown in Algorithm 2. We do not show the pseudocode of the backward kernel but we implement them following originla NSA [51] and FlashAttention2 [8] logic.
+We observe that the two branches of our proposed method are conceptually analogous to two recent training-free approaches.
+The philosophy behind our compression branch is shared by the token merging strategy in FastVGGT [33]. Both methods aim to reduce sequence length by merging redundant tokens to improve efficiency. However, they differ in their implementation: FastVGGT employs a bipartite matching algorithm for merging, whereas our approach utilizes a more efficient token average pooling mechanism.
+Similarly, our selection branch aligns with the strategy used in Block-Sparse attention [37], which also selects top-k key blocks for each query to reduce computational overhead. A limitation of their work is the reliance on a pre-existing kernel [52] that lacks an implementation for the backward pass. This makes their method non-differentiable and thus non-trainable, hindering its scalability and practical utility. In contrast, our method introduces a custom, fully differentiable kernel, enabling end-to-end training.
+To support the broader research community, we will open-source our kernel implementation, offering a scalable and trainable solution for efficient attention.
+Algorithm 1 Compression Branch Forward Pass
+1:
+Query Q , Key K , Value V
+2:
+Top-k value k_{\text{top}} , Block dimensions B_{M},B_{N} , Head dimension d_{h}
+3:
+Output O , Top-k indices I_{\text{topk}}
+4:
+procedure GSA_Forward_Detailed( Q,K,V,k_{\text{top}} )
+5:
+for each query block Q_{i} of size B_{M}\times d_{h} in parallel do
+6:
+Initialize output accumulator O_{i}\leftarrow\mathbf{0}
+7:
+Initialize row-wise max statistic m_{i}\leftarrow-\infty
+8:
+Initialize row-wise log-sum-exp statistic l_{i}\leftarrow\mathbf{0}
+9:
+Initialize top-k scores and indices: (\mathcal{S}_{i},\mathcal{I}_{i})\leftarrow(-\infty,\text{null})
+10:
+for each key/value block (K_{j},V_{j}) of size B_{N}\times d_{h} do
+11:
+Compute attention scores S_{ij}\leftarrow(Q_{i}K_{j}^{T})
+12:
+\triangleright 1. Update attention output via online softmax
+13:
+m_{ij}\leftarrow\rowmax(S_{ij})
+14:
+P_{ij}\leftarrow\exp(S_{ij}-m_{ij})
+15:
+l_{ij}\leftarrow\rowsum(P_{ij})
+16:
+m_{i}^{\text{new}}\leftarrow\max(m_{i},m_{ij})
+17:
+l_{i}^{\text{new}}\leftarrow e^{m_{i}-m_{i}^{\text{new}}}l_{i}+e^{m_{ij}-m_{i}^{\text{new}}}l_{ij}
+18:
+O_{i}\leftarrow e^{m_{i}-m_{i}^{\text{new}}}O_{i}+e^{m_{ij}-m_{i}^{\text{new}}}(P_{ij}V_{j})
+19:
+m_{i}\leftarrow m_{i}^{\text{new}} ; l_{i}\leftarrow l_{i}^{\text{new}}
+20:
+\triangleright 2. Update top-k indices via streaming selection
+21:
+(S_{ij}^{\text{top}},I_{ij}^{\text{top}})\leftarrow\TopK(S_{ij},k_{\text{top}})
+22:
+(\mathcal{S}_{i},\mathcal{I}_{i})\leftarrow\text{Sort}((\mathcal{S}_{i},\mathcal{I}_{i}),(S_{ij}^{\text{top}},I_{ij}^{\text{top}}),k_{\text{top}})
+23:
+end for
+24:
+Normalize final block output O_{i}\leftarrow O_{i}/l_{i}
+25:
+Store block output O_{i} into O and final top-k indices \mathcal{I}_{i} into I_{\text{topk}} .
+26:
+end for
+27:
+end procedure
+Algorithm 2 Selection Attention Forward Pass
+1:
+Query Q , Key K , Value V , Top-k indices tensor T
+2:
+Softmax scale \sigma , Block dimensions B_{M},B_{N} , Head dimension d_{h} , Top-k count k_{\text{top}}
+3:
+Output O , Log-Sum-Exp values L
+4:
+procedure BlockSparse_Forward
+5:
+for each query block Q_{i} of size B_{M}\times d_{h} in parallel do
+6:
+Initialize output accumulator O_{i}\leftarrow\mathbf{0}
+7:
+Initialize row-wise max statistic m_{i}\leftarrow-\infty
+8:
+Initialize row-wise sum-exp statistic l_{i}\leftarrow\mathbf{0}
+9:
+for k from 0 to k_{\text{top}}-1 do
+10:
+Load key block index j\leftarrow T_{i,k}
+11:
+Load corresponding key block K_{j} and value block V_{j}
+12:
+Compute attention scores S_{ij}\leftarrow\sigma(Q_{i}K_{j}^{T})
+13:
+\triangleright Update attention output via online softmax
+14:
+m_{ij}\leftarrow\rowmax(S_{ij})
+15:
+P_{ij}\leftarrow\exp(S_{ij}-m_{ij})
+16:
+l_{ij}\leftarrow\rowsum(P_{ij})
+17:
+m_{i}^{\text{new}}\leftarrow\max(m_{i},m_{ij})
+18:
+l_{i}^{\text{new}}\leftarrow e^{m_{i}-m_{i}^{\text{new}}}l_{i}+e^{m_{ij}-m_{i}^{\text{new}}}l_{ij}
+19:
+O_{i}\leftarrow e^{m_{i}-m_{i}^{\text{new}}}O_{i}+e^{m_{ij}-m_{i}^{\text{new}}}(P_{ij}V_{j})
+20:
+m_{i}\leftarrow m_{i}^{\text{new}} ; l_{i}\leftarrow l_{i}^{\text{new}}
+21:
+end for
+22:
+Compute final Log-Sum-Exp L_{i}\leftarrow m_{i}+\log(l_{i})
+23:
+Normalize final block output O_{i}\leftarrow O_{i}/l_{i}
+24:
+Store block output O_{i} into O and statistics L_{i} into L .
+25:
+end for
+26:
+end procedure
+2 Speed3R-VGGT Benchmarking
+Table 8: Inference Time for Different Models. Mean latency (in seconds) for varying sequence lengths on VGGT backbone. Our method achieves a 10.9× speedup on sequences of 1024 images.
+| Seq Length
+| 32
+| 64
+| 128
+| 256
+| 512
+| 1024
+| Full Attn.(VGGT)
+| 0.79
+| 1.81
+| 5.44
+| 18.21
+| 67.27
+| 271.21
+| FastVGGT [37]
+| 0.63
+| 1.25
+| 2.59
+| 6.48
+| 18.30
+| 61.33
+| Block Sparse [33]
+| 0.53
+| 1.16
+| 2.89
+| 8.16
+| 26.15
+| 75.42
+| Ours
+| 0.46
+| 0.87
+| 1.78
+| 3.88
+| 9.16
+| 24.85
+We benchmark the inference acceleration ratio of Speed3R-VGGT, as shown in Table 8. Our method achieves a 10.9× speedup compared to full attention and demonstrates greater efficiency than training-free methods. The latency is measured in pose-only mode. Note that in all implementations, we utilize VGGT with redundant memory storage removed, as proposed in FastVGGT [33], to benchmark the latency of VGGT. This optimization achieves an acceleration ratio of approximately 2 compared to the vanilla VGGT implementation.
+3 Training/Evaluation Details
+Table 9: Summary of Datasets Used in Training and Testing
+| Dataset Name
+| Scene/Sequence Count
+| Downsample Ratio
+| Co3Dv2 [26]
+| 10764
+| 2x
+| Hypersim [27]
+| 461
+| 1x
+| Scannetpp [50]
+| 996
+| 2x
+| DL3DV [20]
+| 6,378
+| 4x
+| ARKitScenes [1]
+| 3,344
+| 2x
+| WildRGBD [46]
+| 2,753
+| 5x
+| vkitti [5]
+| 5
+| 1x
+Datasets
+The statistics of our training datasets are detailed in Table 9. To manage storage requirements, we downsampled each sequence at the ratios specified in the table. During training, we sample 2-24 images following previous works. For the sampling process, we employed random sampling for most datasets. However, for the VKITTI2 dataset, which is characterized by its long sequences, we adopted the sampling strategy from \pi^{3} [44]. The total size of the processed training data amounts to approximately 2TB, excluding depth maps. Our distillation-based strategy obviates the need to store these large depth files, resulting in significant storage savings.
+Speed3R-VGGT Training Loss
+Due to the self-normalization nature of VGGT, we do not need to normalize prediction and teacher supervision.The Speed3R-VGGT is trained end-to-end with a composition of two terms: \mathcal{L}_{\text{camera}} , \mathcal{L}_{\text{depth}} . The camera loss, \mathcal{L}_{\text{camera}} , supervises a set of N camera pose predictions ( \hat{g}i ) by comparing them against their teacher model prediction ( g_{i} ) using the Huber loss. The depth loss, \mathcal{L}{\text{depth}} , implementing an aleatoric uncertainty loss that leverages a predicted uncertainty map, \Sigma_{i}^{D} , which acts as a measure of confidence. This uncertainty map is used to weigh the discrepancy between the predicted depth ( \hat{D}i ) and pseudo depth GT from teacher model( D_{i} ), and it also weighs an additional gradient-based term ( \nabla\hat{D}i-\nabla D_{i} ) to preserve structural details. The depth loss formulation, \mathcal{L}{\text{depth}}=|\Sigma_{i}^{D}\odot(\hat{D}_{i}-D_{i})|+|\Sigma_{i}^{D}\odot(\nabla\hat{D}_{i}-\nabla D_{i})|-\alpha\log\Sigma_{i}^{D} , therefore penalizes depth and gradient errors based on the model’s own confidence while also regularizing the uncertainty prediction itself.
+Speed3R- \mathbf{\pi^{3}} Training Loss
+Analogous to the training of Speed3R-VGGT, the loss function for Speed3R- \pi^{3} is a composite objective comprising two primary components: one for the depth head and another for the pose head. A key aspect of this loss, adopted from the \pi^{3} methodology [44], is the normalization of both the model’s predictions and the teacher supervision signals by the average depth value computed across all views. The overall loss function adheres to the original \pi^{3} implementation, incorporating several specific terms: an aligned depth loss, a surface normal loss derived from MoGe [42], and a relative pose loss that is computed on all pairs of predicted camera poses.
+Train from Scratch
+In section 5, we train our sparse model and dense model from scratch. We train both model with 8GPU for 40 epoch with gradient accumulation of 2. We initialize two model encoder with DINOv2 [24] weights and other part with Kaiming Initialization [14].
+4 Sparsity Calculation
+For our method and Block-Sparse [37], we report the sparse ratio based on the selection stage, as both the query (q) and key (k) are downsampled by a factor of 16 in the compression stage. This results in a very small sparse ratio in terms of FLOPs.
+For FastVGGT [33], we report their threshold-based sparse ratio. Their method sparsifies both the query (q) and key (k), which helps reduce FLOPs during the attention calculation. However, it introduces an additional pre-filtering stage, where the maximum similarity score of each token is computed relative to the protected tokens. This step adds quadratic complexity to their method.
+Additionally, FastVGGT sets the first view as protected tokens that cannot be evicted. As a result, when the sparse ratio is set to 0.9, the actual effective sparse ratio is approximately 0.81. From a FLOPs perspective, we report their sparse ratio while accounting for this behavior and the overhead introduced by the pre-filtering stage.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

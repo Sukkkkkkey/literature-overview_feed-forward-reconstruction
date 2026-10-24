@@ -1,0 +1,1244 @@
+GeoCond: A Conditioning-Aware Reliability Adapter for Feed-Forward 3D Reconstruction
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related work
+3 Method
+3.1 Overview
+3.2 Setup and pose error
+3.3 Conditioning features
+3.4 Reliability supervision signals
+3.5 GeoCond head
+3.6 Deployment decisions
+4 Experiments
+4.1 Geometric conditioning explains pose failure
+4.2 Single-pass uncertainty and gated refinement
+4.3 Comparison with uncertainty baselines
+4.4 Adaptation across domains and backbones
+4.5 Reliability as a control signal
+5 Discussion and limitations
+6 Conclusion
+References
+A Sparsification and two-view uncertainty
+B Calibration of catastrophic-pose failure
+C Downstream pose-graph fusion
+D Streaming frame reduction
+E Cheap and noisy backbone variants
+F Feed-forward residual
+G Repeated-seed stability
+H Pose accuracy across thresholds
+I Seed robustness of the learned heads
+License: arXiv.org perpetual non-exclusive license
+arXiv:2609.18465v1 [cs.CV] 16 Sep 2026
+GeoCond: A Conditioning-Aware Reliability Adapter for
+Feed-Forward 3D Reconstruction
+David Ahmedt-Aristizabal
+Affiliation: CSIRO, Australia
+Mohammad Ali Armin
+Affiliation: CSIRO, Australia
+Russell Tsuchida
+Affiliation: Monash University, Australia{David.Ahmedtaristizabal, Lars.Petersson}@csiro.au,russell.tsuchida@monash.edu
+Lars Petersson
+Affiliation: CSIRO, Australia
+Abstract
+Feed-forward 3D foundation models such as VGGT predict cameras, depth, and point maps in a single pass, but can fail silently under low overlap, low parallax, and extreme relative rotation.
+Stratified analyses over these factors show that these failures are governed by geometric conditioning and are poorly captured by native aleatoric confidence.
+We introduce GeoCond, a lightweight reliability adapter for frozen feed-forward 3D backbones. GeoCond reads the backbone’s predicted geometry and outputs pose-level uncertainty and a refinement gate. During training, it can be supervised by frame-permutation orbit variance, ground-truth pose error when labels are available, or cycle residuals from unlabelled independent pose graphs. At inference, the default head requires only one backbone pass and a small MLP.
+On VGGT, GeoCond improves out-of-distribution (OOD) AUSE (area under the sparsification-error curve; lower is better) from 0.32 to 0.20 over native confidence, transfers zero-shot to outdoor extreme-view scenes, and avoids the collapse caused by applying bundle adjustment uniformly. Across multiple backbones, cycle-distilled variants provide a ground-truth-free adaptation route, including cases where permutation variance vanishes on equivariant models. The same reliability signal supports gated refinement, pose-graph weighting, calibration, curation, and capture decisions. Reliable feed-forward 3D reconstruction requires not only predicting geometry, but also knowing when that geometry should be trusted.
+Figure 1:
+GeoCond as a pose-level reliability adapter. Feed-forward-only prediction provides no explicit pose-level trust signal and can fail silently in difficult cases, while uniformly applying bundle adjustment may help supported pairs but harm weak ones. GeoCond augments a frozen feed-forward backbone with conditioning features to predict pose uncertainty and a refinement gate, selectively keeping, refining, pruning, or requesting additional views for each relative pose.
+1 Introduction
+Feed-forward 3D reconstruction models—from DUSt3R [30] and MASt3R [14] to VGGT [26] and recent successors [31, 10, 27]—have made multi-view geometry increasingly accessible. Given one or more unposed images, they predict camera parameters, depth, dense point maps, and tracks in a single forward pass, often without the iterative optimization used in classical SfM/MVS pipelines [19, 23]. This makes them attractive front-ends for reconstruction, localization, robotics, and mapping. However, their reliability remains difficult to assess: a predicted pose can be wrong, yet the model provides no reliable pose-level signal that the output should not be trusted.
+The missing layer is pose-level reliability. Feed-forward 3D backbones emit per-pixel, per-point, or per-track confidence, but these signals do not answer the downstream question: should this relative camera pose be trusted? A pair can contain many confident local predictions and still be globally ill-conditioned if the views barely overlap, the camera motion has little triangulation parallax, or a large relative rotation leaves weak correspondences. In these regimes, the pose can fail while native confidence remains weakly informative.
+Geometric conditioning also determines whether refinement is beneficial. Bundle adjustment (BA) is often used as a post-processing step for feed-forward estimates, and learned or test-time refinement has been explored in related pipelines [28, 6]. On a frozen VGGT, BA can improve pairs with sufficient track support but corrupt low-overlap pairs whose geometric constraints are weak. Thus, the relevant question is not only how to refine a feed-forward prediction, but whether refinement should be applied at all.
+We address this problem with GeoCond, a lightweight conditioning-aware reliability adapter attached to a frozen feed-forward 3D backbone (Figure 1).
+GeoCond uses seven interpretable features computed from the backbone’s own predictions: predicted parallax, co-visibility, baseline, relative rotation, camera-head rotation and translation correction, and aggregated aleatoric confidence.
+During training, it can be supervised by frame-permutation orbit variance, target-domain pose error when labels exist, or cycle residuals from unlabelled independent pose graphs.
+At inference, the default head requires only one backbone pass and produces a pose-level uncertainty score and a refinement gate for each relative pose.
+Our contributions are:
+1.
+We identify geometric conditioning as a primary driver of feed-forward relative-pose failure, with direct evidence for low parallax, low overlap, and large relative rotation on indoor and outdoor data, and show that native aleatoric confidence is a poor predictor of these pose-level errors.
+2.
+We introduce GeoCond, a lightweight reliability adapter that predicts pose-level uncertainty and refinement decisions from a frozen backbone’s own predicted geometry and analyse which inputs carry the reliability signal.
+3.
+We propose three reliability-supervision settings: frame-permutation distillation, supervised target-domain training, and ground-truth-free cycle-residual distillation.
+4.
+We show that refinement is conditioning-dependent: BA can help well-supported pairs but harm low-overlap cases, motivating a learned gate rather than uniform refinement.
+5.
+We demonstrate that the predicted reliability signal transfers to out-of-distribution (OOD) outdoor extreme-view data, generalizes across backbones, and supports downstream pose-graph weighting, calibration, curation, and adaptive capture.
+2 Related work
+Feed-forward 3D reconstruction.
+Classical SfM/MVS estimates camera motion and structure through matching, triangulation, and bundle adjustment [19, 23]. Feed-forward models instead predict geometry directly. DUSt3R [30] and MASt3R [14] regress point maps, while later systems extend this paradigm to spatial memory, many-view inference, streaming, and long sequences [25, 32, 36, 29, 5]. VGGT [26] predicts cameras, depth, point maps, and tracks, with extensions for permutation equivariance, metric scale, efficiency, and dense SLAM [31, 10, 27, 17]. Despite these advances, existing models do not expose a pose-level reliability signal for deciding whether a relative pose should be trusted.
+Robustness of feed-forward 3D.
+Recent analyses study failure modes of feed-forward 3D models, including distractor-view rejection [9], emergent epipolar geometry in intermediate layers [3], attention degradation with sequence length [15], and catastrophic errors under minimal-overlap extreme views [34]. Our work targets this regime directly, but rather than filtering views or modifying the backbone, we predict pose uncertainty and use it to abstain, down-weight, refine, or adapt unreliable relative poses.
+Uncertainty for 3D regression.
+Deep uncertainty is commonly separated into aleatoric and epistemic components [11], with MC dropout, ensembles, and evidential learning as standard estimators [8, 12, 20]. Feed-forward 3D backbones typically output per-pixel or per-point confidence, while Trust3R [35] models evidential uncertainty for dense geometry. Our target is different: pose-level reliability under geometric degeneracy, including low overlap, low parallax, and extreme relative rotation. We supervise it using frame-permutation orbit variance, pose error, or cycle residuals from unlabelled pose graphs.
+Figure 2: Overview of GeoCond.
+In the default VGGT setting, training uses a frozen backbone to generate an uncertainty teacher from frame-permutation orbit variance and a refinement target from BA-vs-feed-forward comparison. More generally, the reliability teacher can also come from target-domain pose errors or cycle residuals from unlabeled pose graphs. At inference, the backbone runs once and a lightweight GeoCond head predicts pose uncertainty u_{ij} and a refinement gate g_{ij} from conditioning features derived from the backbone’s own predictions. The predicted uncertainty can also weight or prune edges in a downstream pose graph.
+Refinement and pose-graph consistency.
+Bundle adjustment remains central to classical reconstruction [23], and recent learned systems incorporate or approximate geometric refinement through differentiable BA, recurrent dense BA, relative-pose regression, geometric-consistency distillation, or test-time refinement [28, 22, 7, 16, 6].
+These methods improve or amortize estimation; we instead show that refinement itself is conditioning-dependent and should be gated rather than applied uniformly.
+Classical SfM also uses loop constraints, rotation averaging, and robust synchronization to reject inconsistent edges [4, 13, 33]. We use the same geometric principle to turn cycle residuals into an unlabelled teacher for a deployable feed-forward reliability head.
+3 Method
+3.1 Overview
+Our goal is to augment a frozen feed-forward 3D backbone with a lightweight reliability layer. We introduce GeoCond, a conditioning-aware head that predicts pose-level uncertainty and decides whether geometric refinement should be applied. Figure 2 summarizes the method.
+Training and inference are separated. In the default VGGT setting, the frozen backbone provides two supervision signals: a frame-permutation ensemble, which yields an uncertainty teacher, and a comparison between bundle-adjusted and feed-forward poses, which provides the target for a refinement gate. More generally, the uncertainty target can also come from target-domain pose errors when labels are available, or from cycle residuals in unlabelled independent pose graphs. In all cases, the backbone remains frozen and only the GeoCond head is optimised.
+At inference, the backbone runs once. From its predictions, we extract compact conditioning features such as parallax, overlap, baseline, relative rotation, and confidence, and pass them to the GeoCond head. The head outputs a pose-level uncertainty score u_{ij} and a refinement gate g_{ij} for each image pair. The gate determines whether to keep the feed-forward pose or apply light geometric refinement, while the uncertainty can be used to rank, prune, calibrate, or weight relative poses in downstream systems such as pose-graph fusion.
+3.2 Setup and pose error
+Let \mathcal{I}=\{I_{1},\ldots,I_{S}\} be a set of S input images. A frozen feed-forward 3D backbone predicts per-frame extrinsics E_{i} , intrinsics K_{i} , depth maps D_{i} , point maps, native confidence maps A_{i} , and optionally camera tokens z_{i} . We denote by \hat{T}_{i}\in SE(3) the predicted world-to-camera pose and by \hat{\mathbf{c}}_{i} its camera centre.
+For an image pair (i,j) , the feed-forward relative pose is
+|
+| \hat{T}^{\mathrm{FF}}_{ij}=\hat{T}_{j}\hat{T}^{-1}_{i}=(\hat{R}_{ij},\hat{\mathbf{t}}_{ij}),
+|
+| (1)
+where \hat{R}_{ij}\in SO(3) is the relative rotation and \hat{\mathbf{t}}_{ij} denotes the relative translation direction. Translation vectors are normalised to unit length when computing angular translation error. Given the ground-truth relative pose T^{\star}_{ij}=(R^{\star}_{ij},\mathbf{t}^{\star}_{ij}) , we define the pairwise pose error as
+|
+| e_{ij}=\max\left(d_{R}(\hat{R}_{ij},R^{\star}_{ij}),d_{t}(\hat{\mathbf{t}}_{ij},\mathbf{t}^{\star}_{ij})\right),
+|
+| (2)
+where
+|
+| \displaystyle d_{R}(R_{1},R_{2})
+| \displaystyle=\cos^{-1}\!\left(\frac{\operatorname{tr}(R_{1}^{\top}R_{2})-1}{2}\right),
+|
+| (3)
+|
+| \displaystyle d_{t}(\mathbf{t}_{1},\mathbf{t}_{2})
+| \displaystyle=\cos^{-1}\!\left(\frac{\mathbf{t}_{1}^{\top}\mathbf{t}_{2}}{\lVert\mathbf{t}_{1}\rVert_{2}\lVert\mathbf{t}_{2}\rVert_{2}}\right).
+|
+As in prior work [28], we report relative-pose AUC@ \tau over thresholds \tau\in\{5,10,20,30\} degrees. Uncertainty quality is measured by AUSE, where lower is better because the uncertainty removes high-error pairs earlier.
+3.3 Conditioning features
+Our central hypothesis is that feed-forward pose error is governed by geometric conditioning. We therefore construct a low-dimensional per-pair conditioning vector from a single frozen forward pass:
+|
+| \boldsymbol{\phi}_{ij}=[\hat{\alpha}_{ij},\hat{\rho}_{ij},\hat{b}_{ij},\hat{\theta}_{ij},\hat{s}^{R}_{ij},\hat{s}^{t}_{ij},\hat{a}_{ij}],
+|
+| (4)
+where \hat{\alpha}_{ij} is predicted parallax, \hat{\rho}_{ij} is predicted co-visibility or overlap, \hat{b}_{ij}=\lVert\hat{\mathbf{c}}_{i}-\hat{\mathbf{c}}_{j}\rVert_{2} is predicted baseline, \hat{\theta}_{ij}=d_{R}(\hat{R}_{ij},I) is relative rotation magnitude, \hat{s}^{R}_{ij} and \hat{s}^{t}_{ij} measure the first-to-last correction made by the backbone’s iterative camera head, for rotation and translation respectively, and \hat{a}_{ij} is the negated mean per-pixel depth confidence over the two frames, so larger values indicate lower native confidence.
+We compute parallax as the median triangulation angle induced by the predicted depths, intrinsics, and camera poses. Co-visibility is estimated from the fraction of mutually valid projected evidence between the two predicted views, using the backbone’s predicted geometry and validity/confidence masks. The camera-head correction terms capture instability in the backbone’s own pose estimate, and Sec. 4.3 ablates each conditioning feature.
+These scalars are deliberately interpretable and backbone-facing: they describe regimes where relative pose is poorly conditioned, such as low parallax, low overlap, small baseline, or extreme rotation. Unless otherwise stated, this scalars-only representation is the default input to GeoCond. We evaluate optional camera-token variants as an ablation, but find that token-based variants are more prone to domain overfitting.
+3.4 Reliability supervision signals
+GeoCond can be trained from different reliability signals depending on the available supervision. In the default VGGT setting, we use frame-permutation orbit variance as a training-time epistemic teacher. When labelled target-domain poses are available, the same head can be supervised directly from pose error or failure labels. When no ground truth is available, cycle residuals from independent pairwise pose graphs provide a self-supervised reliability signal. These alternatives use the same GeoCond architecture and differ only in the target used to supervise the uncertainty output.
+Frame-permutation orbit variance.
+For non-equivariant multi-view backbones such as VGGT, image ordering is a nuisance variable: the relative pose should not change when the same image set is re-ordered. Let \pi_{k} , k=1,\ldots,K , denote K random permutations of the input set. For each permutation, we run the frozen backbone and recover
+|
+| \hat{T}^{(k)}_{ij}=\hat{T}^{(k)}_{j}\left(\hat{T}^{(k)}_{i}\right)^{-1}.
+|
+| (5)
+We define the orbit-variance teacher as the average angular spread of translation directions:
+|
+| u^{\mathrm{perm}}_{ij}=\frac{2}{K(K-1)}\sum_{a<b}d_{t}\left(\hat{\mathbf{t}}^{(a)}_{ij},\hat{\mathbf{t}}^{(b)}_{ij}\right).\vskip-5.69046pt
+|
+| (6)
+If the relative pose changes substantially under harmless re-orderings of the same input set, the backbone is unstable for that pair. This teacher requires K backbone passes only during training; inference is single-pass. The teacher is intentionally backbone-specific: for permutation-equivariant models such as \pi^{3} [31], orbit variance can vanish.
+Ground-truth supervision.
+When labelled target-domain poses exist, the same head can be trained directly from pose error e_{ij} or from binary failure labels such as \mathbf{1}[e_{ij}>\tau] . This supervised setting is useful under strong domain shift, where the mapping from conditioning features to error may change.
+Cycle-residual distillation.
+When no labels exist, independent pairwise estimates form pose graphs whose loops should close. For a triangle (i,j,k) , the composed rotation should satisfy
+|
+| R_{ij}R_{jk}R_{ki}=I.
+|
+| (7)
+We define a cycle residual for an edge by averaging \angle(R_{ij}R_{jk}R_{ki},I) over triangles incident to that edge. This residual requires no ground truth and only small matrix multiplications after independent edges are estimated. We use it either as a direct reliability score or as a teacher for a distilled head. This provides a ground-truth-free adaptation setting that also applies when the permutation teacher is uninformative for equivariant backbones.
+3.5 GeoCond head
+GeoCond is a small MLP applied independently to each image pair. Its default input is the standardized conditioning vector \boldsymbol{\phi}_{ij} together with a compact representation of the current feed-forward relative pose,
+|
+| \psi(\hat{T}^{\mathrm{FF}}_{ij})=(q_{ij},\hat{\mathbf{t}}_{ij}),
+|
+| (8)
+where q_{ij} is the relative rotation represented as a unit quaternion and \hat{\mathbf{t}}_{ij} is the unit translation direction. We use the scalars-only conditioning features by default and evaluate camera-token variants as an ablation.
+Let
+|
+| \mathbf{h}_{ij}=f_{\theta}\left(\boldsymbol{\phi}_{ij},\psi(\hat{T}^{\mathrm{FF}}_{ij})\right)
+|
+| (9)
+be the shared pair representation produced by the GeoCond MLP. The head predicts three quantities:
+|
+| \hat{u}_{ij}=h_{u}(\mathbf{h}_{ij}),\kern 5.0pt\hat{g}_{ij}=\sigma(h_{g}(\mathbf{h}_{ij})),\kern 5.0pt\hat{r}_{ij}=h_{r}(\mathbf{h}_{ij}),
+|
+| (10)
+where \hat{u}_{ij} is a pose-level uncertainty score, \hat{g}_{ij}\in[0,1] is a refinement gate, and \hat{r}_{ij} parameterizes an optional feed-forward SE(3) residual. The residual branch is optional and is used only to test whether geometric refinement can be amortized into a single forward pass.
+The uncertainty output is trained from a reliability target y^{u}_{ij} . For continuous targets, such as log orbit variance, pose error, or cycle residuals, we use
+|
+| \mathcal{L}_{u}=\left(\hat{u}_{ij}-y^{u}_{ij}\right)^{2}.
+|
+| (11)
+In the default VGGT setting,
+|
+| y^{u}_{ij}=\log\left(1+u^{\mathrm{perm}}_{ij}\right).
+|
+| (12)
+When training from ground-truth pose error or cycle residuals, y^{u}_{ij} is replaced by the corresponding normalized reliability target. For binary failure targets, such as \mathbf{1}[e_{ij}>\tau] , we replace the squared loss with a binary cross-entropy loss.
+The refinement gate predicts whether BA improves the feed-forward pose. Let e^{\mathrm{FF}}_{ij} and e^{\mathrm{BA}}_{ij} be the pose errors before and after BA during training. The gate target is
+|
+| y^{g}_{ij}=\mathbf{1}\left[e^{\mathrm{BA}}_{ij}<e^{\mathrm{FF}}_{ij}\right],
+|
+| (13)
+with loss
+|
+| \mathcal{L}_{g}=\operatorname{BCE}\left(\hat{g}_{ij},y^{g}_{ij}\right).
+|
+| (14)
+The optional residual branch is supervised by the better of the feed-forward and BA estimates:
+|
+| T^{\star}_{ij}=\begin{cases}T^{\mathrm{BA}}_{ij},&e^{\mathrm{BA}}_{ij}<e^{\mathrm{FF}}_{ij},\\
+T^{\mathrm{FF}}_{ij},&\text{otherwise}.\end{cases}
+|
+| (15)
+Writing this target as (q^{\star}_{ij},\hat{\mathbf{t}}^{\star}_{ij}) , the residual branch predicts a corrected pose (\tilde{q}_{ij},\tilde{\mathbf{t}}_{ij}) and is trained with
+|
+| \mathcal{L}_{r}=\left(1-\left|\tilde{q}_{ij}^{\top}q^{\star}_{ij}\right|\right)+\left(1-\tilde{\mathbf{t}}_{ij}^{\top}\hat{\mathbf{t}}^{\star}_{ij}\right).\vskip-5.69046pt
+|
+| (16)
+Quaternions and translation directions are normalized before computing the residual loss.
+The full training objective is
+|
+| \mathcal{L}=\mathcal{L}_{u}+\mathcal{L}_{g}+\lambda_{r}\mathcal{L}_{r},\vskip-5.69046pt
+|
+| (17)
+with \lambda_{r}=2 when the residual branch is enabled and \lambda_{r}=0 otherwise. All backbone parameters remain frozen; only the GeoCond head is optimized.
+3.6 Deployment decisions
+At inference, GeoCond adds only a small MLP on top of the frozen backbone: 19.6k parameters and 0.17 ms per ten pairs ( 0.2\% of a 95.6 ms backbone pass). The seven conditioning scalars take 3.5 ms per five-frame tuple in a batched GPU implementation; the K{=}6 teacher is training-only, while one BA call costs 4.0 s. We use its outputs in four ways. First, for refinement control, the final relative pose is
+|
+| T^{\mathrm{out}}_{ij}=\begin{cases}T^{\mathrm{ref}}_{ij},&\hat{g}_{ij}\geq\tau_{g},\\
+T^{\mathrm{FF}}_{ij},&\text{otherwise},\end{cases}
+|
+| (18)
+where T^{\mathrm{ref}}_{ij} is obtained either from BA or from the optional residual branch. Second, for selective prediction, high-uncertainty pairs can be abstained from or pruned. Third, for pose-graph fusion, we weight each edge by
+|
+| w_{ij}=\exp(-\gamma\hat{u}_{ij})
+|
+| (19)
+before rotation averaging:
+|
+| \min_{\{R_{i}\}_{i\in\mathcal{V}}}\sum_{(i,j)\in\mathcal{E}}w_{ij}\,d_{R}\left(R_{j}R_{i}^{-1},\hat{R}_{ij}\right)^{2}.
+|
+| (20)
+Finally, for risk-controlled decisions, we apply Platt scaling [18] to map \hat{u}_{ij} into a catastrophic-failure probability \mathbb{P}(e_{ij}>\tau) and use calibrated thresholds for pseudo-label curation and adaptive capture.
+4 Experiments
+We evaluate whether geometric conditioning explains feed-forward 3D failures, and whether GeoCond provides a useful reliability signal for uncertainty estimation, refinement control, adaptation, and downstream pose fusion. We ask whether pose error follows geometric conditioning; whether native aleatoric confidence captures this error; whether a single-pass head can approximate a more expensive teacher; whether the same reliability signal adapts across domains and backbones; and whether uncertainty supports downstream control decisions.
+Datasets and protocol.
+The core experiments use frozen VGGT-1B. Our main indoor benchmark is 7-Scenes [21]; our out-of-distribution (OOD) benchmark is MegaUnScene [34], an outdoor extreme-view benchmark with low overlap and large rotations. Additional tests use MegaDepth-1500, ScanNet-1500, and multiple feed-forward backbones: \pi^{3} [31], DUSt3R [30], Fast3R [32], CUT3R [29], and MapAnything [10]. Unless stated otherwise, heads are evaluated scene-disjoint from their training data. We report AUSE for uncertainty ranking and AUC@30 for pose accuracy or retained-pose quality. AUSE is the normalized area between the sparsification curve S_{u}(f) , obtained by removing the fraction f of pairs with highest predicted uncertainty, and the oracle curve S_{o}(f) , obtained by removing pairs by true error:
+\int_{0}^{0.9}[S_{u}(f)-S_{o}(f)]\,\mathrm{d}f/S_{u}(0) ; lower is better. AUC@ \tau is the mean fraction of pairs with e_{ij}\leq t over integer thresholds t\leq\tau degrees, times 100 [28].
+Figure 3: Conditioning explains failures and decisions.
+Left: pose error and orbit-variance uncertainty rise as parallax degrades, while native confidence remains weakly informative.
+Right: on the OOD outdoor extreme-view benchmark, the orbit teacher and one-pass head outperform native confidence as reliability signals, and the gate avoids the damage caused by applying BA uniformly.
+Table 1: Geometric conditioning predicts pose error across datasets. Low/high parallax columns show median pose error in degrees; AUSE \downarrow compares conditioning-based uncertainty with native VGGT confidence; the better of the two is in bold
+.
+| Dataset
+| n
+| err low par.
+| err high par.
+| cond. AUSE
+| native AUSE
+| 7-Scenes heads
+| 2200
+| 17.4
+| 3.0
+| 0.172
+| 0.417
+| 7-Scenes chess
+| 1600
+| 10.8
+| 2.7
+| 0.157
+| 0.370
+| 7-Scenes office
+| 700
+| 22.6
+| 10.0
+| 0.173
+| 0.186
+| MegaUnScene
+| 900
+| 44.2
+| 3.3
+| 0.163
+| 0.323
+| MegaDepth-1500
+| 1500
+| –
+| –
+| 0.261
+| 0.616
+| ScanNet-1500
+| 1500
+| 8.6
+| 2.2
+| 0.230
+| 0.386
+4.1 Geometric conditioning explains pose failure
+We first test whether VGGT’s pose failures are explained by geometric conditioning. On 7-Scenes, pose error is strongly parallax-dependent: the median pairwise error increases from approximately 3.0^{\circ} at high parallax to 17.4^{\circ} below 1^{\circ} parallax, with 22\% of low-parallax pairs becoming catastrophic failures above 30^{\circ} . The frame-permutation orbit variance tracks this degradation, while VGGT’s native aleatoric confidence remains weakly informative.
+Table 1 shows the same trend across indoor, outdoor extreme-view, and standard two-view benchmarks. Where parallax buckets are available, low-parallax pairs have substantially higher median error than high-parallax pairs. On MegaUnScene, for example, the median error rises from 3.3^{\circ} to 44.2^{\circ} , while conditioning-based AUSE is 0.163 compared with 0.323 for native confidence. Figure 3 visualizes this behaviour. These results support the central claim that pose reliability is governed by geometric conditioning rather than per-pixel confidence alone.
+Table 2 further stratifies the analysis by overlap and relative rotation. Low-overlap and high-rotation pairs are substantially more failure-prone: in 7-Scenes office, overlap <0.01 gives median error 42.2^{\circ} with 54\% catastrophic pairs, and relative rotation \geq 90^{\circ} gives 85.5^{\circ} with 63\% catastrophic pairs. On MegaUnScene, the corresponding catastrophic rates are 32\% and 40\% . OOD, GeoCond improves over native confidence in every bin, including low overlap ( 0.251 vs. 0.429 AUSE) and high rotation ( 0.357 vs. 0.547 AUSE).
+Table 2: Pose error and uncertainty quality stratified by ground-truth overlap and relative rotation on held-out 7-Scenes office and OOD MegaUnScene pairs. AUSE \downarrow compares native confidence and GeoCond within each bin; the better value is bold.
+| Dataset
+| bin
+| n
+| med. err
+| cat. rate
+| native / GeoCond AUSE
+| 7-Scenes office
+| overlap <0.01
+| 227
+| 42.2
+| 54%
+| 0.263 / 0.284
+| 7-Scenes office
+| overlap 0.01 – 0.3
+| 112
+| 6.8
+| 11%
+| 0.189 / 0.064
+| 7-Scenes office
+| overlap \geq 0.3
+| 361
+| 7.4
+| 19%
+| 0.213 / 0.142
+| 7-Scenes office
+| rel. rotation <30^{\circ}
+| 362
+| 7.6
+| 19%
+| 0.207 / 0.139
+| 7-Scenes office
+| rel. rotation 30^{\circ} – 90^{\circ}
+| 179
+| 11.0
+| 20%
+| 0.231 / 0.141
+| 7-Scenes office
+| rel. rotation \geq 90^{\circ}
+| 159
+| 85.5
+| 63%
+| 0.178 / 0.204
+| MegaUnScene (OOD)
+| overlap <0.01
+| 491
+| 11.3
+| 32%
+| 0.429 / 0.251
+| MegaUnScene (OOD)
+| overlap 0.01 – 0.3
+| 305
+| 3.5
+| 5%
+| 0.193 / 0.165
+| MegaUnScene (OOD)
+| overlap \geq 0.3
+| 104
+| 10.0
+| 27%
+| 0.385 / 0.285
+| MegaUnScene (OOD)
+| rel. rotation <30^{\circ}
+| 323
+| 5.7
+| 14%
+| 0.333 / 0.207
+| MegaUnScene (OOD)
+| rel. rotation 30^{\circ} – 90^{\circ}
+| 400
+| 5.2
+| 21%
+| 0.239 / 0.149
+| MegaUnScene (OOD)
+| rel. rotation \geq 90^{\circ}
+| 177
+| 18.7
+| 40%
+| 0.547 / 0.357
+4.2 Single-pass uncertainty and gated refinement
+We evaluate three VGGT settings:
+in-domain distillation, where a single-pass head is trained to match the orbit-variance teacher on held-out 7-Scenes tuples; zero-shot OOD transfer, where the head is trained only on 7-Scenes and tested directly on MegaUnScene; and
+a scene-disjoint general head, trained on a 7-Scenes+MegaUnScene mix and evaluated on held-out indoor and outdoor scenes for the main baseline comparison.
+In-domain distillation.
+On held-out 7-Scenes tuples, GeoCond distils the K -pass orbit teacher into one forward pass: AUSE 0.24 versus 0.22 for the teacher and 0.44 for native confidence. Its gated refinement reaches 85.6 AUC@30, outperforming feed-forward-only ( 82.1 ) and BA-always ( 84.1 ), with an oracle of 88.4 . A scalars-only head performs at least as well (AUSE 0.20 , gated AUC@30 86.1 ), making it our default model.
+Zero-shot OOD transfer.
+On MegaUnScene, the same conditioning principle holds under extreme viewpoint changes (maximum rotation 179.6^{\circ} , 46\% zero-overlap pairs, and 23\% catastrophic failures). The K -pass orbit teacher is a strong OOD predictor (AUSE 0.10 , Spearman 0.74 ). The scalars-only head trained only on 7-Scenes transfers zero-shot to MegaUnScene, reaching AUSE 0.12 and Spearman 0.74 at 1{\times} inference cost, whereas the camera-token variant fails to transfer (AUSE 0.51 ).
+Table 3: Scene-disjoint generalization of one head trained on 7-Scenes+MegaUnScene and evaluated on held-out indoor and outdoor scenes. AUSE \downarrow measures uncertainty ranking; final AUC@30 \uparrow is measured after the refinement decision. Best non-oracle deployable value per column is bold; teacher and oracle rows sit below the rule.
+|
+| Uncertainty AUSE \downarrow
+| Final AUC@30 \uparrow
+| Method
+| indoor
+| outdoor/OOD
+| indoor
+| outdoor/OOD
+| Native aleatoric (VGGT)
+| 0.19
+| 0.32
+| –
+| –
+| GeoCond one-pass
+| 0.17
+| 0.20
+| 53.5
+| 58.4
+| Feed-forward always
+| –
+| –
+| 51.6
+| 60.3
+| BA always
+| –
+| –
+| 53.6
+| 38.4
+| Orbit variance ( K{=}6 , teacher)
+| 0.17
+| 0.16
+| –
+| –
+| Oracle
+| –
+| –
+| 56.0
+| 60.9
+Scene-disjoint general head.
+Table 3 reports the main scene-disjoint comparison.
+The one-pass head matches the orbit teacher indoors (AUSE 0.17 ) and improves over native aleatoric confidence OOD ( 0.20 vs. 0.32 ), while trailing the K{=}6 teacher ( 0.16 ).
+For refinement, the gate improves over feed-forward-only indoors ( 53.5 vs. 51.6 AUC@30) and matches BA-always within 0.1 AUC@30 ( 53.5 vs. 53.6 ).
+OOD, the gate strongly avoids the collapse of BA-always ( 58.4 vs. 38.4 ), but remains below FF-always ( 60.3 ). This indicates that, in the OOD setting, the main value of the gate is preventing harmful refinement rather than improving every feed-forward estimate.
+Pose accuracy across thresholds.
+Indoors, the gate improves AUC@5/10/20 over feed-forward-only by 1.7 – 2.4 points; OOD it remains 1.4 – 2.0 points below feed-forward-only but 14.3 – 21.6 points above BA-always. Thus, GeoCond acts mainly as a control signal: it avoids harmful refinement while ranking poses by risk.
+Table 4: Scene-disjoint uncertainty baselines. AUSE \downarrow evaluates how well each score ranks pose error; the orbit ensemble is a training teacher, not an oracle.
+| Uncertainty predictor
+| indoor
+| OOD
+| Native aleatoric (VGGT)
+| 0.186
+| 0.323
+| Parallax heuristic
+| 0.756
+| 0.560
+| Learned: tokens-only
+| 0.152
+| 0.227
+| Learned: tokens+conditioning
+| 0.132
+| 0.224
+| Learned: attention statistics
+| 0.147
+| 0.293
+| Learned: conditioning+attention
+| 0.118
+| 0.204
+| Learned: heteroscedastic-NLL
+| 0.312
+| 0.339
+| Learned: conditioning (ours, error-sup.)
+| 0.124
+| 0.196
+| GeoCond deployed head (Tab. 3)
+| 0.168
+| 0.204
+| Orbit variance ( K{=}6 , teacher)
+| 0.173
+| 0.163
+4.3 Comparison with uncertainty baselines
+We compare GeoCond with uncertainty baselines on the same scene-disjoint splits. Table 4 includes native VGGT aleatoric confidence, a predicted-parallax heuristic, a token-only learned head, a heteroscedastic Gaussian-NLL head, and our conditioning head. The error-supervised conditioning head gives the best single-pass OOD AUSE and the best indoor AUSE among heads that do not read backbone-internal signals. The token-only head is competitive indoors but degrades OOD, while the parallax heuristic alone is insufficient in the scene-disjoint multi-view setting. Backbone-internal signals follow the same pattern: adding camera tokens ( 0.132/0.224 ) or attention statistics ( 0.147/0.293 alone, 0.118/0.204 with conditioning) improves the indoor split but degrades OOD relative to the scalars-only head. We therefore keep the interpretable scalars as the default input. The orbit teacher is included as a training-time teacher and error-predictive baseline, not as an oracle upper bound; a learned head can therefore exceed it on some splits. Because the supervision target changes, Table 4 reports the error-supervised conditioning head and the deployed orbit-distilled multi-task head from Table 3 as separate rows.
+Per-feature ablation.
+Table 5 retrains the deployed head with one feature or feature group removed. The largest OOD degradation comes from removing the camera-head correction ( 0.209\!\to\!0.273 ), while the largest indoor degradation comes from removing native confidence ( 0.165\!\to\!0.210 ). Individual geometric scalars are partly redundant, but using only the four basic geometric scalars degrades to 0.365/0.359 , showing that no single hand-designed cue carries the head.
+We also compare against stronger epistemic-UQ baselines. A five-member deep ensemble [12] and MC-dropout [8] obtain OOD AUSE 0.20 and 0.197 , respectively, comparable to our single-pass head but requiring roughly five backbone passes. This shows that GeoCond provides similar OOD ranking quality to more expensive epistemic baselines while preserving single-pass inference.
+Additional sparsification diagnostics and standard two-view results are provided in the supplementary material.
+Table 5: Which features matter. The deployed GeoCond head is retrained in the protocol of Table 3 after removing one feature/group; mean \pm std over five seeds, \Delta is the paired AUSE change against the full head, where positive is worse.
+|
+| indoor AUSE \downarrow
+| OOD AUSE \downarrow
+| Input set
+| AUSE
+| \Delta
+| AUSE
+| \Delta
+| all conditioning features (default)
+| 0.165 \pm 0.006
+| +0.000
+| 0.209 \pm 0.004
+| +0.000
+| - parallax
+| 0.149 \pm 0.003
+| -0.016
+| 0.213 \pm 0.003
+| +0.003
+| - overlap / co-visibility
+| 0.157 \pm 0.003
+| -0.008
+| 0.215 \pm 0.003
+| +0.005
+| - baseline
+| 0.161 \pm 0.006
+| -0.004
+| 0.202 \pm 0.004
+| -0.007
+| - relative rotation
+| 0.172 \pm 0.008
+| +0.007
+| 0.200 \pm 0.004
+| -0.009
+| - camera-head correction (rot. + trans.)
+| 0.191 \pm 0.003
+| +0.026
+| 0.273 \pm 0.005
+| +0.064
+| - native confidence
+| 0.210 \pm 0.005
+| +0.045
+| 0.227 \pm 0.006
+| +0.017
+| native confidence only
+| 0.250 \pm 0.020
+| +0.085
+| 0.339 \pm 0.003
+| +0.130
+| geometry only (parallax, overlap, baseline, rotation)
+| 0.365 \pm 0.016
+| +0.200
+| 0.359 \pm 0.009
+| +0.149
+4.4 Adaptation across domains and backbones
+The practical question is not whether one training recipe wins everywhere, but which adaptation setting should be used. We evaluate three settings on independent MegaUnScene edge sets: zero-shot transfer, ground-truth-supervised target training, and ground-truth-free cycle distillation.
+Table 6 shows that no single source dominates all backbones. Native confidence is strong for some models, zero-shot transfer is effective for VGGT-like settings, and target supervision helps under domain or backbone shift. Most importantly, cycle-distilled heads provide a ground-truth-free adaptation route and work even for \pi^{3} , where frame-permutation orbit variance vanishes because the model is permutation-equivariant. When independent cycles are available at inference, rank fusion with cycle residuals gives the strongest score, but this requires independent-edge graphs rather than a single joint pass.
+Table 6: Condensed adaptation results on independent MegaUnScene edge sets. Values are AUSE \downarrow . Cycle-distilled heads provide a ground-truth-free target-backbone adaptation route; cycle fusion uses raw cycle residuals at inference and is not a single-pass score; best single-pass value per row in bold
+.
+| Backbone
+| Native
+| Zero-shot
+| GT-sup.
+| Cycle-dist.
+| Cycle fusion
+| VGGT
+| 0.279
+| 0.230
+| 0.230
+| 0.287
+| 0.108
+| \pi^{3}
+| 0.333
+| 0.286
+| 0.221
+| 0.187
+| 0.108
+| DUSt3R
+| 0.182
+| 0.460
+| 0.162
+| 0.211
+| 0.119
+| Fast3R
+| 0.238
+| 0.230
+| 0.184
+| 0.185
+| 0.132
+| CUT3R
+| 0.391
+| 0.334
+| 0.314
+| 0.305
+| 0.150
+| MapAnything
+| 0.209
+| 0.496
+| 0.240
+| 0.251
+| 0.147
+4.5 Reliability as a control signal
+A rank is useful, but deployment often requires a control decision. We therefore evaluate whether GeoCond can turn pose reliability into calibrated risk, risk-controlled curation, adaptive capture, and downstream geometric control.
+Table 7: Reliability-driven control. Left: adaptive capture reports average frames needed to match all-8-frame accuracy. Right: pseudo-label yield at controlled catastrophic-label rate on OOD MegaUnScene.
+| Adaptive capture
+| Pseudo-label curation
+| Policy
+| strict
+| 5%
+| \alpha
+| Native
+| Ours
+| Oracle
+| risk
+| Oracle
+| 2.10
+| –
+| 0.05
+| 18%
+| 38%
+| 82%
+| 0.047
+| GeoCond set- u
+| 3.04
+| 2.86
+| 0.10
+| 36%
+| 64%
+| 86%
+| 0.095
+| set- u + native
+| 3.27
+| 2.77
+| 0.20
+| 86%
+| 92%
+| 97%
+| 0.197
+| Native confidence
+| 3.85
+| 3.33
+| –
+| –
+| –
+| –
+| –
+| Best fixed- N
+| 4.00
+| 3.00
+| –
+| –
+| –
+| –
+| –
+| Capture all 8
+| 8.00
+| 8.00
+| –
+| –
+| –
+| –
+| –
+Calibration.
+We Platt-scale [18] \hat{u}_{ij} into \mathbb{P}(e_{ij}>\tau) on held-out splits.
+The supplementary calibration table reports post-hoc calibration for catastrophic error ( \tau=30^{\circ} ).
+The calibrated GeoCond head has low ECE ( 0.061 in-domain, 0.038 OOD) and strong failure discrimination (AUROC 0.85 and 0.80 ). Native confidence can also be calibrated, but is less discriminative OOD, with AUROC dropping to 0.66 . Thus, GeoCond provides a more useful calibrated risk signal for control decisions.
+Risk-controlled curation and adaptive capture.
+The calibrated reliability signal also supports threshold-based control decisions (Table 7). For pseudo-label curation, we keep labels whose calibrated uncertainty falls below a split-conformal threshold at a target catastrophic-label rate \alpha [24, 1, 2]. On MegaUnScene, at \alpha{=}0.10 , GeoCond keeps 64\% of pose pseudo-labels versus 36\% for native confidence at the same realised risk. The same signal can guide capture: stopping when a set-level aggregate of pairwise calibrated uncertainties (set- u in Table 7) falls below a conformal threshold reaches the accuracy of using all eight frames with about 3.0 frames on average, compared with 3.85 frames for native-confidence stopping and 4.0 frames for the best fixed- N policy.
+Pose-graph fusion.
+We test whether predicted uncertainty helps when independent pairwise relative poses are fused by rotation averaging.
+On MegaUnScene, GeoCond reduces median global rotation error from 15.1^{\circ}\,[12.5,17.5] with uniform weighting to 12.7^{\circ}\,[10.1,15.1] with uncertainty weighting and 11.6^{\circ}\,[9.4,14.1] with an uncertainty-selected tree N=6 , 80 view sets; full plot in the supplementary material). These outperform random-tree selection ( 14.8^{\circ} ) and native-confidence weighting ( 13.9^{\circ} ), with oracle at 9.6^{\circ} . On held-out 7-Scenes, gains are smaller and not statistically significant, as expected when catastrophic edges are less frequent.
+5 Discussion and limitations
+Our results suggest that reliability in feed-forward 3D reconstruction is not only a matter of improving the backbone, but also of estimating when its predictions should be trusted. GeoCond does not modify the backbone or directly improve every feed-forward pose estimate. Instead, it makes the output usable: it predicts which relative poses are reliable, when refinement should be applied, which edges should be down-weighted or pruned, and when additional capture is necessary. This is why the same signal appears in gated refinement, pose-graph weighting, pseudo-label curation, and adaptive capture. The direct pose-accuracy benefit is therefore setting-dependent: the gate improves accuracy when refinement often helps, and mainly prevents harmful refinement when it does not.
+The one-pass head is not a claim that distillation always beats its teacher: the orbit-variance ensemble remains stronger when its K -pass budget is available. The head’s advantages are deployment cost, compatibility with downstream decisions, and adaptability through other teachers. In particular, cycle-residual distillation provides a ground-truth-free adaptation route and works for equivariant models where permutation variance vanishes.
+The signal helps most where native confidence is blind, such as indoor low-parallax and low-overlap cases and outdoor extreme-view data with large relative rotations. It may require target-domain supervision or calibration when native confidence already tracks the dominant failure mode. Absolute failure-probability calibration is also domain-specific; ranking transfers more robustly than the probability scale. Finally, our evaluation remains centred on relative-pose AUC, uncertainty ranking, retained-pair quality, and rotation-averaging front ends; full downstream SfM/SLAM trajectory-error evaluation remains future work.
+6 Conclusion
+Feed-forward 3D models are fast enough to become building blocks, but need a trust interface.
+We presented GeoCond, a conditioning-aware reliability adapter for frozen feed-forward 3D backbones. GeoCond reads backbone-predicted geometry, estimates pose-level reliability, and converts it into decisions about refinement, pruning, calibration, capture, and pose-graph fusion.
+On VGGT, GeoCond distils a training-time orbit-variance teacher into a single-pass uncertainty predictor and learns when to invoke BA. Across domains and backbones, it improves pose-error ranking over native confidence, supports ground-truth-free cycle-residual adaptation, and makes downstream geometric estimation more robust. The broader lesson is that feed-forward 3D systems should expose not only geometry, but also reliability over that geometry.
+References
+[1]
+A. N. Angelopoulos and S. Bates (2023)
+Conformal prediction: a gentle introduction.
+Foundations and Trends in Machine Learning 16 (4), pp. 494–591.
+Cited by: §4.5.
+[2]
+S. Bates, A. Angelopoulos, L. Lei, J. Malik, and M. Jordan (2021)
+Distribution-free, risk-controlling prediction sets.
+Journal of the ACM (JACM) 68 (6), pp. 1–34.
+Cited by: §4.5.
+[3]
+J. Bratulić, S. Mittal, T. Brox, and C. Rupprecht (2025)
+On geometric understanding and learned priors in feed-forward 3d reconstruction models.
+arXiv preprint arXiv:2512.11508.
+Cited by: §2.
+[4]
+A. Chatterjee and V. M. Govindu (2013)
+Efficient and robust large-scale rotation averaging.
+In Proceedings of the IEEE international conference on computer vision,
+pp. 521–528.
+Cited by: §2.
+[5]
+K. Deng, Z. Ti, J. Xu, J. Yang, and J. Xie (2025)
+VGGT-long: chunk it, loop it, align it–pushing vggt’s limits on kilometer-scale long rgb sequences.
+arXiv preprint arXiv:2507.16443.
+Cited by: §2.
+[6]
+Y. Deng, S. Peng, J. Zhang, K. Heal, T. Sun, J. Flynn, S. Marschner, and L. Chai (2026)
+Selfi: self-improving reconstruction engine via 3d geometric feature alignment.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 7351–7361.
+Cited by: §1,
+§2.
+[7]
+S. Dong, S. Wang, S. Liu, L. Cai, Q. Fan, J. Kannala, and Y. Yang (2025)
+Reloc3r: large-scale training of relative camera pose regression for generalizable, fast, and accurate visual localization.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 16739–16752.
+Cited by: §2.
+[8]
+Y. Gal and Z. Ghahramani (2016)
+Dropout as a bayesian approximation: representing model uncertainty in deep learning.
+In international conference on machine learning,
+pp. 1050–1059.
+Cited by: §2,
+§4.3.
+[9]
+J. Han, S. Hong, J. Jung, W. Jang, H. An, Q. Wang, S. Kim, and C. Feng (2026)
+Emergent outlier view rejection in visual geometry grounded transformers.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 427–437.
+Cited by: §2.
+[10]
+N. Keetha, N. Müller, J. Schönberger, L. Porzi, Y. Zhang, T. Fischer, A. Knapitsch, D. Zauss, E. Weber, N. Antunes, et al. (2026)
+MapAnything: universal feed-forward metric 3d reconstruction; map-anything. github. io.
+In 2026 International Conference on 3D Vision (3DV),
+pp. 499–509.
+Cited by: §1,
+§2,
+§4.
+[11]
+A. Kendall and Y. Gal (2017)
+What uncertainties do we need in bayesian deep learning for computer vision?.
+Advances in neural information processing systems 30.
+Cited by: §2.
+[12]
+B. Lakshminarayanan, A. Pritzel, and C. Blundell (2017)
+Simple and scalable predictive uncertainty estimation using deep ensembles.
+Advances in neural information processing systems 30.
+Cited by: §2,
+§4.3.
+[13]
+G. Lerman and Y. Shi (2022)
+Robust group synchronization via cycle-edge message passing.
+Foundations of Computational Mathematics 22 (6), pp. 1665–1741.
+Cited by: §2.
+[14]
+V. Leroy, Y. Cabon, and J. Revaud (2024)
+Grounding image matching in 3d with mast3r.
+In European conference on computer vision,
+pp. 71–91.
+Cited by: §1,
+§2.
+[15]
+H. Li, L. Luo, Y. Shi, and X. Gu (2025)
+Analyzing the mechanism of attention collapse in vggt from a dynamics perspective.
+arXiv preprint arXiv:2512.21691.
+Cited by: §2.
+[16]
+J. Li, Y. Lee, and D. Fan (2025)
+GeLoc3r: enhancing relative camera pose regression with geometric consistency regularization.
+arXiv preprint arXiv:2509.23038.
+Cited by: §2.
+[17]
+R. Murai, E. Dexheimer, and A. J. Davison (2025)
+Mast3r-slam: real-time dense slam with 3d reconstruction priors.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 16695–16705.
+Cited by: §2.
+[18]
+J. Platt et al. (1999)
+Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods.
+Advances in large margin classifiers 10 (3), pp. 61–74.
+Cited by: §3.6,
+§4.5.
+[19]
+J. L. Schönberger and J. Frahm (2016)
+Structure-from-motion revisited.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition,
+pp. 4104–4113.
+Cited by: §1,
+§2.
+[20]
+M. Sensoy, L. Kaplan, and M. Kandemir (2018)
+Evidential deep learning to quantify classification uncertainty.
+Advances in neural information processing systems 31.
+Cited by: §2.
+[21]
+J. Shotton, B. Glocker, C. Zach, S. Izadi, A. Criminisi, and A. Fitzgibbon (2013)
+Scene coordinate regression forests for camera relocalization in rgb-d images.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 2930–2937.
+Cited by: §4.
+[22]
+Z. Teed and J. Deng (2021)
+Droid-slam: deep visual slam for monocular, stereo, and rgb-d cameras.
+Advances in neural information processing systems 34, pp. 16558–16569.
+Cited by: §2.
+[23]
+B. Triggs, P. F. McLauchlan, R. I. Hartley, and A. W. Fitzgibbon (2000)
+Bundle adjustment—a modern synthesis.
+In Vision Algorithms: Theory and Practice,
+pp. 298–372.
+Cited by: §1,
+§2,
+§2.
+[24]
+V. Vovk, A. Gammerman, and G. Shafer (2005)
+Algorithmic learning in a random world.
+Springer.
+Cited by: §4.5.
+[25]
+H. Wang and L. Agapito (2025)
+3d reconstruction with spatial memory.
+In 2025 International Conference on 3D Vision (3DV),
+pp. 78–89.
+Cited by: §2.
+[26]
+J. Wang, M. Chen, N. Karaev, A. Vedaldi, C. Rupprecht, and D. Novotny (2025)
+Vggt: visual geometry grounded transformer.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5294–5306.
+Cited by: §1,
+§2.
+[27]
+J. Wang, M. Chen, S. Zhang, N. Karaev, J. Schönberger, P. Labatut, P. Bojanowski, D. Novotny, A. Vedaldi, and C. Rupprecht (2026)
+VGGT- \Omega .
+arXiv preprint arXiv:2605.15195.
+Cited by: §1,
+§2.
+[28]
+J. Wang, N. Karaev, C. Rupprecht, and D. Novotny (2024)
+Vggsfm: visual geometry grounded deep structure from motion.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 21686–21697.
+Cited by: §1,
+§2,
+§3.2,
+§4.
+[29]
+Q. Wang, Y. Zhang, A. Holynski, A. A. Efros, and A. Kanazawa (2025)
+Continuous 3d perception model with persistent state.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 10510–10522.
+Cited by: §2,
+§4.
+[30]
+S. Wang, V. Leroy, Y. Cabon, B. Chidlovskii, and J. Revaud (2024)
+Dust3r: geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 20697–20709.
+Cited by: §1,
+§2,
+§4.
+[31]
+Y. Wang, J. Zhou, H. Zhu, W. Chang, Y. Zhou, Z. Li, J. Chen, J. Pang, C. Shen, and T. He (2025)
+\pi^{3} : Scalable permutation-equivariant visual geometry learning.
+arXiv e-prints, pp. arXiv–2507.
+Cited by: §1,
+§2,
+§3.4,
+§4.
+[32]
+J. Yang, A. Sax, K. J. Liang, M. Henaff, H. Tang, A. Cao, J. Chai, F. Meier, and M. Feiszli (2025)
+Fast3r: towards 3d reconstruction of 1000+ images in one forward pass.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 21924–21935.
+Cited by: §2,
+§4.
+[33]
+C. Zach, M. Klopschitz, and M. Pollefeys (2010)
+Disambiguating visual relations using loop constraints.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition,
+Cited by: §2.
+[34]
+Y. Zhang, J. Tung, R. Cai, D. Fouhey, and H. Averbuch-Elor (2026)
+Emergent extreme-view geometry in 3d foundation models.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 36411–36421.
+Cited by: §2,
+§4.
+[35]
+Z. Zhu, W. Zhao, N. Chen, C. Tian, and Z. Fan (2026)
+Trust it or not: evidential uncertainty for feed-forward 3d reconstruction with trust3r.
+arXiv preprint arXiv:2605.19539.
+Cited by: §2.
+[36]
+D. Zhuo, W. Zheng, J. Guo, Y. Wu, J. Zhou, and J. Lu (2025)
+Streaming 4d visual geometry transformer.
+arXiv preprint arXiv:2507.11539.
+Cited by: §2.
+\thetitle
+Supplementary Material
+Appendix A Sparsification and two-view uncertainty
+Figure shows the operational meaning of AUSE: when the most uncertain pairs are removed, retained-pair error decreases substantially faster for the one-pass head and the orbit teacher than for native confidence.
+Table 8 shows that on standard two-view benchmarks, simple geometric cues such as predicted parallax and orbit disagreement are already strong uncertainty signals. This supports the interpretation that GeoCond is most useful when multiple conditioning cues must be combined, as in multi-view and extreme-view settings.
+Table 8: Uncertainty predictors on standard two-view benchmarks, measured by AUSE \downarrow . Predicted parallax and orbit disagreement are strong cues on these pairs; GeoCond remains competitive, with its main advantage in multi-view and extreme-view settings.
+| Benchmark
+| Native
+| RANSAC-inlier
+| Pred. parallax
+| Orbit
+| Ours
+| MegaDepth-1500 ( n{=}1500 )
+| 0.616
+| 0.874
+| 0.245
+| 0.190
+| 0.261
+| ScanNet-1500 ( n{=}1500 )
+| 0.386
+| 0.832
+| 0.202
+| 0.181
+| 0.230
+Appendix B Calibration of catastrophic-pose failure
+Table 9 reports post-hoc calibration for catastrophic error. Native confidence achieves low ECE after calibration, but its OOD AUROC is substantially weaker. This supports the main-paper conclusion that GeoCond is more useful for OOD control decisions because it remains discriminative after calibration.
+Table 9: Post-hoc calibration of catastrophic-failure probability \mathbb{P}(e_{ij}>30^{\circ}) . Native confidence can be calibrated but is less discriminative OOD.
+|
+| Indoor
+| OOD
+| Score
+| ECE \downarrow
+| Brier \downarrow
+| AUROC \uparrow
+| ECE \downarrow
+| Brier \downarrow
+| AUROC \uparrow
+| Native confidence
+| 0.034
+| 0.146
+| 0.83
+| 0.008
+| 0.163
+| 0.66
+| GeoCond
+| 0.061
+| 0.143
+| 0.85
+| 0.038
+| 0.142
+| 0.80
+Appendix C Downstream pose-graph fusion
+Figure 5 visualizes the downstream rotation-averaging experiment discussed in main-paper Sec. 4.5. The figure reports median global rotation error with bootstrap 95\% confidence intervals for independent pairwise VGGT estimates.
+Figure 5: Downstream pose-graph fusion from independent pairwise VGGT estimates ( N=6 , 80 view sets). Bars show median global rotation error with bootstrap 95\% CIs. Uncertainty-weighted and uncertainty-selected edges improve rotation averaging on MegaUnScene; gains are smaller indoors.
+Appendix D Streaming frame reduction
+For a bounded memory stream, we keep a fixed-size buffer and evict the highest-uncertainty frame when a new frame arrives. Table 10 shows that uncertainty-driven eviction tracks the offline ceiling on hard Co3D object orbits, especially under high discard rates.
+Table 10: Streaming frame reduction on hard Co3D object orbits. Entries report median pose error in degrees, with largest uncovered gap in parentheses. Lower is better for both.
+| Policy
+| 50% discard
+| 70% discard
+| 90% discard
+| Full set (no discard)
+| –
+| 67.8 (0.00)
+| –
+| Uniform every k -th
+| 2.8 (0.11)
+| 67.1 (0.19)
+| 60.1 (0.49)
+| Reservoir random
+| 67.3 (0.21)
+| 66.3 (0.29)
+| 53.2 (0.65)
+| Overlap heuristic
+| 1.3 (0.12)
+| 1.3 (0.27)
+| 31.9 (0.72)
+| VGGT aleatoric
+| 1.1 (0.11)
+| 1.3 (0.48)
+| 2.6 (0.81)
+| u\circ aleatoric fusion
+| 1.2 (0.11)
+| 1.3 (0.43)
+| 1.8 (0.66)
+| GeoCond u -eviction
+| 1.1 (0.11)
+| 1.3 (0.28)
+| 1.8 (0.58)
+| Batch min- u offline ceiling
+| 1.2 (0.11)
+| 1.2 (0.27)
+| 1.6 (0.56)
+Appendix E Cheap and noisy backbone variants
+Table 11: Cheap-resolution and weak-variant rescue. We report AUC@30 for all pairs and for the kept half after pruning. Head-pruning uses the GeoCond reliability score and is the deployed selector; bold marks the recommended selector for the weak-variant rows. For VGGT resolution rows, values are MegaDepth / ScanNet.
+| Variant / resolution
+| ms/pair
+| base/ref
+| all
+| random 50%
+| native 50%
+| head 50%
+| VGGT 224px (MD/SN)
+| 51
+| –
+| 53.8 / 43.7
+| 53.8 / 44.1
+| 57.3 / 46.4
+| 60.7 / 50.5
+| VGGT 364px (MD/SN)
+| 55
+| –
+| 73.8 / 74.4
+| 73.8 / 74.5
+| 73.7 / 76.4
+| 81.0 / 79.6
+| VGGT 518px (MD/SN)
+| 70
+| –
+| 82.3 / 83.1
+| 82.1 / 83.5
+| 82.5 / 86.0
+| 90.4 / 91.3
+| StreamVGGT
+| 75
+| 69.5
+| 60.8
+| 60.0
+| 68.5
+| 77.7
+| QuantVGGT W4A4
+| 30
+| 69.5
+| 63.8
+| 63.1
+| 75.0
+| 82.7
+| DUSt3R 224-linear
+| 104
+| 47.9
+| 44.6
+| 44.9
+| 65.0
+| 70.8
+| CUT3R 224-linear
+| 64
+| 55.0
+| 44.7
+| 44.7
+| 60.2
+| 64.1
+Table 12: Relative-pose AUC at several thresholds for the refinement policies of main-paper Table 3. The same pairs are used as in the main headline table; gate denotes the seed-0 deployed head, with the five-seed mean shown below. The oracle row is included as an upper reference, and the best non-oracle value per column is bold.
+|
+| indoor (7-Scenes office)
+| outdoor/OOD (MegaUnScene)
+| Policy
+| @5
+| @10
+| @20
+| @30
+| @5
+| @10
+| @20
+| @30
+| Feed-forward always
+| 14.1
+| 26.5
+| 43.0
+| 51.6
+| 25.1
+| 39.7
+| 53.0
+| 60.3
+| BA always
+| 16.8
+| 30.0
+| 45.0
+| 53.6
+| 9.4
+| 17.5
+| 29.5
+| 38.4
+| GeoCond gate
+| 15.8
+| 28.9
+| 44.8
+| 53.5
+| 23.7
+| 38.0
+| 51.0
+| 58.4
+| 5-seed mean
+| 15.7 \pm 0.1
+| 28.7 \pm 0.1
+| 44.6 \pm 0.1
+| 53.3 \pm 0.1
+| 23.1 \pm 0.3
+| 37.2 \pm 0.4
+| 50.1 \pm 0.5
+| 57.6 \pm 0.5
+| Oracle gate
+| 18.9
+| 32.5
+| 48.0
+| 56.0
+| 25.9
+| 40.3
+| 53.6
+| 60.9
+The same reliability signal can trade compute for quality. Table 11 shows that reducing VGGT input resolution hurts raw accuracy, but uncertainty pruning recovers much of the loss. A 364 -pixel pass with head-pruning approaches the full 518 -pixel pass without pruning ( 81.0 vs. 82.3 AUC@30 on MegaDepth at 50\% kept; 79.6 vs. 83.1 on ScanNet). The same trend holds for weaker or noisy variants such as StreamVGGT, QuantVGGT, DUSt3R, and CUT3R.
+Appendix F Feed-forward residual
+We also test whether a single-pass SE(3) residual can replace inference-time BA. A naive residual is worse than the feed-forward pose; a small delta-from-FF residual is safe but does not recover BA’s gains (office 51.8 vs. 51.6 AUC@30; OOD 60.1 vs. 60.3 ). Thus, the practical value comes from deciding when to refine rather than amortizing BA itself.
+Appendix G Repeated-seed stability
+Across five repeated-seed runs, the scene-disjoint general head remains stable: uncertainty AUSE is 0.165{\pm}0.006 indoors and 0.209{\pm}0.004 OOD, while final AUC@30 after gating is 53.3{\pm}0.1 indoors and 57.6{\pm}0.5 OOD. These values are consistent with the single-run headline table in the main paper.
+Appendix H Pose accuracy across thresholds
+Table 12 lists the AUC@5/10/20/30 values behind the threshold analysis of main-paper Sec. 4.2. At every threshold, the gate improves on feed-forward-only indoors and, OOD, sits between feed-forward-only and BA-always, far above the latter.
+Appendix I Seed robustness of the learned heads
+Table 13 extends the seed analysis to every learned row of main-paper Table 4, under both supervision targets. The seed spread is 0.002 – 0.03 AUSE and the ranking of the rows is unchanged, showing that the distinction between the error-supervised head in main-paper Table 4 and the deployed head in main-paper Table 3 is seed-stable. The lower block retrains the backbone-internal variants in the multi-task protocol of main-paper Table 3; every internal-signal variant is worse than the conditioning head on both splits, and the multi-layer camera tokens are unstable across seeds, consistent with the token-overfitting observation in main-paper Sec. 4.2.
+Table 13: Five-seed mean \pm std of the learned heads on the pairs of main-paper Table 4, under both supervision targets, and of heads reading backbone-internal signals in the multi-task protocol of main-paper Table 3.
+|
+| AUSE \downarrow
+| Spearman \uparrow
+| Uncertainty predictor
+| indoor
+| OOD
+| indoor
+| OOD
+| Native aleatoric (VGGT)
+| 0.186 \pm 0.000
+| 0.323 \pm 0.000
+| 0.59 \pm 0.00
+| 0.46 \pm 0.00
+| Parallax heuristic
+| 0.756 \pm 0.000
+| 0.560 \pm 0.000
+| 0.09 \pm 0.00
+| 0.17 \pm 0.00
+| Learned: tokens-only (error-sup.)
+| 0.150 \pm 0.012
+| 0.234 \pm 0.017
+| 0.70 \pm 0.02
+| 0.61 \pm 0.02
+| Learned: tokens-only (orbit-distilled)
+| 0.220 \pm 0.029
+| 0.269 \pm 0.009
+| 0.63 \pm 0.02
+| 0.57 \pm 0.02
+| Learned: tokens+conditioning (error-sup.)
+| 0.150 \pm 0.012
+| 0.228 \pm 0.011
+| 0.71 \pm 0.02
+| 0.62 \pm 0.02
+| Learned: tokens+conditioning (orbit-distilled)
+| 0.190 \pm 0.011
+| 0.260 \pm 0.022
+| 0.65 \pm 0.01
+| 0.60 \pm 0.02
+| Learned: heteroscedastic-NLL (error-sup.)
+| 0.328 \pm 0.024
+| 0.364 \pm 0.018
+| 0.50 \pm 0.03
+| 0.46 \pm 0.02
+| Learned: attention/feature statistics (error-sup.)
+| 0.144 \pm 0.006
+| 0.299 \pm 0.021
+| 0.69 \pm 0.01
+| 0.53 \pm 0.02
+| Learned: attention/feature statistics (orbit-distilled)
+| 0.199 \pm 0.018
+| 0.319 \pm 0.014
+| 0.61 \pm 0.02
+| 0.47 \pm 0.01
+| Learned: conditioning+attention stats (error-sup.)
+| 0.107 \pm 0.009
+| 0.213 \pm 0.010
+| 0.78 \pm 0.01
+| 0.69 \pm 0.01
+| Learned: conditioning+attention stats (orbit-distilled)
+| 0.155 \pm 0.011
+| 0.245 \pm 0.011
+| 0.71 \pm 0.01
+| 0.60 \pm 0.02
+| Learned: conditioning (ours, error-sup.)
+| 0.125 \pm 0.005
+| 0.198 \pm 0.002
+| 0.80 \pm 0.00
+| 0.68 \pm 0.00
+| Learned: conditioning (ours, orbit-distilled)
+| 0.163 \pm 0.007
+| 0.199 \pm 0.002
+| 0.73 \pm 0.01
+| 0.67 \pm 0.00
+| GeoCond deployed head (main-paper Table 3)
+| 0.165 \pm 0.006
+| 0.209 \pm 0.004
+| 0.72 \pm 0.01
+| 0.66 \pm 0.00
+| Orbit variance ( K{=}6 , teacher)
+| 0.173 \pm 0.000
+| 0.163 \pm 0.000
+| 0.72 \pm 0.00
+| 0.70 \pm 0.00
+| Backbone-internal signals, main-paper Table 3 protocol
+| conditioning (default head)
+| 0.165 \pm 0.006
+| 0.209 \pm 0.004
+| 0.72 \pm 0.01
+| 0.66 \pm 0.00
+| camera tokens only
+| 0.235 \pm 0.028
+| 0.247 \pm 0.014
+| 0.60 \pm 0.03
+| 0.60 \pm 0.01
+| conditioning + camera tokens
+| 0.219 \pm 0.015
+| 0.252 \pm 0.018
+| 0.61 \pm 0.02
+| 0.59 \pm 0.01
+| attention / feature statistics only
+| 0.206 \pm 0.016
+| 0.313 \pm 0.008
+| 0.60 \pm 0.02
+| 0.50 \pm 0.02
+| conditioning + attention / feature statistics
+| 0.150 \pm 0.007
+| 0.231 \pm 0.008
+| 0.71 \pm 0.01
+| 0.63 \pm 0.01
+| multi-layer camera tokens only
+| 0.287 \pm 0.141
+| 0.318 \pm 0.020
+| 0.54 \pm 0.15
+| 0.51 \pm 0.02
+| conditioning + multi-layer camera tokens
+| 0.313 \pm 0.113
+| 0.307 \pm 0.023
+| 0.51 \pm 0.11
+| 0.52 \pm 0.03
+| relative pose \psi only
+| 0.621 \pm 0.033
+| 0.640 \pm 0.025
+| 0.14 \pm 0.04
+| 0.01 \pm 0.01
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

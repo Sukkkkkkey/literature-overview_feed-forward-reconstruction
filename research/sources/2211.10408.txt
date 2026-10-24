@@ -1,0 +1,1761 @@
+CroCo v2: Improved Cross-view Completion Pre-training for Stereo Matching and Optical Flow
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related work
+3 Cross-view completion pre-training at scale
+3.1 Collecting real-world image pairs
+3.2 Positional embeddings
+3.3 Scaling up the model
+4 Application to stereo matching and flow
+5 Experiments
+6 Conclusion
+References
+G Cross-view completion examples
+H Further experimental results
+H.1 Impact of pre-training
+H.2 Smaller training data
+H.3 Runtime and tiling
+H.4 Laplacian-based loss
+H.5 Towards smarter tiling
+I Training details
+License: arXiv.org perpetual non-exclusive license
+arXiv:2211.10408v3 [cs.CV] 18 Aug 2023
+CroCo v2: Improved Cross-view Completion Pre-training
+for Stereo Matching and Optical Flow
+Philippe Weinzaepfel Thomas Lucas Vincent Leroy
+Affiliation: Yohann Cabon Vaibhav Arora Romain Brégier Gabriela Csurka
+Affiliation: Leonid Antsfeld Boris Chidlovskii Jérôme Revaud
+Affiliation: NAVER LABS Europe
+Affiliation: https://github.com/naver/croco
+Abstract
+Despite impressive performance for high-level downstream tasks, self-supervised pre-training methods have not yet fully delivered on dense geometric vision tasks such as stereo matching or optical flow.
+The application of self-supervised
+concepts, such as instance discrimination or masked image modeling, to geometric tasks is an active area of research.
+In this work, we build on the recent cross-view completion framework,
+a variation of masked image modeling that leverages a second view from the same scene which makes it well suited for binocular downstream tasks.
+The applicability of this concept has so far been limited in at least two ways: (a) by the difficulty of collecting real-world image pairs – in practice only synthetic data have been used –
+and (b) by the lack of generalization of vanilla transformers to dense downstream tasks
+for which relative position is more meaningful than absolute position.
+We explore three avenues of improvement.
+First, we introduce a method to collect suitable real-world image pairs at large scale.
+Second, we experiment with relative positional embeddings and show that they enable vision transformers
+to perform substantially better.
+Third, we scale up vision transformer based cross-completion architectures, which is made possible by the use of large amounts of
+data.
+With these improvements, we show for the first time that state-of-the-art results on
+stereo matching and optical flow can be reached without using any classical task-specific techniques like
+correlation volume, iterative estimation, image warping or multi-scale reasoning, thus paving the way towards universal vision models.
+1 Introduction
+Figure 1: Pre-training for dense geometric tasks. We pre-train a generic architecture, with a monocular encoder and a binocular decoder, with cross-view completion before finetuning it on the stereo matching or optical flow downstream task.
+Self-supervised pre-training methods aim at learning rich representations from large amounts of unannotated data, which can then be finetuned on a variety of downstream tasks.
+This requires the design of pretext tasks, for which supervision signal can be extracted from the data itself, as well as generic architectures that can be easily transferred.
+We hypothesize that successfully pre-training large models for geometric tasks such as stereo matching or optical flow, see Figure 1, requires three things all together:
+(a) a well-designed dense pretext task inciting the understanding of 3D scene layout and geometry,
+(b) an architecture that processes pairs of images, suitable for different downstream tasks,
+and (c) large-scale real-world data.
+Early self-supervised methods proceeded by discarding part of the signal (e.g. image color [97], patch ordering [57] or image orientation [25]) and trying to recover it.
+Later methods based on instance discrimination [12, 13, 16, 30] were first to surpass supervised pre-training on high-level tasks: they are based on the idea that output features should be invariant to well-designed classes of augmentations.
+Another recently successful pretext task is masked image modeling (MIM) [2, 22, 29, 83, 86, 102], where part of the input data is masked and an auto-encoder is trained to restore the full signal from the remaining visible parts.
+Instance
+discrimination and MIM methods have achieved excellent performance on semantic tasks such as image classification, in particular with limited amounts of annotated data [2, 17, 71], but have not led to breakthroughs in more geometric tasks like stereo matching and optical flow.
+Adapting self-supervised pre-training to geometric vision tasks is an active area of research.
+Attempts have been made to design contrastive learning objectives at the pixel or patch level [82, 85, 87], but their performance gains have so far been more moderate than for global tasks.
+Besides, these gains are mainly demonstrated for dense semantic tasks such as semantic segmentation or object detection, rather than for geometric tasks such as depth estimation or stereo matching.
+Recently, [84] proposed the pretext task of cross-view completion (CroCo), a variant of MIM where a partially masked input image is reconstructed given visible patches and an additional view of the same scene.
+This pre-training objective is well suited to geometric downstream tasks as (a) it leverages pairs of images and (b) extracting relevant information from the second view requires geometric understanding of the scene.
+The CroCo architecture consists of a vision transformer (ViT) [20] encoder to extract features for the non-masked tokens of the first image, as well as for the second reference image, and a transformer to decode the features and reconstruct the masked image, as illustrated in Figure 2.
+In spite of these advances, leveraging cross-view completion for geometric vision tasks remains challenging for at least two reasons.
+First, training with cross-view completion requires image pairs depicting the same scene; this can be hard to acquire at scale, yet scale is the cornerstone of the success of self-supervised pre-training.
+In practice, the CroCo model of [84] is pre-trained solely with synthetic data, which may limit its final performance.
+Second, most models trained with masking rely on ViTs [20], which typically use absolute positional embeddings.
+These do not generalize well to new image resolutions when finetuning, and are not always robust to cropping.
+This limits the applicability of current cross-view completion methods and may explain why the downstream tasks presented in [84] mostly use low-resolution squared images.
+In this paper, we propose solutions to these limitations that enable
+to pre-train a large-scale cross-view completion model, see Figure 2, leading to state-of-the-art performance on stereo matching and optical flow.
+First, we tackle the problem of scalable pair collection, and gather millions of training pairs from different real-world datasets which cover various scenarios like indoor environments, street view data and landmarks, see Figure 3.
+To generate high-quality pre-training pairs, we carefully control the visual overlap for each pair of images.
+In fact, pairs with high overlap make the task trivial, whereas pairs with negligible overlap reduce it to standard MIM [84].
+To measure this overlap, we leverage extra information available such as 3D meshes, additional sensors like LIDAR, or Structure-from-Motion (SfM) reconstructions for datasets with sufficient image coverage.
+From these data,
+we generate a set of high quality image pairs with sufficient overlap and viewpoint difference while also ensuring high diversity between pairs.
+Second, these large-scale datasets of pre-training pairs allow to scale up the model: (a) we use a larger encoder to extract better image features and (b) also scale up the decoder, which is responsible for combining information coming from the two views.
+Third, instead of the standard cosine positional embedding which encodes absolute positional information, we rely on the Rotary Positional Embedding (RoPE) [73]
+which efficiently injects relative positional information of token pairs in the attention mechanism.
+Figure 2: Overview of the improvements in CroCo v2 for cross-view completion pre-training: (a) collecting and using real-world images, (b) using rotary positional embeddings which model relative token positions, instead of absolute positions using the standard cosine embedding, (c) increasing network size both in the encoder and the decoder.
+We finetune our pre-trained model, referred to as CroCo v2, with this improved cross-view completion scheme on stereo matching and optical flow using a Dense Prediction Transformer (DPT) [61] head.
+Our models, termed CroCo-Stereo and CroCo-Flow, are simple and generic:
+we rely on a plain ViT encoder, followed by a plain transformer decoder which
+directly predicts the output (disparity for stereo, or optical flow) through the DPT head.
+We believe this is a meaningful step towards a universal vision model, i.e., that can solve numerous vision tasks with a common architecture. In contrast to state-of-the-art methods for stereo matching or optical flow, our architecture does not rely on task-specific designs such as cost volumes [31, 36, 40, 41, 92], image warping [10, 76], iterative refinement [45, 48, 79] or multi-level feature pyramids [18, 45, 76]. While task-specific structures and prior knowledge may yield more data-efficient approaches, they come at the cost of being tailored to a single task. Our proposed pre-training allows us to eschew these and still reaches state-of-the-art performance on various stereo matching and optical flow benchmarks such as KITTI 2015 [55], ETH3D [67], Spring [54] or MPI-Sintel [11].
+|
+Habitat (synth.)
+|
+|
+ARKitScenes
+|
+|
+MegaDepth
+|
+|
+3DStreetView
+|
+|
+IndoorVL
+|
+Figure 3: Example of pre-training cropped image pairs from Habitat which was the synthetic data used by CroCo [84] on the top row, and from real-world datasets we use in this paper (from ARKitScenes, MegaDepth, 3DStreetView and IndoorVL) below.
+2 Related work
+Self-supervised learning.
+The success of instance discrimination [12, 13, 16, 28, 30] has drawn a lot of attention to self-supervised learning in computer vision [37].
+In that paradigm, variants of an image are obtained by applying different data augmentations. Features extracted from the different variants are trained to be similar, while being pushed away from features obtained from other images.
+Such self-supervised models are particularly well tailored to image-level tasks, such as image classification, and have led to state-of-the-art performance on various benchmarks.
+Recent studies suggest that this success could be due to the object-centric [58] and the balanced [1] nature of ImageNet [63] that is used for pre-training.
+Recently, inspired by BERT [19] in natural language processing, different masked modeling methods have been adapted to computer vision.
+MIM pre-training aims at reconstructing masked information from an input image either in the pixel space [3, 4, 15, 22, 29, 86], or in the feature space [2, 5, 83], and sometimes after quantization [7, 102].
+Recent works combine this framework in a teacher-student approach [44, 46] with improved masking strategy [23, 38, 46].
+Overall, MIM models perform well on classification tasks. They have obtained some success on denser tasks such as object detection [29] or human pose estimation [91], and have been applied to robotic vision [59] when pre-trained on related datasets.
+More recently, CroCo [84] introduces the pretext task of cross-view completion, where a second view of the same scene is added to MIM. This is well suited to geometric downstream tasks: to leverage the second view and improve reconstruction accuracy, the model has to implicitly
+be aware of the geometry of the scene. CroCo outperforms MIM pre-training on an array of geometric tasks. However, it relies on synthetic data only, which may be sub-optimal, and does not reach the performance of the best task-specific methods.
+Positional embeddings.
+Since a ViT treats its input as an orderless set of image patches or tokens, positional embeddings are a necessary tool to keep track of the position of each patch token from the original image.
+They can be either learned [13, 20] or handcrafted, such as the cosine positional embeddings from the original transformer [80].
+Both learned and cosine embeddings are added explicitly to the signal and contain absolute positional information.
+However, models for pixel-level dense computer vision tasks should be able to process various image resolutions and be robust to cropping. Thus, relative positional embeddings, e.g. [68], that consider distances between tokens are preferable.
+For instance, Bello et al. [9]
+achieve better object detection results
+using relative self-attention.
+Similarly,
+Swin Transformers [51] and Swin V2 [50] observed improved performance using relative positional embeddings, while [74] showed it to be crucial in the cross attention for optical flow.
+Recently, [73] introduced the Rotary Positional Embedding (RoPE):
+a transformation to each key and query features is applied according to their absolute position, in such a way that the pairwise similarity scores used in the attention computation only depend on the relative positions of the token pairs and on their feature similarity.
+RoPE thus models relative positions
+at any resolution.
+Stereo matching and optical flow can both be seen as a dense correspondence matching problem [90]. However the priors about matching itself and the completion of unmatched regions differ. This explains why most models are dedicated to one specific task despite many similarities in the strategies [42, 95].
+Dense matching is most often posed with correlation/cost volume estimation from which matches can be extracted [21, 53].
+For stereo, this volume typically has three dimensions [36, 41, 92], the third dimension representing a discretization of the disparity level, or four dimensions [14, 40, 56].
+For optical flow, each pixel of the first image can be associated to any pixel of the second, resulting in a 4D correlation volume. The complexity of building, storing and leveraging such volume motivated numerous methods revolving around the ideas of coarse-to-fine [6, 79, 98], warping [76], sparse formulation [33], random search [99], dimension separation [96], tokenization [31].
+Interestingly, recent works [74, 89, 90] leverage cross-attention to facilitate inter-image information exchanges but still rely on a low-resolution correlation volume, followed by an iterative refinement similar to [79].
+Unimatch [90] made an important step towards a unified architecture for flow and stereo, but still relies on task-dependent (a) cross-attention mechanisms, (b) correlation volume and (c) post-processing.
+We similarly use the same architecture for both tasks, but our standard transformer model without cost volume can be pre-trained with existing self-supervised approaches and directly finetuned as is.
+Several works propose self-supervised methods for estimating depth using stereo pairs or videos [26, 27], stereo with matching priors [101], or optical flow [75, 49, 93] typically with an unsupervised reconstruction loss. The main difference between this paradigm and ours is that we aim to pre-train a task-agnostic model that can be finetuned to different tasks, while these approaches aim to remove supervision for a single task.
+3 Cross-view completion pre-training at scale
+Our proposed pre-training method is based on the recently introduced cross-view completion (CroCo) framework [84].
+It extends MIM
+to pairs of images.
+Given two different images depicting a given scene, the two images are divided into sets of non-overlapping patches, denoted as tokens, and 90% of the tokens from the first image are masked.
+The remaining ones are fed to a ViT [20] encoder to extract features for the first image. Similarly, tokens from the second image are fed to the same encoder with shared weights,
+and a ViT decoder processes the two sets of features together to reconstruct the target.
+Figure 2 provides an overview of the pre-training stage.
+Compared to standard masked image modeling methods, this approach can leverage the information in the second view to resolve some of the ambiguities about the masked context.
+To leverage this information, the model has to implicitly reason about the scene geometry and the spatial relationship between the two views, which primes it well for geometric tasks.
+Figure 4: Overview of our pre-training cropped image pair collection method. Given a dataset of posed images, optionally with point clouds (e.g. from SfM) or meshes of the scene, we first measure the visual overlap between pairs and the viewpoint angle difference. Based on these scores, we use a greedy algorithm to select diverse image pairs and finally generate crops from them.
+Training data.
+Collecting pairs of images that are suitable for this approach is non-trivial.
+First, images have to be paired together without manual annotation; second, their visual overlap has to be carefully controlled for the pairs to be useful.
+In [84], only synthetic data generated with the Habitat simulator [64] is used, which restricts the variety of the pre-training data.
+In contrast, we propose an approach to this real-world image pairing problem, necessary to use cross-view completion at scale, as detailed in Section 3.1.
+Positional embeddings. The architecture used in [84] adapts ViTs to process pairs of images,
+by using cross-attention inside the decoder.
+Following standard practices, in their work cosine positional embedding is added to the token features prior to the encoder and the decoder. This models absolute position while dense tasks must typically be robust to cropping or images of various resolutions.
+In Section 3.2, we describe how relative positional embeddings can be adapted to cross-view completion.
+Large-scale models. Finally, we discuss scaling-up the model in Section 3.3. CroCo [84] uses a ViT-Base encoder (12 blocks, 768-dimensional features, 12 attention heads) and a decoder composed of 8 blocks with 512-dimensional features and 16 heads.
+Using our large-scale dataset of real-world image pairs, we are able to scale to larger ViT architectures and demonstrate consistent performance gain.
+3.1 Collecting real-world image pairs
+We now present our approach to automatically select image pairs
+from real-world datasets that are suitable for pre-training.
+To be useful, pairs need to depict the same scene with some partial overlap.
+The overlap should not be small to the point where the task boils down to auto-completion.
+It should not be high either to the point where the task becomes a trivial ‘copy and paste’, i.e., without requiring any understanding of scene geometry.
+On top of that, diversity should be as high as possible among pairs.
+We propose to use datasets that offer ways of getting information about the geometry of the scene and the camera poses.
+This signal can be captured using additional sensors like LIDAR, or it can be extracted using structure-from-motion (SfM) techniques if the images offer enough coverage of the scene.
+We use this information to obtain an image pair quality score based on overlap and difference in viewpoint angle.
+We then use a greedy algorithm to select a diverse set of image pairs. Finally, we generate overlapping image crops by leveraging image matching. Figure 4 gives an overview of our approach and we detail each step below.
+Computing overlap scores.
+The first step is to compute overlap scores for candidate pairs.
+We develop several approaches depending on the available information.
+\circ\hskip 2.84544pt\textit{ARKitScenes}
+[8] provides 450,000 frames from 1,667 different indoor environments. The availability of the corresponding mesh for each frame enables the computation of the overlap between every pair of images.
+For each image I , we retrieve the set of mesh vertices \mathcal{P}(I) that are visible.
+We then measure the intersection-over-union (IoU) of the vertices (3D points) for each pair of images (I_{1},I_{2}) as:
+|
+| IoU(I_{1},I_{2})=\frac{|\mathcal{P}(I_{1})\cap\mathcal{P}(I_{2})|}{|\mathcal{P}(I_{1})\cup\mathcal{P}(I_{2})|}.
+|
+| (1)
+\circ\hskip 2.84544pt\textit{MegaDepth}
+[47] consists of around 300,000 images downloaded from the web corresponding to 200 different landmarks.
+From these images, a point cloud model for each landmark obtained using structure-form-motion (SfM) with COLMAP [66] is also provided.
+As above, it is possible to measure the vertex-based IoU between pairs of images, where each vertex is in this case a 3D point from the point cloud.
+Unfortunately, occlusions cannot be taken into account due to the absence of 3D mesh, which greatly degrades the overlap estimation.
+We propose a simple yet effective solution: we create an artificial occlusion model by attaching a ball of fixed radius to each 3D point, which occludes the vertices placed behind it.
+This way, we can compute a set of visible vertices for each image and evaluate the IoU as done previously.
+\circ\hskip 2.84544pt\textit{3D Street View}
+[94] contains 25 million street view images from 8 cities.
+In addition to the camera pose, the 3D location and orientation (normal vector) of the target buildings are provided.
+To compute the overlap score, we create a pseudo 3D point cloud and apply the same technique as for MegaDepth.
+We start from an empty point cloud and append, for each target building, a 10\times 6 meters grid of 7\times 11 balls oriented according to the provided annotation.
+\circ\hskip 2.84544pt\textit{Indoor Visual Localization datasets}
+(IndoorVL) [43] contains over 135,000 images from a large shopping mall and a large metro station in Seoul, South Korea,
+captured regularly with several months interval
+with
+10 cameras and 2 laser scanners.
+The data is provided with accurate camera poses obtained via LiDAR SLAM refined by SfM-based optimization.
+We directly measure the overlap between images using the intersection between the camera frustrums using the accurate camera poses provided with the dataset.
+To encourage further diversity, we multiply this
+score by a factor 0.8 if both images come from the same capture session, thus favoring pairs taken with several months interval.
+Greedy image pair selection.
+We rely on the overlap scores described above to select high quality pairs.
+This is however not sufficient: we also need pairs to be diverse, which would not be the case when randomly selecting good pairs, as images in the dataset can be very correlated. Therefore, we use a greedy algorithm to select non-redundant image pairs for pre-training.
+First, for each image pair (I_{1},I_{2}) we use a quality pair score s given by:
+|
+| s(I_{1},I_{2})=IoU(I_{1},I_{2})\times 4\cos(\alpha)\big(1-\cos(\alpha)\big),
+|
+| (2)
+where \alpha denotes the viewpoint angle difference between the two images (all the datasets above provide camera poses).
+The function 4\cos(x)(1-\cos(x)) has a maximum value of 1 for x=60^{\circ} , 0 value for x=0^{\circ} and x=90^{\circ} , and it is negative for angles above 90^{\circ} . This score thus favors pairs with different viewpoints while still having large overlaps. Given the score for every pair, we aim at building a large number of image pairs while ensuring diversity, i.e., avoiding content redundancy.
+To do this, we use a greedy algorithm, where each time we select a pair of images with maximum score,
+we discard the two images forming the pair, as well as images that have too large IoU (above 0.75 ) with any of the two. We iteratively repeat this process until there is no pair with a score above a certain threshold.
+Crop generation per pair.
+For pre-training, we use fixed-size crops of 224{\times}224 pixels, as considering
+higher-resolution images would be too costly.
+In practice, we generate 256{\times}256 crops and apply random cropping during pre-training.
+To generate crops on pairs of images while maintaining overlaps, we rely on quasi-dense keypoint matching, namely DeepMatching [62], except for pairs from ARKitScenes where we directly use matches from the mesh.
+Given the matches, we consider a grid of crops in the first image, estimate the corresponding matching crop in the second image and keep
+those with the most consistent matches and without overlap in the first image.
+Figure 5: Architecture of CroCo-Stereo and CroCo-Flow. The two images (left and right views for stereo, two frames for flow) are split into patches and encoded with a series of transformer blocks with RoPE positional embeddings. The decoder consists in a series of transformer decoder blocks (self-attention among token features from the first image, cross-attention with the token features from the second image, and an MLP). Token features from different intermediate blocks are fed to the DPT module [61] to obtain the final prediction.
+Overall statistics.
+In total, we collected about 5.3 million real-world pairs of crops with the process described above, with respectively 1,070,414 pairs from ARKitScenes [8], 2,014,789 pairs from MegaDepth [47], 655,464 from 3DStreetView [94], and 1,593,689 pairs from IndoorVL [43]. We added this to 1,821,391 synthetic pairs generated with the Habitat simulator [64], following the approach of [84].
+Example pairs for each dataset are shown in Figure 3.
+They cover various scenarios, from indoor rooms – synthetic with Habitat or real with ARKitScenes – to larger crowded indoor environment (IndoorVL), landmarks (MegaDepth) and outdoor streets (3DStreetView).
+3.2 Positional embeddings
+We replace the cosine embeddings, which inject absolute positional information, by Rotary Positional Embedding (RoPE) [73].
+RoPE efficiently injects information about the relative positioning of feature pairs when computing attention.
+Formally, let q and k represent a query and a key feature, at absolute positions m and n respectively.
+The main idea of RoPE is to design an efficient function f(x,p) that transforms a feature x according to its absolute position p such that the similarity between the transformed query and the transformed key \langle f(q,m),f(k,n)\rangle is a function of q , k and m-n only.
+[73] showed that a simple transformation such as applying rotations on pairs of dimensions according to a series of rotation matrices at different frequencies satisfy this desirable property.
+To deal with 2D signals
+such as images, we
+split the features into 2 parts, we apply the 1D positional embedding of the x-dimension on the first part, and the embedding of the y-dimension on the second part.
+3.3 Scaling up the model
+The combination of information
+extracted from the two images only occurs in the decoder.
+Following MAE [29], CroCo [84] uses a small decoder of 8 blocks consisting of self-attention, cross-attention and an MLP, with 512 dimensions and 16 attention heads. As the decoder is crucial for binocular tasks such as stereo or flow, we scale up the decoder and follow the ViT-Base hyper-parameters with 12 blocks, 768-dimensional features and 12 heads. We also scale up the image encoder from ViT-Base to ViT-Large, i.e., increase the depth from 12 to 24, the feature dimension from 768 to 1024 and the number of heads from 12 to 16.
+Pre-training detailed setting.
+We pre-train the network for 100 epochs with the AdamW optimizer [52], a weight decay of 0.05 , a cosine learning rate schedule at a base learning rate of 3.10^{-4} with a linear warmup in the first 10 epochs, and a batch size of 512 spread on 8 GPUs.
+During pre-training, we simply use random crops and color jittering as data augmentation.
+We mask 90% of the tokens from the first image.
+Examples of cross-view completion obtained with our model are shown in Appendix G.
+| pos.
+| encoder
+| decoder
+| pre-train
+|
+| Stereo (bad@1.0px \downarrow )
+|
+| Flow (EPE \downarrow )
+| emb.
+| data
+|
+| Md
+| ETH
+| SF(c)
+| SF(f)
+|
+| FT(c)
+| FT(f)
+| Si.(c)
+| Si.(f)
+| cosine
+| ViT-B
+| Small
+| 2M habitat
+| (CroCo [84])
+| 26.3
+| 1.82
+| 6.7
+| 7.0
+|
+| 3.89
+| 3.56
+| 2.07
+| 2.57
+| RoPE
+| ViT-B
+| Small
+| 2M habitat
+|
+| 25.3
+| 0.60
+| 6.0
+| 6.3
+|
+| 3.73
+| 3.37
+| 2.13
+| 2.77
+| RoPE
+| ViT-B
+| Small
+| 2M habitat + 5.3M real
+|
+| 20.7
+| 0.82
+| 5.8
+| 6.1
+|
+| 3.35
+| 2.94
+| 1.76
+| 2.30
+| RoPE
+| ViT-B
+| Base
+| 2M habitat + 5.3M real
+|
+| 17.1
+| 1.14
+| 5.3
+| 5.6
+|
+| 3.10
+| 2.73
+| 1.51
+| 1.99
+| RoPE
+| ViT-L
+| Base
+| 2M habitat + 5.3M real
+| (CroCo v2)
+| 15.5
+| 0.38
+| 5.0
+| 5.3
+|
+| 2.85
+| 2.45
+| 1.43
+| 1.99
+Table 1: Ablative study of each change to CroCo with the percentage of pixels with error above 1px (bad@1.0) on validation sets from Middlebury (Md), ETH3D, SceneFlow (SF) in clean (c) and final (f) renderings for stereo, and with the endpoint error (EPE) on validation sets from FlyingThings (FT) and MPI-Sintel (Si.) in both clean (c) and final (f) renderings for optical flow. A Small decoder has 8 decoder blocks with 16 attention heads on 512-dimensional features, while the Base one has 12 blocks with 12 heads on 768-dimensional features.
+|
+| Bicyc2
+| Compu
+| Austr
+| AustrP
+| Djemb
+| DjembL
+| Livgrm
+| Plants
+| Hoops
+| Stairs
+| Nkuba
+| Class
+| ClassE
+| Crusa
+| CrusaP
+| avg \downarrow
+| \text{nd}<\text{400px}
+| D
+| D
+| D
+| D
+| D
+| D
+| D
+| D
+|
+|
+|
+|
+|
+|
+|
+|
+| LEAStereo [18]
+| 1.83
+| 3.81
+| 2.81
+| 2.52
+| 1.07
+| 1.64
+| 2.59
+| 5.13
+| 5.34
+| 2.79
+| 3.09
+| 2.46
+| 2.75
+| 2.91
+| 3.09
+| 2.89
+| AdaStereo [72]
+| 2.19
+| 2.29
+| 4.37
+| 3.08
+| 1.40
+| 1.64
+| 3.93
+| 7.58
+| 4.46
+| 2.67
+| 3.69
+| 3.29
+| 3.35
+| 3.78
+| 2.94
+| 3.39
+| HITNet [78]
+| 1.43
+| 1.87
+| 3.61
+| 3.27
+| 0.90
+| 9.12
+| 2.37
+| 4.07
+| 4.45
+| 3.38
+| 3.45
+| 2.43
+| 3.20
+| 4.67
+| 4.74
+| 3.29
+| RAFT-Stereo [48]
+| 0.90
+| 1.13
+| 2.64
+| 2.22
+| 0.63
+| 1.22
+| 3.13
+| 3.55
+| 3.54
+| 1.89
+| 4.36
+| 1.46
+| 2.44
+| 4.58
+| 6.00
+| 2.71
+| CREStereo [45]
+| 1.38
+| 1.06
+| 2.63
+| 2.53
+| 0.64
+| 1.11
+| 1.42
+| 5.31
+| 3.22
+| 2.40
+| 2.51
+| 1.92
+| 2.31
+| 1.78
+| 1.83
+| 2.10
+| GMStereo [90]
+| 1.34
+| 1.32
+| 2.26
+| 2.23
+| 1.01
+| 1.62
+| 1.84
+| 2.49
+| 3.19
+| 2.18
+| 2.10
+| 2.19
+| 2.08
+| 1.71
+| 1.75
+| 1.89
+| CroCo-Stereo
+| 0.84
+| 1.45
+| 1.87
+| 1.83
+| 0.69
+| 1.19
+| 2.40
+| 2.28
+| 8.31
+| 1.44
+| 1.96
+| 3.99
+| 4.61
+| 2.48
+| 2.81
+| 2.36
+Table 2: Evaluation on Middlebury with the average error over all pixels for each sequence and the average (last column). Sequences are ordered according to their ‘nd’ value, which is the official threshold of maximum disparity used to clip predictions before evaluation.
+4 Application to stereo matching and flow
+We now present CroCo-Stereo and CroCo-Flow, our ViT-based correlation-free architecture for stereo matching and optical flow respectively, pre-trained with cross-view completion.
+This is much in contrast to current state-of-the-art methods which rely on task-specific design in the form of cost volumes [31, 36, 40, 41, 72, 76, 88, 92, 99], image warping [10, 76], iterative refinement [45, 48] and multi-level feature pyramids [18, 45, 76, 78]. Both CroCo-Stereo and CroCo-Flow share the same architecture.
+Architecture. When finetuning the model for stereo or flow, both images are fed to the encoder as during pre-training (but without masking), and the decoder processes the tokens of both images.
+To output a pixel-wise prediction, we rely on DPT [61], which adapts the standard up-convolutions and fusions from multiple layers
+used in fully-convolutional approaches for dense tasks, to vision transformers.
+This allows to combine features from different blocks by reshaping them to different resolutions and fusing them with convolutional layers.
+In practice, we use the features from 4 blocks, regularly spread by an interval of a third of the decoder depth, starting from the last block, resulting in 1 block at the end of the encoder and 3 decoder blocks.
+Loss.
+We parameterize the output of the network with a Laplacian distribution [39]: given an input pair (\bm{x}_{1},\bm{x}_{2}) , the model outputs a location parameter \mu_{i} and a scale parameter d_{i} per pixel location i and is trained to minimize the negative log-likelihood of the ground-truth target disparity, denoted \bar{\mu} , under the predicted distribution:
+|
+| -\log p(\bar{\mu}|\mu,d)=\sum_{i}\left[\frac{|\mu_{i}-\bar{\mu}_{i}|}{d_{i}}-2\log d_{i}\right].
+|
+| (3)
+The scale parameter d can be interpreted as an uncertainty score for the prediction: large errors are penalized less when d is high, while good predictions are rewarded more if d is low.
+It is thus optimal for the network to adapt the scale parameter.
+The second term comes from the normalization term of the Laplacian density and avoids the degenerate solution of always predicting a low scale parameter.
+Empirically, we find that using a probabilistic loss improves performance, see Appendix H.4 for the ablation, and is useful for tiling strategies during inference, because it provides a per-pixel confidence estimate, as detailed below.
+A parameterization of d_{i} ensures its positiveness: for stereo matching we use d_{i}=e^{2\alpha(\sigma(d^{\prime}_{i}/\alpha)-0.5)} , with \sigma the sigmoid function and \alpha=3 , and for optical flow d_{i}=1/\beta+(\beta-1/\beta)\sigma(d^{\prime}_{i}) with \beta=4 , unless otherwise stated.
+Training. We train CroCo-Stereo using 704{\times}352 crops from various stereo datasets: CREStereo [45], SceneFlow [53], ETH3D [67], Booster [60], Middlebury (2005, 2006, 2014, 2021 and v3) [65]. We train CroCo-Flow using 384{\times}320 crops from the TartanAir [81], MPI-Sintel [11], FlyingThings [53] and FlyingChairs [21] datasets.
+We refer to Appendix I for more details on these datasets, the splits we use for the ablations, the data augmentation strategy, as well as training hyper-parameters.
+Inference. We use a tiling-based approach.
+We sample overlapping tiles with the same size as the training crops in the first image.
+For each tile, we create a pair by sampling a corresponding tile at the same position from the second image.
+We then predict the disparity or flow between each pair of tiles.
+Such tiling approach was used e.g. in [31]. To merge the predictions done at a given pixel, we use a weighted average with weights e^{-2\eta\alpha(\sigma(d^{\prime}_{i}/\alpha)-0.5)} with \eta=5 for stereo matching and \alpha=5,\eta=2 for optical flow, where d^{\prime}_{i} is the uncertainty predicted by the model.
+5 Experiments
+Ablations.
+We perform our ablations on the validation pairs (see Appendix I for the splits we use) of Middlebury, ETH3D and SceneFlow for stereo matching, and FlyingThings and MPI-Sintel for optical flow.
+Table 1 reports the impact of the changes in CroCo v2 to improve CroCo [84] (pre-training data, positional embedding, larger encoder and decoder).
+We observe that they all lead to consistent improvements: replacing the cosine absolute positional embedding by RoPE, scaling up the decoder, using larger-scale pre-training data and a larger encoder. Altogether, this allows e.g. to improve performance as measured by the bad@1.0px metric from 26.3 to 15.5 on Middlebury (stereo matching), or the EPE from 2.07 to 1.43 on MPI-Sintel in its clean rendering (optical flow).
+To further benchmark CroCo v2, we evaluate the pre-training of the encoder only on monocular tasks following the protocol of [4]. For semantic segmentation on ADE20k [100], we obtain 44.7 mean Intersection over Union vs. 40.6 for CroCo [84], and for monocular depth estimation on NYU v2 [70], we obtain 93.2 delta-1 vs. 90.1 for [84].
+We provide in Appendix H an ablation on the impact of pre-training (i.e., a comparison with a randomly initialized network for finetuning), an ablation on the masking ratio during pre-training as well as a comparison between the L1 loss and Laplacian loss during finetuning.
+CroCo-Stereo vs. the state of the art.
+We now evaluate CroCo-Stereo on the official leaderboards of Middlebury [65], KITTI 2015 [55], ETH3D [67] and Spring [54].
+| Left image
+| Ground truth
+| CREStereo [45]
+| CroCo-Stereo
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+Figure 6: Three example results from the Middlebury test set (Australia, Bicycle2 and Hoops) with from left to right: the left image, the ground truth,
+CREStereo [45] and CroCo-Stereo.
+| Method
+| D1-bg \downarrow
+| D1-fg \downarrow
+| D1-all \downarrow
+| AdaStereo [72]
+| 2.59
+| 5.55
+| 3.08
+| HITNet [78]
+| 1.74
+| 3.20
+| 1.98
+| PCWNet [69]
+| 1.37
+| 3.16
+| 1.67
+| GMStereo [90]
+| 1.49
+| 3.14
+| 1.77
+| ACVNet [88]
+| 1.37
+| 3.07
+| 1.65
+| LEAStereo [18]
+| 1.40
+| 2.91
+| 1.65
+| CREStreo [45]
+| 1.45
+| 2.86
+| 1.69
+| CroCo-Stereo
+| 1.38
+| 2.65
+| 1.59
+Table 3: Evaluation on the KITTI 2015 stereo benchmark with the percentage of outliers (i.e., error above 3 pixels) for background (D1-bg), foreground (D1-fg) and all (D1-all) pixels.
+On Middlebury (Table 2), CroCo-Stereo obtains the lowest average error on 6 out of 15 sequences, in spite of using a generic patch-based transformer without any of the usual apparatus for stereo matching (e.g. cost-volume, coarse-to-scale processing, iterative refinement).
+However, in average, we obtain a worse error due to the fact that CroCo-Stereo produces really large errors for a few sequences like Hoops or ClassE.
+In fact, these errors correspond to cases with large maximum disparities (based on the maximum threshold value applied before evaluation), which is harmful for our simple tiling-based inference approach.
+This effect is visible in the prediction of the bottom example of Figure 6
+where one can observe tiling artefacts, e.g. next to the stair pillars.
+In general, however, our method remains accurate, especially on thin structures like the pins on the map or the radius of the bicycle wheels in Figure 6.
+For KITTI 2015 (Table 3), we finetune CroCo-Stereo on 1216{\times}352 crops from KITTI 2012 [24] and 2015 [55] for 20 epochs.
+CroCo-Stereo performs the best on the main D1-all metrics (outliers ratio at a 3px error threshold), with the best value also on foreground pixels, and at 0.01% of the best methods on background pixels.
+For ETH3D, we use a Laplacian loss without bounds as it is limited to small disparities, i.e., with parameterization d_{i}=e^{d^{\prime}_{i}} and weights e^{-3d^{\prime}_{i}} for tiling. CroCo-Stereo sets a new state of the art for the ratio of pixels with an error over 0.5px (bad@0.5) and performs on par with CREStereo [45] for bad@1.0 and the average error, see Table 4. It outperforms recent approaches like GMStereo [90], RAFT-Stereo [48], DIP-Stereo [99] or HITNet [78] by a large margin, e.g. the bad@0.5 for non-occluded pixels is improved by 3% or more.
+| Method
+| bad@0.5 (%) \downarrow
+| bad@1.0 (%) \downarrow
+| avg err (px) \downarrow
+| noc
+| all
+| noc
+| all
+| noc
+| all
+| AdaStereo [72]
+| 10.22
+| 10.85
+| 3.09
+| 3.34
+| 0.24
+| 0.25
+| HITNet [78]
+| 7.89
+| 8.41
+| 2.79
+| 3.11
+| 0.20
+| 0.22
+| RAFT-Stereo [48]
+| 7.04
+| 7.33
+| 2.44
+| 2.60
+| 0.18
+| 0.19
+| DIP-Stereo [99]
+| 6.74
+| 6.99
+| 1.97
+| 2.12
+| 0.18
+| 0.20
+| GMStereo [90]
+| 5.94
+| 6.44
+| 1.83
+| 2.07
+| 0.19
+| 0.21
+| CREStereo [45]
+| 3.58
+| 3.75
+| 0.98
+| 1.09
+| 0.13
+| 0.14
+| CroCo-Stereo
+| 3.27
+| 3.51
+| 0.99
+| 1.14
+| 0.14
+| 0.15
+Table 4: Evaluation on ETH3D with the percentage of pixels with an error over 0.5px (bad@0.5), over 1px (bad@1.0) and the average error over non-occluded (noc) or all pixels.
+Finally, we report results on the recent Spring benchmark in Table 5 where our model is finetuned for 8 epochs on its training set. CroCo-Stereo outperforms the leading methods on all metrics with a large margin, i.e., the main bad@1 metric is reduced from 15\% to 7\% and the absolute error from 1.5 to 0.5 px.
+| Method
+| 1px \downarrow
+| 1px s0-10 \downarrow
+| 1px s10-40 \downarrow
+| 1px s40+ \downarrow
+| Abs \downarrow
+| RAFT-Stereo [48]‡
+| 15.273
+| 22.588
+| 10.018
+| 17.086
+| 3.025
+| AVC-Net [88]‡
+| 14.772
+| 18.386
+| 11.346
+| 18.145
+| 1.516
+| CroCo-Stereo
+| 7.135
+| 2.934
+| 7.757
+| 13.247
+| 0.471
+Table 5: Evaluation of CroCo-Stereo on the Spring benchmark with the percentage of outliers (error over 1px) over all pixels, or over pixels with disparities in [0,10] (s0-10), in [10,40] (s10-40) and over 40 pixels (s40+), as well as the average absolute error (Abs). ‡ means methods submitted by the leaderboard’s authors.
+CroCo-Flow vs. the state of the art.
+We compare CroCo-Flow to the state of the art on the official leaderboards of MPI-Sintel [11], KITTI 2015 [55] and Spring [54].
+On MPI-Sintel (Table 6), CroCo-Flow performs better than RAFT [79] which include many specialized refinement steps and use previous flow estimation as initialization. We rank second on the clean rendering and perform competitively on the final rendering, on par with most recent approaches such as GMFlow+ [90], SKFlow [77] or FlowFormer [31]. Figure 7 shows some visualizations of flow prediction.
+| Method
+| clean \downarrow
+| final \downarrow
+| PWC-Net+ [76]
+| 3.45
+| 4.60
+| RAFT† [79]
+| 1.61
+| 2.86
+| CRAFT† [74]
+| 1.44
+| 2.42
+| FlowFormer [31]
+| 1.20
+| 2.12
+| SKFlow [77]
+| 1.30
+| 2.26
+| GMFlow+ [90]
+| 1.03
+| 2.12
+| CroCo-Flow
+| 1.09
+| 2.44
+Table 6: Evaluation on the MPI-Sintel benchmark with the EPE ( \downarrow ) on the clean and final renderings. † means that the flow prediction from the previous frames is used as initialization.
+| First image
+| Ground truth
+| GMFlow+ [90]
+| CroCo-Flow
+|
+|
+|
+|
+|
+|
+|
+|
+Figure 7: Two examples from the MPI-Sintel test set with from left to right: the first image, the ground truth,
+GMFlow+ [90] and CroCo-Flow.
+For KITTI 2015 (Table 7), we finetuned the model on the training set from KITTI 2012 and 2015 for 150 epochs on crops of size 1216{\times}352 . CroCo-Flow performs best on the main F1-all metrics, i.e., the percentage of outliers, with a large margin: the F1-all is reduced from 4.49% to 3.64% compared to GMFlow+ [90]. This gap mainly comes from the background pixels, while we perform on par with the best methods on foreground pixels.
+Finally, on Spring, for which we finetune the model on its training set for 12 epochs, we obtain state-of-the-art performance, see Table 8.
+We obtain an EPE of 0.50, compared to 0.64 for the second best method, with an outlier ratio reduced for all flow norm ranges.
+Limitations.
+The tiling-based inference strategy may prevent an accurate estimate in case of extremely large disparity or flow, where the corresponding pixels can be outside of the tile of the second image.
+A tiling strategy smarter than taking the same cropping coordinates in a pair of images could be considered.
+| Method
+| Fl-bg \downarrow
+| Fl-fg \downarrow
+| Fl-all \downarrow
+| PWC-Net+ [76]
+| 7.69
+| 7.88
+| 7.72
+| RAFT† [79]
+| 4.74
+| 6.87
+| 5.10
+| CRAFT† [74]
+| 4.58
+| 5.85
+| 4.79
+| FlowFormer [31]
+| 4.37
+| 6.18
+| 4.68
+| GMFlow+ [90]
+| 4.27
+| 5.60
+| 4.49
+| CroCo-Flow
+| 3.18
+| 5.94
+| 3.64
+Table 7: Evaluation of CroCo-Flow on the KITTI 2015 benchmark with the percentage of outliers for background (F1-bg), foreground (F1-fg) and all (F1-all) pxiels. † means that the flow prediction from the previous frames is used as initialization.
+| Method
+| 1px \downarrow
+| 1px s0-10 \downarrow
+| 1px s10-40 \downarrow
+| 1px s40+ \downarrow
+| EPE \downarrow
+| FlowFormer [31]‡
+| 6.510
+| 3.381
+| 5.530
+| 35.344
+| 0.723
+| MS-Raft+ [32]‡
+| 5.724
+| 2.055
+| 5.022
+| 38.315
+| 0.643
+| CroCo-Flow
+| 4.565
+| 1.225
+| 4.332
+| 33.134
+| 0.498
+Table 8: Evaluation of CroCo-Flow on the Spring benchmark with the number of outliers (error over 1px) over all pixels, or over pixels with flow norm in [0,10] (s0-10), in [10,40] (s10-40) and over 40 pixels (s40+) as well as the endpoint error (EPE). ‡ means methods submitted by the leaderboard’s authors.
+6 Conclusion
+For the first time, we have shown that large-scale pre-training can be successful for dense geometric tasks,
+thanks to a well-adapted pretext task and real-world data at scale.
+This enables to reach state-of-the-art performance with a ViT-based architecture without using task-specific designs,
+and thereby opening novel routes to tackle these problems, and new avenues towards more universal vision models.
+References
+[1]
+Mahmoud Assran, Randall Balestriero, Quentin Duval, Florian Bordes, Ishan
+Misra, Piotr Bojanowski, Pascal Vincent, Michael Rabbat, and Nicolas Ballas.
+The hidden uniform cluster prior in self-supervised learning.
+In ICLR, 2023.
+[2]
+Mahmoud Assran, Mathilde Caron, Ishan Misra, Piotr Bojanowski, Florian Bordes,
+Pascal Vincent, Armand Joulin, Michael Rabbat, and Nicolas Ballas.
+Masked siamese networks for label-efficient learning.
+In ECCV, 2022.
+[3]
+Sara Atito, Muhammad Awais, and Josef Kittler.
+SiT: Self-supervised vIsion Transformer.
+arXiv preprint arXiv:2104.03602, 2021.
+[4]
+Roman Bachmann, David Mizrahi, Andrei Atanov, and Amir Zamir.
+MultiMAE: Multi-modal Multi-task Masked Autoencoders.
+In ECCV, 2022.
+[5]
+Alexei Baevski, Wei-Ning Hsu, Qiantong Xu, Arun Babu, Jiatao Gu, and Michael
+Auli.
+data2vec: A General Framework for Self-supervised Learning in
+Speech, Vision and Language.
+arXiv preprint arXiv:2202.03555, 2022.
+[6]
+Shaojie Bai, Zhengyang Geng, Yash Savani, and J. Zico Kolter.
+Deep equilibrium optical flow estimation.
+In CVPR, 2022.
+[7]
+Hangbo Bao, Li Dong, Songhao Piao, and Furu Wei.
+BEiT: BERT Pre-Training of Image Transformers.
+In ICLR, 2022.
+[8]
+Gilad Baruch, Zhuoyuan Chen, Afshin Dehghan, Tal Dimry, Yuri Feigin, Peter Fu,
+Thomas Gebauer, Brandon Joffe, Daniel Kurz, Arik Schwartz, et al.
+Arkitscenes–a diverse real-world dataset for 3d indoor scene
+understanding using mobile rgb-d data.
+In NeurIPS, 2021.
+[9]
+Irwan Bello, Barret Zoph, Ashish Vaswani, Jonathon Shlens, and Quoc V. Le.
+Attention Augmented Convolutional Networks.
+In ICCV, 2019.
+[10]
+Thomas Brox, Andrés Bruhn, Nils Papenberg, and Joachim Weickert.
+High accuracy optical flow estimation based on a theory for warping.
+In ECCV, 2004.
+[11]
+Daniel J Butler, Jonas Wulff, Garrett B Stanley, and Michael J Black.
+A naturalistic open source movie for optical flow evaluation.
+In ECCV, 2012.
+[12]
+Mathilde Caron, Ishan Misra, Julien Mairal, Priya Goyal, Piotr Bojanowski, and
+Armand Joulin.
+Unsupervised Learning of Visual Features by Contrasting Cluster
+Assignments.
+In NeurIPS, 2020.
+[13]
+Mathilde Caron, Hugo Touvron, Ishan Misra, Hervé Jégou, Julien Mairal,
+Piotr Bojanowski, and Armand Joulin.
+Emerging Properties in Self-Supervised Vision Transformers.
+In ICCV, 2021.
+[14]
+J. Chang and Y. Chen.
+Pyramid stereo matching network.
+In CVPR, 2018.
+[15]
+Mark Chen, Alec Radford, Rewon Child, Jeffrey Wu, Heewoo Jun, David Luan, and
+Ilya Sutskever.
+Generative Pretraining From Pixels.
+In ICML, 2020.
+[16]
+Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geoffrey Hinton.
+A simple framework for contrastive learning of visual
+representations.
+In ICML, 2020.
+[17]
+Ting Chen, Simon Kornblith, Kevin Swersky, Mohammad Norouzi, and Geoffrey E.
+Hinton.
+Big self-supervised models are strong semi-supervised learners.
+In NeurIPS, 2020.
+[18]
+Xuelian Cheng, Yiran Zhong, Mehrtash Harandi, Yuchao Dai, Xiaojun Chang,
+Hongdong Li, Tom Drummond, and Zongyuan Ge.
+Hierarchical neural architecture search for deep stereo matching.
+In NeurIPS, 2020.
+[19]
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova.
+BERT: Pre-training of Deep Bidirectional Transformers for Language
+Understanding.
+In NAACL HLT, 2019.
+[20]
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn,
+Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg
+Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby.
+An Image is Worth 16x16 Words: Transformers for Image Recognition at
+Scale.
+In ICLR, 2021.
+[21]
+Alexey Dosovitskiy, Philipp Fischer, Eddy Ilg, Philip Hausser, Caner Hazirbas,
+Vladimir Golkov, Patrick Van Der Smagt, Daniel Cremers, and Thomas Brox.
+Flownet: Learning optical flow with convolutional networks.
+In ICCV, 2015.
+[22]
+Alaaeldin El-Nouby, Gautier Izacard, Hugo Touvron, Ivan Laptev, Hervé
+Jegou, and Edouard Grave.
+Are Large-scale Datasets Necessary for Self-Supervised
+Pre-training?
+arXiv preprint arXiv:2112.10740, 2021.
+[23]
+Yuxin Fang, Li Dong, Hangbo Bao, Xinggang Wang, and Furu Wei.
+Corrupted Image Modeling for Self-Supervised Visual Pre-Training.
+In ICLR, 2023.
+[24]
+Andreas Geiger, Philip Lenz, and Raquel Urtasun.
+Are we ready for autonomous driving? the kitti vision benchmark
+suite.
+In CVPR, 2012.
+[25]
+Spyros Gidaris, Praveer Singh, and Nikos Komodakis.
+Unsupervised Representation Learning by Predicting Image Rotations.
+In ICLR, 2018.
+[26]
+Clément Godard, Oisin Mac Aodha, and Gabriel J Brostow.
+Unsupervised monocular depth estimation with left-right consistency.
+In CVPR, 2017.
+[27]
+Clément Godard, Oisin Mac Aodha, Michael Firman, and Gabriel J Brostow.
+Digging into self-supervised monocular depth estimation.
+In ICCV, 2019.
+[28]
+Jean-Bastien Grill, Florian Strub, Florent Altché, Corentin Tallec,
+Pierre H. Richemond, Elena Buchatskaya, Carl Doersch, Bernardo Ávila
+Pires, Zhaohan Guo, Mohammad Gheshlaghi Azar, Bilal Piot, Koray Kavukcuoglu,
+Rémi Munos, and Michal Valko.
+Bootstrap Your Own Latent - A New Approach to Self-Supervised
+Learning.
+In NeurIPS, 2020.
+[29]
+Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Dollár, and Ross
+Girshick.
+Masked Autoencoders are Scalable Vision Learners.
+In CVPR, 2022.
+[30]
+Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, and Ross Girshick.
+Momentum Contrast for Unsupervised Visual Representation Learning.
+In CVPR, 2020.
+[31]
+Zhaoyang Huang, Xiaoyu Shi, Chao Zhang, Qiang Wang, Ka Chun Cheung, Hongwei
+Qin, Jifeng Dai, and Hongsheng Li.
+FlowFormer: A transformer architecture for optical flow.
+In ECCV, 2022.
+[32]
+Azin Jahedi, Maximilian Luz, Lukas Mehl, Marc Rivinius, and Andrés Bruhn.
+High resolution multi-scale raft (robust vision challenge 2022).
+arXiv preprint arXiv:2210.16900, 2022.
+[33]
+Shihao Jiang, Yao Lu, Hongdong Li, and Richard Hartley.
+Learning optical flow from a few matches.
+In CVPR, 2021.
+[34]
+Shihao Jiang, Yao Lu, Hongdong Li, and Richard Hartley.
+Learning optical flow from a few matches.
+In CVPR, 2021.
+[35]
+Shihao Jiang, Yao Lu, Hongdong Li, and Richard Hartley.
+Learning optical flow from a few matches.
+In CVPR, 2021.
+[36]
+Zequn Jie, Pengfei Wang, Yonggen Ling, Bo Zhao, Yunchao Wei, Jiashi Feng, and
+Wei Liu.
+Left-right comparative recurrent model for stereo matching.
+In CVPR, 2018.
+[37]
+Longlong Jing and Yingli Tian.
+Self-supervised Visual Feature Learning with Deep Neural Networks: A
+Survey.
+IEEE Trans. PAMI, 2021.
+[38]
+Ioannis Kakogeorgiou, Spyros Gidaris, Bill Psomas, Yannis Avrithis, Andrei
+Bursuc, Konstantinos Karantzalos, and Nikos Komodakis.
+What to Hide from Your Students: Attention-Guided Masked Image
+Modeling.
+In ECCV, 2022.
+[39]
+Alex Kendall, Yarin Gal, and Roberto Cipolla.
+Multi-task learning using uncertainty to weigh losses for scene
+geometry and semantics.
+In CVPR, 2018.
+[40]
+A. Kendall, H. Martirosyan, S. Dasgupta, P. Henry, R. Kennedy, A. Bachrach, and
+A. Bry.
+End-to-end learning of geometry and context for deep stereo
+regression.
+In ICCV, 2017.
+[41]
+Sameh Khamis, Sean Fanello, Christoph Rhemann, Adarsh Kowdle, Julien Valentin,
+and Shahram Izadi.
+Stereonet: Guided hierarchical refinement for real-time edge-aware
+depth prediction.
+In ECCV, 2018.
+[42]
+Hamid Laga, Laurent Valentin Jospin, Farid Boussaid, and Mohammed Bennamoun.
+A survey on deep learning techniques for stereo-based depth
+estimation.
+IEEE Trans. PAMI, 2020.
+[43]
+Donghwan Lee, Soohyun Ryu, Suyong Yeon, Yonghan Lee, Deokhwa Kim, Cheolho Han,
+Yohann Cabon, Philippe Weinzaepfel, Nicolas Guérin, Gabriela Csurka,
+et al.
+Large-scale localization datasets in crowded indoor spaces.
+In CVPR, 2021.
+[44]
+Youngwan Lee, Jeffrey Willette, Jonghee Kim, Juho Lee, and Sung Ju Hwang.
+Exploring the role of mean teachers in self-supervised masked
+auto-encoders.
+In ICLR, 2023.
+[45]
+Jiankun Li, Peisen Wang, Pengfei Xiong, Tao Cai, Ziwei Yan, Lei Yang, Jiangyu
+Liu, Haoqiang Fan, and Shuaicheng Liu.
+Practical stereo matching via cascaded recurrent network with
+adaptive correlation.
+In CVPR, 2022.
+[46]
+Zhaowen Li, Zhiyang Chen, Fan Yang, Wei Li, Yousong Zhu, Chaoyang Zhao, Rui
+Deng, Liwei Wu, Rui Zhao, Ming Tang, and Jinqiao Wang.
+MST: Masked Self-Supervised Transformer for Visual Representation.
+In NeurIPS, 2021.
+[47]
+Zhengqi Li and Noah Snavely.
+Megadepth: Learning single-view depth prediction from internet
+photos.
+In CVPR, 2018.
+[48]
+Lahav Lipson, Zachary Teed, and Jia Deng.
+Raft-stereo: Multilevel recurrent field transforms for stereo
+matching.
+In 3DV, 2021.
+[49]
+Pengpeng Liu, Michael Lyu, Irwin King, and Jia Xu.
+Selflow: Self-supervised learning of optical flow.
+In CVPR, 2019.
+[50]
+Ze Liu, Han Hu, Yutong Lin, Zhuliang Yao, Zhenda Xie, Yixuan Wei, Jia Ning, Yue
+Cao, Zheng Zhang, Li Dong, et al.
+Swin transformer v2: Scaling up capacity and resolution.
+In CVPR, 2022.
+[51]
+Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and
+Baining Guo.
+Swin transformer: Hierarchical vision transformer using shifted
+windows.
+In ICCV, 2021.
+[52]
+Ilya Loshchilov and Frank Hutter.
+Decoupled Weight Decay Regularization.
+In ICLR, 2019.
+[53]
+Nikolaus Mayer, Eddy Ilg, Philip Hausser, Philipp Fischer, Daniel Cremers,
+Alexey Dosovitskiy, and Thomas Brox.
+A large dataset to train convolutional networks for disparity,
+optical flow, and scene flow estimation.
+In CVPR, 2016.
+[54]
+Lukas Mehl, Jenny Schmalfuss, Azin Jahedi, Yaroslava Nalivayko, and Andrés
+Bruhn.
+Spring: A high-resolution high-detail dataset and benchmark for scene
+flow, optical flow and stereo.
+In CVPR, 2023.
+[55]
+Moritz Menze and Andreas Geiger.
+Object scene flow for autonomous vehicles.
+In CVPR, 2015.
+[56]
+Guang-Yu Nie, Ming-Ming Cheng, Yun Liu, Zhengfa Liang, Deng-Ping Fan, Yue Liu,
+and Yongtian Wang.
+Multi-level context ultra-aggregation for stereo matching.
+In CVPR, 2019.
+[57]
+Mehdi Noroozi and Paolo Favaro.
+Unsupervised Learning of Visual Representations by Solving Jigsaw
+Puzzles.
+In ECCV, 2016.
+[58]
+Senthil Purushwalkam and Abhinav Gupta.
+Demystifying contrastive self-supervised learning: Invariances,
+augmentations and dataset biases.
+In NeurIPS, 2020.
+[59]
+Ilija Radosavovic, Tete Xiao, Stephen James, Pieter Abbeel, Jitendra Malik, and
+Trevor Darrell.
+Real-world robot learning with masked visual pre-training.
+CoRL, 2022.
+[60]
+Pierluigi Zama Ramirez, Fabio Tosi, Matteo Poggi, Samuele Salti, Stefano
+Mattoccia, and Luigi Di Stefano.
+Open challenges in deep stereo: the booster dataset.
+In CVPR, 2022.
+[61]
+René Ranftl, Alexey Bochkovskiy, and Vladlen Koltun.
+Vision transformers for dense prediction.
+In ICCV, 2021.
+[62]
+Jerome Revaud, Philippe Weinzaepfel, Zaid Harchaoui, and Cordelia Schmid.
+Deepmatching: Hierarchical deformable dense matching.
+IJCV, 2016.
+[63]
+Olga Russakovsky, Jia Deng, Hao Su, Jonathan Krause, Sanjeev Satheesh, Sean Ma,
+Zhiheng Huang, Andrej Karpathy, Aditya Khosla, Michael Bernstein,
+Alexander C. Berg, and Li Fei-Fei.
+ImageNet Large Scale Visual Recognition Challenge.
+IJCV, 2015.
+[64]
+Manolis Savva, Abhishek Kadian, Oleksandr Maksymets, Yili Zhao, Erik Wijmans,
+Bhavana Jain, Julian Straub, Jia Liu, Vladlen Koltun, Jitendra Malik, Devi
+Parikh, and Dhruv Batra.
+Habitat: A Platform for Embodied AI Research.
+In ICCV, 2019.
+[65]
+Daniel Scharstein, Heiko Hirschmüller, York Kitajima, Greg Krathwohl, Nera
+Nešić, Xi Wang, and Porter Westling.
+High-resolution stereo datasets with subpixel-accurate ground truth.
+In GCPR, 2014.
+[66]
+Johannes Lutz Schönberger and Jan-Michael Frahm.
+Structure-from-motion revisited.
+In CVPR, 2016.
+[67]
+Thomas Schops, Johannes L Schonberger, Silvano Galliani, Torsten Sattler,
+Konrad Schindler, Marc Pollefeys, and Andreas Geiger.
+A multi-view stereo benchmark with high-resolution images and
+multi-camera videos.
+In CVPR, 2017.
+[68]
+Peter Shaw, Jakob Uszkoreit, and Ashish Vaswani.
+Self-attention with Relative Position Representations.
+In NAACL HLT, 2018.
+[69]
+Zhelun Shen, Yuchao Dai21, Xibin Song11, Zhibo Rao, Dingfu Zhou, and Liangjun
+Zhang.
+Pcw-net: Pyramid combination and warping cost volume for stereo
+matching.
+In ECCV, 2022.
+[70]
+Nathan Silberman, Derek Hoiem, Pushmeet Kohli, and Rob Fergus.
+Indoor segmentation and support inference from RGBD images.
+In ECCV, 2012.
+[71]
+Kihyuk Sohn, David Berthelot, Chun-Liang Li, Zizhao Zhang, Nicholas Carlini,
+Ekin D. Cubuk, Alex Kurakin, Han Zhang, and Colin Raffel.
+Fixmatch: Simplifying semi-supervised learning with consistency and
+confidence.
+In NeurIPS, 2020.
+[72]
+Xiao Song, Guorun Yang, Xinge Zhu, Hui Zhou, Zhe Wang, and Jianping Shi.
+Adastereo: a simple and efficient approach for adaptive stereo
+matching.
+In CVPR, 2021.
+[73]
+Jianlin Su, Yu Lu, Shengfeng Pan, Bo Wen, and Yunfeng Liu.
+Roformer: Enhanced transformer with rotary position embedding.
+arXiv preprint arXiv:2104.09864, 2021.
+[74]
+Xiuchao Sui, Shaohua Li, Xue Geng, Yan Wu, Xinxing Xu, Yong Liu, Rick Goh, and
+Hongyuan Zhu.
+Craft: Cross-attentional flow transformer for robust optical flow.
+In CVPR, 2022.
+[75]
+Deqing Sun, Stefan Roth, and Michael J Black.
+A quantitative analysis of current practices in optical flow
+estimation and the principles behind them.
+IJCV, 2014.
+[76]
+Deqing Sun, Xiaodong Yang, Ming-Yu Liu, and Jan Kautz.
+Models matter, so does training: An empirical study of cnns for
+optical flow estimation.
+IEEE Trans. PAMI, 2019.
+[77]
+Shangkun Sun, Yuanqi Chen, Yu Zhu, Guodong Guo, and Ge Li.
+SKFlow: Learning optical flow with super kernels.
+In NeurIPS, 2022.
+[78]
+Vladimir Tankovich, Christian Hane, Yinda Zhang, Adarsh Kowdle, Sean Fanello,
+and Sofien Bouaziz.
+Hitnet: Hierarchical iterative tile refinement network for real-time
+stereo matching.
+In CVPR, 2021.
+[79]
+Zachary Teed and Jia Deng.
+Raft: Recurrent all-pairs field transforms for optical flow.
+In ECCV, 2020.
+[80]
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
+Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin.
+Attention is all you need.
+In NeurIPS, 2017.
+[81]
+Wenshan Wang, Delong Zhu, Xiangwei Wang, Yaoyu Hu, Yuheng Qiu, Chen Wang, Yafei
+Hu, Ashish Kapoor, and Sebastian Scherer.
+Tartanair: A dataset to push the limits of visual slam.
+In IROS, 2020.
+[82]
+Xinlong Wang, Rufeng Zhang, Chunhua Shen, Tao Kong, and Lei Li.
+Dense Contrastive Learning for Self-Supervised Visual Pre-Training.
+In CVPR, 2021.
+[83]
+Chen Wei, Haoqi Fan, Saining Xie, Chao-Yuan Wu, Alan Yuille, and Christoph
+Feichtenhofer.
+Masked Feature Prediction for Self-Supervised Visual Pre-Training.
+In CVPR, 2022.
+[84]
+Weinzaepfel, Philippe and Leroy, Vincent and Lucas, Thomas and Brégier,
+Romain and Cabon, Yohann and Arora, Vaibhav and Antsfeld, Leonid and
+Chidlovskii, Boris and Csurka, Gabriela and Revaud Jérôme.
+CroCo: Self-Supervised Pre-training for 3D Vision Tasks by
+Cross-View Completion.
+In NeurIPS, 2022.
+[85]
+Zhenda Xie, Yutong Lin, Zheng Zhang, Yue Cao, Stephen Lin, and Han Hu.
+Propagate Yourself: Exploring Pixel-Level Consistency for
+Unsupervised Visual Representation Learning.
+In CVPR, 2021.
+[86]
+Zhenda Xie, Zheng Zhang, Yue Cao, Yutong Lin, Jianmin Bao, Zhuliang Yao, Qi
+Dai, and Han Hu.
+SimMIM: A Simple Framework for Masked Image Modeling.
+In CVPR, 2022.
+[87]
+Yuwen Xiong, Mengye Ren, and Raquel Urtasun.
+Loco: Local contrastive representation learning.
+In NeurIPS, 2020.
+[88]
+Gangwei Xu, Junda Cheng, Peng Guo, and Xin Yang.
+Attention concatenation volume for accurate and efficient stereo
+matching.
+In CVPR, 2022.
+[89]
+Haofei Xu, Jing Zhang, Jianfei Cai, Hamid Rezatofighi, and Dacheng Tao.
+Gmflow: Learning optical flow via global matching.
+In CVPR, 2022.
+[90]
+Haofei Xu, Jing Zhang, Jianfei Cai, Hamid Rezatofighi, Fisher Yu, Dacheng Tao,
+and Andreas Geiger.
+Unifying flow, stereo and depth estimation.
+IEEE Trans. PAMI, 2023.
+[91]
+Yufei Xu, Jing Zhang, Qiming Zhang, and Dacheng Tao.
+Vitpose: Simple vision transformer baselines for human pose
+estimation.
+In NeurIPS, 2022.
+[92]
+Zhichao Yin, Trevor Darrell, and Fisher Yu.
+Hierarchical discrete distribution decomposition for match density
+estimation.
+In CVPR, 2019.
+[93]
+Jason J Yu, Adam W Harley, and Konstantinos G Derpanis.
+Back to basics: Unsupervised learning of optical flow via brightness
+constancy and motion smoothness.
+In ECCV workshop, 2016.
+[94]
+Amir R Zamir, Tilman Wekel, Pulkit Agrawal, Colin Wei, Jitendra Malik, and
+Silvio Savarese.
+Generic 3D representation via pose estimation and matching.
+In ECCV, 2016.
+[95]
+Mingliang Zhai, Xuezhi Xiang, Ning Lv, and Xiangdong Kong.
+Optical flow and scene flow estimation: A survey.
+Pattern Recognition, 2021.
+[96]
+Feihu Zhang, Oliver J. Woodford, Victor Prisacariu, and Philip H. S. Torr.
+Separable flow: Learning motion cost volumes for optical flow
+estimation.
+In ICCV, 2021.
+[97]
+Richard Zhang, Phillip Isola, and Alexei A. Efros.
+Colorful Image Colorization.
+In ECCV, 2016.
+[98]
+Shiyu Zhao, Long Zhao, Zhixing Zhang, Enyu Zhou, and Dimitris N. Metaxas.
+Global matching with overlapping attention for optical flow
+estimation.
+In CVPR, 2022.
+[99]
+Zihua Zheng, Ni Nie, Zhi Ling, Pengfei Xiong, Jiangyu Liu, Hao Wang, and
+Jiankun Li.
+DIP: deep inverse patchmatch for high-resolution optical flow.
+In CVPR, 2022.
+[100]
+Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela Barriuso, and Antonio
+Torralba.
+Scene parsing through ADE20K Dataset.
+In CVPR, 2017.
+[101]
+Chao Zhou, Hong Zhang, Xiaoyong Shen, and Jiaya Jia.
+Unsupervised learning of stereo matching.
+In ICCV, 2017.
+[102]
+Jinghao Zhou, Chen Wei, Huiyu Wang, Wei Shen, Cihang Xie, Alan Yuille, and Tao
+Kong.
+iBOT: Image BERT Pre-training with Online Tokenizer.
+In ICLR, 2022.
+| Reference image
+| Masked target
+| CroCo [84]
+| CroCo v2
+| Target image
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+Figure 8: Cross-view reconstruction examples (pre-training pretext task) on scenes unseen during pretraining for the original CroCo [84] and with our improvements. The images come from the Middlebury stereo benchmark [65].
+Appendix
+In this appendix, we first provide visualizations of the capabilities of CroCo v2 on the pretext task of cross-view completion (Section G).
+We then present additional experimental results in Section H, including in particular (a) the impact of pre-training, (b) the runtime of our model and (c) an analysis of the probabilistic distributions regressed by our CroCo-Stereo model for the stereo matching task. We finally detail our training setup and the dataset splits. (Section I).
+| Reference image
+| Masked target
+| CroCo [84]
+| CroCo v2
+| Target image
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+Figure 9: Cross-view reconstruction examples (pre-training pretext task) on scenes unseen during pre-training for the original CroCo [84] and with our improvements. The images come from the stereo benchmark of KITTI [24].
+Appendix G Cross-view completion examples
+To qualitatively evaluate the impact of CroCo v2, i.e., of the improvements that we propose on top of the CroCo [84] pre-training, we show several examples of cross-view completions on real-world scenes, coming either from Middlebury v3 [65] in Figure 8 or KITTI [55] in Figure 9.
+Note that these methods, as MAE [29], regress pixel values that are normalized according to the mean and standard deviation inside each patch, we thus apply the inverse transform for display: this means that the overall color of each patch will be correct, as it comes from the ground-truth values.
+While the most important measure of performance of these models is their transfer to downstream tasks, as explored in the main paper, a qualitative observation of the fact that our improved method is better at solving the pretext task is noteworthy.
+We clearly observe that the reconstructions from the original CroCo [84] tend to be quite blurry in many areas, which might come from the fact that it relies on a smaller model and was pre-trained only on synthetic data from indoor environments, while details are impressively preserved thanks to our improvements.
+In Figure 8, note how the lines and the eyes are well reconstructed in the first row, or the roads on the maps of the third row, despite the high masking ratio that is applied to the masked image (90%).
+Similarly, the text is clearly readable on the first row of Figure 9. Some predictions by our model have some blur (e.g. left of the first and thirds rows of Figure 8), which makes sense because these parts are not visible in the reference image.
+Appendix H Further experimental results
+|
+| Network initialization
+|
+| Stereo (bad@1.0px \downarrow )
+|
+| Flow (EPE \downarrow )
+|
+|
+| Md
+| ETH
+| SF(c)
+| SF(f)
+|
+| FT(c)
+| FT(f)
+| Si.(c)
+| Si.(f)
+| RoPE positional embedding, ViT-L encoder, Base decoder, 2M Habitat + 5.3M real pre-training pairs
+|
+| CroCo v2 pre-training
+|
+| 15.5
+| 0.38
+| 5.0
+| 5.3
+|
+| 2.85
+| 2.45
+| 1.43
+| 1.99
+|
+| random init.
+|
+| 43.4
+| 1.06
+| 11.0
+| 11.2
+|
+| 10.53
+| 10.57
+| 4.84
+| 5.49
+| cosine positional embedding, ViT-B encoder, Small decoder, 2M Habitat (synthetic only) pre-training pairs
+|
+| CroCo [84] pre-training
+|
+| 26.3
+| 1.82
+| 6.7
+| 7.0
+|
+| 3.89
+| 3.56
+| 2.07
+| 2.57
+|
+| MAE [29] (ImageNet) pre-training (encoder only)
+|
+| 35.8
+| 1.68
+| 8.6
+| 8.8
+|
+| 5.13
+| 4.83
+| 2.92
+| 3.82
+|
+| random init.
+|
+| 87.5
+| 5.42
+| 24.6
+| 24.6
+|
+| 14.28
+| 14.31
+| 8.99
+| 9.76
+Table 9: Impact of pre-training. We compare the performance of our final model (first row) with improved cross-view completion pre-training to a randomly initialized version (second row). To compare to MAE [29], that is pre-trained on ImageNet [63], and which is based on cosine positional embeddings, we make the comparison with the original CroCo in the bottom rows.
+| Masking
+|
+| Stereo (bad@1.0px \downarrow )
+|
+| Flow (EPE \downarrow )
+| ratio
+|
+| Md
+| ETH
+| SF(c)
+| SF(f)
+|
+| FT(c)
+| FT(f)
+| Si.(c)
+| Si.(f)
+| 80%
+|
+| 32.5
+| 1.96
+| 7.3
+| 7.5
+|
+| 4.29
+| 4.06
+| 2.06
+| 2.71
+| 85%
+|
+| 59.2
+| 1.15
+| 8.7
+| 9.0
+|
+| 3.48
+| 3.08
+| 1.99
+| 2.41
+| 90%
+|
+| 20.7
+| 0.82
+| 5.8
+| 6.1
+|
+| 3.35
+| 2.94
+| 1.76
+| 2.30
+Table 10: Impact of the pre-training masking ratio for a model with RoPE positional embeddings, a ViT-B encoder, a Small decoder, pre-trained on 2M Habitat + 5.3M real pairs.
+H.1 Impact of pre-training
+In Table 9, we measure the impact of the pre-training on the downstream performance when the model is finetuned for stereo matching or optical flow. The first two rows compare our model, using our improved cross-view completion pre-training vs. a random initialization. We observe a clear gain of performance, e.g. on the FlyingThings flow test set in the final rendering with an EPE of 2.45 pixels with pre-training vs. 10.57 without it, or on the Middlebury v3 stereo validation set with a bad@1.0px of 15.5% with pre-training vs. 43.4% without it.
+We are not aware of any other pre-training strategy, other than cross-view completion, that readily includes a binocular decoder or architecture. While it is still possible to initialize part of the layers using other pre-training strategies, this means that some important parts of the network are still being initialized at random. Nevertheless, to compare to other pre-training strategies, we consider MAE [29] pre-trained on ImageNet [63], thus with a cosine positional embedding, a ViT-Base encoder, and with a Small decoder that is randomly initialized. We compare that to the original CroCo [84] pre-trained on synthetic data only. We observe that CroCo pre-training obtains the lowest errors, significantly outperforming the MAE pre-training and the random initialization.
+Interestingly, the performance of this smaller model is also significantly better than the large one without pre-training. This again highlights the importance of the pre-training with such generic architecture.
+Masking ratio. CroCo [84] finds that using a masking ratio of 90% performs best for cross-view completion on their synthetic data. This is higher than the 75% masking ratio of MAE [29], as the unmasked reference view of the same scene adds redundancy.
+A question is whether this masking ratio of 90% that has been found optimal on synthetic data generalizes to real data.
+Table 10 reports the performance on stereo and flow downstream tasks for a masking ratio of 80%, 85% and 90%.
+We find that a masking ratio of 90% performs best also in the case of using real data.
+H.2 Smaller training data
+| Method
+| MPI-Sintel( \downarrow )
+| clean
+| final
+| LiteFlowNet2 [34]
+| 2.24
+| 3.78
+| FM-RAFT [35]
+| 1.29
+| 2.95
+| FlowFormer [31]
+| 1.01
+| 2.40
+| RAFT [79] before refinement
+| 4.04
+| 5.45
+| RAFT [79]
+| 1.41
+| 2.69
+| GMFlow [90] before refinement
+| 1.31
+| 2.96
+| GMFlow [90]
+| 1.08
+| 2.48
+| CroCo-Flow
+| 1.28
+| 2.58
+Table 11: Optical flow results when training on FlyingChairs and FlyingThings only. We report the EPE on MPI-Sintel training set (clean or final rendering). Numbers for the first three rows come from [31], numbers for RAFT and GMFlow (before and after refinement) from [90].
+Most optical flow methods also report the performance on the MPI-Sintel training set when training on FlyingChairs and FlyingThings only. We report these values in Table 11. For RAFT [89] and GMFlow [90], we report the numbers before and after using iterative refinement procedures. Interestingly, CroCo-Flow performs better than these two methods before their refinement. Overall, our ranking is similar to the ones on the MPI-Sintel test set where we use more training data. This indicates that our finetuning on geometric downstream tasks do not necessarily need large-scale training data, despite the size of our architecture.
+H.3 Runtime and tiling
+| Pos.
+| Encoder
+| Decoder
+| runtime
+| #Parameters
+| cosine
+| ViT-B
+| Small
+| 25ms
+| 139.4M
+| (85.6M+34.0M+19.7M)
+| RoPE
+| ViT-B
+| Small
+| 26ms
+| 139.4M
+| (85.6M+34.0M+19.7M)
+| RoPE
+| ViT-B
+| Base
+| 29ms
+| 219.7M
+| (85.6M+114.0M+20.1M)
+| RoPE
+| ViT-L
+| Base
+| 53ms
+| 437.4M
+| (303.1M+114.2M+20.1M)
+Table 12: Runtime and number of parameters. Runtime is measured for a single tile of size 704{\times}352 , on a NVIDIA A100 GPU. For the number of parameters we report in parenthesis the numbers for the encoder, the decoder and the DPT head separately.
+Runtime. In Table 12, we report the runtime for different sizes of our model. On one single tile of the same size as training for stereo, i.e., 704{\times}352 , on a NVIDIA A100 GPU. Our method remains relatively fast on one tile, in the order of a few tens of milliseconds.
+0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 16 18 20 22 24 Overlap ratioMiddlebury v3 (bad@1.0px \downarrow )
+0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.9 2 2.1 2.2 2.3 Overlap ratioMPI-Sintel final (EPE \downarrow )
+0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 0 100 200 300 400 Overlap ratioNb. tiles \downarrow
+Figure 10: Impact of the overlap ratio between tiles during inference. We plot the stereo performance (bad@1.0px in %) on Middlebury v3 (left) and the flow performance on MPI-Sintel in its final rendering (middle) when varying the overlap ratio during inference with tiling. We also plot the number of tiles it represents for a 1920{\times}1080 image (right), which is proportional to the total runtime, for a crop size of 704{\times}352 as CroCo-Stereo.
+Number of parameters. We also report the number of trainable parameters in Table 12.
+This number of parameters is one order of magnitude higher than most existing stereo and flow methods.
+We did not study how this number of parameters could be reduced, and we also do not claim that our models are better than existing work for a fixed computational budget.
+Indeed, task-specific approaches have the advantage of being more sample efficient, i.e., requiring less data, by leveraging prior knowledge about the task. They also have the drawback of not being readily compatible with large-scale training on unlabeled data, because of task-dependent components, which limits the use of large generic models.
+Existing methods cannot be scale up to a larger number of parameters easily, as training large models requires lot of data. In the case of stereo and optical flow, for which labeled data is limited,
+this means using self-supervised learning, which cannot be straightforwardly applied for models that involve task-specific designs like cost volumes, image warping, etc.
+Thus, our contribution and our aim in this work is to show that pre-training large, generic architectures and finetuning them for stereo matching and optical flow is a valid path forward.
+Impact of the overlap ratio during tiling. In Figure 10, we report the performance and the number of tiles for a Full HD image ( 1920{\times}1080 ) when varying the overlap ratio during inference with the tiling strategy. While the performance improves with a higher overlap ratio, the number of tiles can rapidly explodes. With an overlap around 0.5 or 0.7, performance is quite close to the one obtained with 0.9 while the number of tiles remains reasonable. This may thus be the best trade-off in practical scenarios where inference time has to stay small.
+H.4 Laplacian-based loss
+| First image
+| Prediction error
+| Uncertainty
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+|
+Figure 11: Visualization of the uncertainty predicted by CroCo-Stereo on a few examples from the SceneFlow test set. The first column shows the first image, the second column shows the error of the prediction clamped within the segment [0,10] , the third column shows the logarithm of the predicted scale of the Laplacian distribution output by the model: green colors denote confident areas while blue colors denote uncertain areas.
+For flow and stereo, we regress a Laplacian distribution: the location parameter corresponds to the disparity or flow prediction, while the scale parameter could be seen as a measure of uncertainty. We thus denote here by ‘uncertainty’ the logarithm of the predicted scale of the Laplacian distribution that our downstream model outputs, i.e., log(d_{i}) from Equation 3.
+Figure 12: Statistics on the uncertainty predicted by CroCo-Stereo. We subsample 1000 points per test image from SceneFlow in its clean renderings and compute the error of the prediction and the logarithm of the predicted scale of the Laplacian, i.e., the pixelwise uncertainty. On the left plot, we show the median of the error for a given predicted uncertainty (orange line), the 25- and 75-percentile in dark blue, and the 10- and 90-percentile in light blue. On the right plot, we sort pixels according to their predicted uncertainty from the less uncertain to the more uncertain and show the median of the error over the fractions of pixels considered (orange line), the 25- and 75-percentile in dark blue, and the 10- and 90-percentile in light blue.
+Visualization of the uncertainty. We visualize in Figure 11 this uncertainty for a few examples. We observe that it is highly linked with the error of the predicted disparity as red areas in the error correspond to blue areas in the uncertainty maps.
+Statistics on the uncertainty. To better measure the correlation of our predicted uncertainty with the error of the disparity prediction, we plot a few statistics in Figure 12. On the left one, we show some percentiles of the error when varying the predicted scale of the Laplacian distribution. We observe that a lower uncertainty clearly corresponds to pixels with lowest errors, while a high uncertainty corresponds to pixels with a higher error. On the right plot, we order pixels from the less uncertain to the more uncertain and show the percentiles of errors when increasing the ratio of pixels considered. We observe the same behavior, showing the correlation of our uncertainty with the error of the prediction. Note that 95% of the pixels have an error below 1, thus the scale of the y-axis of the plot.
+| loss
+|
+| Stereo (bad@1.0px \downarrow )
+|
+| Flow (EPE \downarrow )
+|
+| Md
+| ETH
+| SF(c)
+| SF(f)
+|
+| FT(c)
+| FT(f)
+| Si.(c)
+| Si.(f)
+| L1
+|
+| 23.0
+| 0.95
+| 6.1
+| 6.3
+|
+| 3.02
+| 2.69
+| 1.51
+| 2.13
+| Lap.
+|
+| 15.5
+| 0.38
+| 5.0
+| 5.3
+|
+| 2.85
+| 2.45
+| 1.43
+| 1.99
+Table 13: Impact of the loss. We compare a standard L1 loss vs. the Laplacian (Lap.) loss.
+Comparison with an L1 loss.
+In Table 13, we quantitatively evaluate the effect of using a loss on a Laplacian distribution (Equation 3) compared to using only an L1 loss. In the latter case, we cannot leverage the predicted scale of a Laplacian distribution for merging overlapping tiles. We thus follow [31] and use a weights that decrease with the distance to the center of the image. We observe that the Laplacian loss
+outperforms the L1 loss on all stereo and flow benchmarks. A Laplacian loss can be interpreted as an L1 term, weighted for each pixel according to an uncertainty measure, thus allowing to downweight uncertain pixels in practice. In addition, having access to the scale of the Laplacian allows a more elegant merging strategy for the overlapping tiles.
+H.5 Towards smarter tiling
+One limitation of our approach mentioned in the main paper is the tiling-based inference.
+For instance, CroCo-Stereo is based on crops with a width of 704 pixels, this means that for large disparity values, the matching pixels would be out of the scope of the corresponding tile in the second image.
+As an alternative, we have tried a strategy where a second tile in the second image is also considered, which is shifted by 150 pixels, thus reducing the disparity value by the same amount. With the model with ViT-Base encoder and Base decoder, such a strategy allows to reduce the bad@1.0 from 17.1% to 12.0% on Middlebury v3 validation set, when replacing the predictions over 200px from the original tile, with the ones from the secondary tile. While this strategy seems promising, it is however not really satisfactory as it multiples the number of tiles to proceed by 2. We hope to find better strategies in the future.
+| stereo dataset
+| # pairs
+| comment
+| CREStereo [45]
+|
+| 200,000
+| all training pairs
+| SceneFlow[53]
+|
+| 70,908
+| Driving, Monkaa and FlyingThings in both clean and final renderings
+|
+|
+|
+| 4,370 validation pairs from FlyingThings test for each rendering (clean and final)
+| ETH3D Low Res [67]
+| 30 {\times}
+| 24
+| ‘delivery_area_3s’, ‘electro_3l’ ‘playground_3l’ (3 pairs) are kept apart for validation
+| Middlebury v3 [65]
+| 50 {\times}
+| 14
+| ‘Vintge’ (1 pair) is kept apart for validation, we use the ‘full’ resolution
+| Middlebury 21
+| 50 {\times}
+| 335
+| ‘traproom1’ and ‘traproom2’ are kept apart for validation (20 pairs)
+| Middlebury 14
+| 50 {\times}
+| 132
+| ‘Umbrella-umperfect’ and ‘Vintage-perfect’ are kept apart for validation (6 pairs)
+| Middlebury 06
+| 50 {\times}
+| 171
+| ‘Rocks1’ and ‘Wood2’ are kept apart for validation (18 pairs)
+| Middlebury 05
+| 50 {\times}
+| 45
+| ‘Reindeer’ is kept apart for validation (9 pairs)
+| Booster [60]
+|
+| 213
+| only the ‘balanced’ subset, ‘Vodka’ and ‘Washer’ sequences (15 pairs) kept apart for validation
+| total
+|
+| 306,691
+|
+Table 14: Overview of our stereo training data. We indicate here the train/val split used for the ablations, as well as the number of training pairs. For ETH3D and Middlebury, we also consider multiple times each pair in each epoch.
+| flow dataset
+| # pairs
+| prob.
+| comment
+| FlyingChairs [21]
+| 22,232
+| 12%
+| -
+| FlyingThings [53]
+| 80,604
+| 40%
+| 40,302 pairs for both ‘clean’ and ‘final’ renderings
+|
+|
+|
+| we use the same 1,024 validation pairs from the test set as [90]
+| MPI-Sintel [11]
+| 943
+| 10%
+| sequences ‘temple_2’ and ‘temple_3’ (98 pairs) are kept apart for validation
+| TartanAir [81]
+| 306,268
+| 38%
+| -
+| total
+| 410,047
+| 100%
+|
+Table 15: Overview of our flow training data. We indicate here the train/val split used for the ablations, as well as the number of remaining training pairs. During training, we set a number of images per epoch and randomly sample them among the available datasets with the percentages shown in the column ‘prob.’.
+Appendix I Training details
+CroCo-Stereo training.
+We train CroCo-Stereo for 32 epochs using batches of 6 pairs of 704{\times}352 crops.
+We detail the training/validation pairs we use for our ablations in Table 14.
+We use the AdamW optimizer [52] with a weight decay of 0.05 , a cosine learning rate schedule with a single warm-up epoch and a learning rate of 3.10^{-5} . During training, we apply standard data augmentations: color jittering (asymmetrically with probably 0.2), random vertical flipping with probably 0.1 , random scaling with probability 0.8 in the range [2^{-0.2},2^{0.4}] and stretching (resize different along the x and y axis) with probability 0.8 in the range [2^{-0.2},2^{0.2}] , and slightly jitter the right image with probability 0.5 .
+When submitting to the official leaderboards, we include the pairs that were kept apart from the training sets for validation into the training epochs.
+CroCo-Flow training. We train CroCo-Flow for 240 epochs of 30,000 pairs each, randomly sampled from all available data, using batches of 8 pairs of crops of size 384{\times}320 .
+We detail the training/validation pairs we use for our ablations in Table 15.
+To better balance the datasets, we set the probability of choosing a random pair from these datasets, see Table 14.
+We
+use the AdamW optimizer, a weight decay of 0.05 , a cosine learning rate schedule with linear warm-up over 1 epoch, and a base learning rate of 2.10^{-5} . During training, we apply standard augmentations [90]: random color jittering (asymmetrically with probably 0.2), random scaling with probably 0.8 with a scale sampled in [2^{-0.2},2^{0.5}] and stretching with probability 0.8 in the range [2^{-0.2},2^{0.2}] .
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

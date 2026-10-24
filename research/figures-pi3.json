@@ -1,0 +1,172 @@
+{
+  "id": "A08",
+  "slug": "pi3",
+  "name": "π³",
+  "version": "2507.13347v3",
+  "pdf": "research/sources/2507.13347v3.pdf",
+  "url": "https://arxiv.org/pdf/2507.13347v3",
+  "sha256": "3391e1f931803de70868b1639e75ae97931708ddd360279a83777a846deec5cc",
+  "pages": 17,
+  "figures": [
+    {
+      "id": "S0.F1",
+      "text": "Figure 1: π 3 \\pi^{3} effectively reconstructs a diverse set of open-domain images in a feed-forward manner, encompassing various scenes such as indoor, outdoor, and aerial-view, as well as cartoons, with both dynamic and static content.",
+      "images": [
+        {
+          "src": "2507.13347v3/teaser.png",
+          "id": "S0.F1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:521/560;",
+          "width": "521",
+          "height": "560",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S1.F2",
+      "text": "Figure 2: Performance comparison across different reference frames. While previous methods, even with DINO-based selection, show inconsistent results, π 3 \\pi^{3} consistently delivers superior and stable performance, demonstrating its robustness.",
+      "images": [
+        {
+          "src": "2507.13347v3/frame_select.png",
+          "id": "S1.F2.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:274/218;",
+          "width": "274",
+          "height": "218",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F3",
+      "text": "Figure 3: Unlike prior methods that designate a reference view by concatenating a special token (Type A) or adding a learnable embedding (Type B), π 3 \\pi^{3} achieves permutation equivariance by eliminating this requirement altogether. Instead, it employs relative supervision, making our approach inherently robust to the order of input views.",
+      "images": [
+        {
+          "src": "2507.13347v3/pipeline.png",
+          "id": "S3.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/247;",
+          "width": "548",
+          "height": "247",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F4",
+      "text": "Figure 4: Comparison of predicted pose distributions . Our predicted pose distribution exhibits a clear low-dimensional structure.",
+      "images": [
+        {
+          "src": "2507.13347v3/pose_dist1.png",
+          "id": "S3.F4.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:302/91;",
+          "width": "302",
+          "height": "91",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T1",
+      "text": "Table 1: Camera pose estimation. RRA, RTA, AUC are evaluated with threshold of 30 degrees. Method RealEstate10K Co3Dv2 (seen) Sintel TUM-dynamics ScanNet (seen) RRA ↑ \\uparrow RTA ↑ \\uparrow AUC ↑ \\uparrow RRA ↑ \\uparrow RTA ↑ \\uparrow AUC ↑ \\uparrow ATE ↓ \\downarrow RPE-t ↓ \\downarrow RPE-r ↓ \\downarrow ATE ↓ \\downarrow RPE-t ↓ \\downarrow RPE-r ↓ \\downarrow ATE ↓ \\downarrow RPE-t ↓ \\downarrow RPE-r ↓ \\downarrow Fast3R ( Yang et al., 2025 ) 99.05 81.86 61.68 97.49 91.11 73.43 0.371 0.298 13.75 0.090 0.101 1.425 0.155 0.123 3.491 CUT3R ( Wang et al., 2025b ) 99.82 95.10 81.47 96.19 92.69 75.82 0.217 0.070 0.636 0.047 0.015 0.451 0.094 0.022 0.629 FLARE ( Zhang et al., 2025 ) 99.69 95.23 80.01 96.38 93.76 73.99 0.207 0.090 3.015 0.026 0.013 0.475 0.064 0.023 0.971 VGGT ( Wang et al., 2025a ) 99.97 93.13 77.62 98.96 97.13 88.59 0.167 0.062 0.491 0.012 0.010 0.311 0.035 0.015 0.382 π 3 \\pi^{3} (Ours) 99.99 95.62 85.90 99.05 97.33 88.41 0.074 0.040 0.282 0.014 0.009 0.312 0.031 0.013 0.347",
+      "images": []
+    },
+    {
+      "id": "S4.T2",
+      "text": "Table 2: Point map estimation on 7-Scenes and NRGBD Method View 7-Scenes NRGBD Acc. ↓ \\downarrow Comp. ↓ \\downarrow NC. ↑ \\uparrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow NC. ↑ \\uparrow Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Fast3R ( Yang et al., 2025 ) sparse 0.095 0.065 0.144 0.089 0.673 0.759 0.135 0.091 0.163 0.104 0.759 0.877 CUT3R ( Wang et al., 2025b ) 0.093 0.049 0.102 0.051 0.704 0.805 0.104 0.041 0.079 0.031 0.822 0.968 FLARE ( Zhang et al., 2025 ) 0.085 0.057 0.145 0.107 0.696 0.780 0.053 0.024 0.051 0.025 0.877 0.988 VGGT ( Wang et al., 2025a ) 0.044 0.025 0.056 0.033 0.733 0.845 0.051 0.029 0.066 0.038 0.890 0.981 π 3 \\pi^{3} (Ours) 0.047 0.029 0.075 0.049 0.742 0.841 0.026 0.015 0.028 0.014 0.916 0.992 Fast3R ( Yang et al., 2025 ) dense 0.040 0.017 0.056 0.018 0.644 0.725 0.072 0.030 0.050 0.016 0.790 0.934 CUT3R ( Wang et al., 2025b ) 0.023 0.010 0.027 0.008 0.669 0.764 0.086 0.037 0.048 0.017 0.800 0.953 FLARE ( Zhang et al., 2025 ) 0.019 0.007 0.026 0.013 0.684 0.785 0.023 0.011 0.018 0.008 0.882 0.986 VGGT ( Wang et al., 2025a ) 0.022 0.008 0.026 0.012 0.666 0.760 0.017 0.010 0.015 0.005 0.893 0.988 π 3 \\pi^{3} (Ours) 0.016 0.007 0.022 0.011 0.689 0.792 0.015 0.008 0.013 0.005 0.898 0.987",
+      "images": []
+    },
+    {
+      "id": "S4.T3",
+      "text": "Table 3: Point map estimation on DTU and ETH3D Method DTU ETH3D Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C. ↑ \\uparrow Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Fast3R ( Yang et al., 2025 ) 3.340 1.919 2.929 1.125 0.671 0.755 0.832 0.691 0.978 0.683 0.667 0.766 CUT3R ( Wang et al., 2025b ) 4.742 2.600 3.400 1.316 0.679 0.764 0.617 0.525 0.747 0.579 0.754 0.848 FLARE ( Zhang et al., 2025 ) 2.541 1.468 3.174 1.420 0.684 0.774 0.464 0.338 0.664 0.395 0.744 0.864 VGGT ( Wang et al., 2025a ) 1.338 0.779 1.896 0.992 0.676 0.766 0.280 0.185 0.305 0.182 0.853 0.950 π 3 \\pi^{3} (Ours) 1.198 0.646 1.849 0.607 0.678 0.768 0.194 0.131 0.210 0.128 0.883 0.969",
+      "images": []
+    },
+    {
+      "id": "S4.T4",
+      "text": "Table 4: Video depth estimation on Sintel, Bonn and KITTI. FPS is evaluated on KITTI using one A800 GPU. Method Params Sintel Bonn KITTI FPS Abs Rel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow Abs Rel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow Abs Rel ↓ \\downarrow δ < 1.25 \\delta<1.25 ↑ \\uparrow DUSt3R ( Wang et al., 2024 ) 571M 0.662 0.434 0.151 0.839 0.143 0.814 1.25 MASt3R ( Leroy et al., 2024 ) 689M 0.558 0.487 0.188 0.765 0.115 0.848 1.01 MonST3R ( Zhang et al., 2024 ) 571M 0.399 0.519 0.072 0.957 0.107 0.884 1.27 Fast3R ( Yang et al., 2025 ) 648M 0.638 0.422 0.194 0.772 0.138 0.834 65.8 MVDUSt3R ( Tang et al., 2024 ) 661M 0.805 0.283 0.426 0.357 0.456 0.342 0.69 CUT3R ( Wang et al., 2025b ) 793M 0.417 0.507 0.078 0.937 0.122 0.876 6.98 Aether ( Team et al., 2025 ) 5.57B 0.324 0.502 0.273 0.594 0.056 0.978 6.14 FLARE ( Zhang et al., 2025 ) 1.40B 0.729 0.336 0.152 0.790 0.356 0.570 1.75 VGGT ( Wang et al., 2025a ) 1.26B 0.299 0.638 0.057 0.966 0.062 0.969 43.2 π 3 \\pi^{3} (Ours) 959M 0.233 0.664 0.049 0.975 0.038 0.986 57.4",
+      "images": []
+    },
+    {
+      "id": "S4.F5",
+      "text": "Figure 5: Qualitative comparison of multi-view 3D reconstruction. Compared to other multi-frame feed-forward reconstruction methods, π 3 \\pi^{3} produces cleaner, more accurate and more complete reconstructions with fewer artifacts.",
+      "images": [
+        {
+          "src": "2507.13347v3/qualitative_results_w_gt.png",
+          "id": "S4.F5.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "style": "aspect-ratio:548/282;",
+          "width": "548",
+          "height": "282",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S4.T5",
+      "text": "Table 5: Monocular depth estimation Method Sintel Bonn KITTI NYU-v2 Abs Rel ↓ \\downarrow δ < 1.25 ↑ \\delta<1.25\\uparrow Abs Rel ↓ \\downarrow δ < 1.25 ↑ \\delta<1.25\\uparrow Abs Rel ↓ \\downarrow δ < 1.25 ↑ \\delta<1.25\\uparrow Abs Rel ↓ \\downarrow δ < 1.25 ↑ \\delta<1.25\\uparrow DUSt3R ( Wang et al., 2024 ) 0.488 0.532 0.139 0.832 0.109 0.873 0.081 0.909 MASt3R ( Leroy et al., 2024 ) 0.413 0.569 0.123 0.833 0.077 0.948 0.110 0.865 MonST3R ( Zhang et al., 2024 ) 0.402 0.525 0.069 0.954 0.098 0.895 0.094 0.887 Fast3R ( Yang et al., 2025 ) 0.544 0.509 0.169 0.796 0.120 0.861 0.093 0.898 CUT3R ( Wang et al., 2025b ) 0.418 0.520 0.058 0.967 0.097 0.914 0.081 0.914 FLARE ( Zhang et al., 2025 ) 0.606 0.402 0.130 0.836 0.312 0.513 0.089 0.898 VGGT ( Wang et al., 2025a ) 0.335 0.599 0.053 0.970 0.082 0.947 0.056 0.951 MoGe 0.273 0.695 0.050 0.976 0.049 0.979 0.055 0.952 - v1 ( Wang et al., 2025c ) - 0.273 - 0.695 - 0.050 - 0.976 - 0.054 - 0.977 - 0.055 - 0.952 - v2 ( Wang et al., 2025d ) - 0.277 - 0.687 - 0.063 - 0.973 - 0.049 - 0.979 - 0.060 - 0.940 π 3 \\pi^{3} (Ours) 0.277 0.614 0.044 0.976 0.060 0.971 0.054 0.956",
+      "images": []
+    },
+    {
+      "id": "S4.T6",
+      "text": "Table 6: Standard deviation of point cloud estimation Method DTU ETH3D Acc. std. ↓ \\downarrow Comp. std. ↓ \\downarrow N.C. std. ↓ \\downarrow Acc. std. ↓ \\downarrow Comp. std. ↓ \\downarrow N.C. std. ↓ \\downarrow Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Fast3R ( Yang et al., 2025 ) 0.578 0.451 0.677 0.376 0.007 0.009 0.182 0.205 0.381 0.273 0.047 0.072 FLARE ( Zhang et al., 2025 ) 0.720 0.494 1.346 1.134 0.009 0.012 0.171 0.187 0.251 0.188 0.048 0.053 VGGT ( Wang et al., 2025a ) 0.033 0.022 0.054 0.036 0.007 0.007 0.049 0.040 0.062 0.042 0.022 0.015 π 3 \\pi^{3} (Ours) 0.003 0.002 0.006 0.003 0.001 0.001 0.000 0.000 0.000 0.000 0.001 0.000",
+      "images": []
+    },
+    {
+      "id": "S4.T7",
+      "text": "Table 7: Ablation study on the key components of our model. We show how the performance metric improves as each component is added to the baseline. Model ETH3D 7-Scenes NRGBD Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C ↑ \\uparrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C ↑ \\uparrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow N.C ↑ \\uparrow Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Mean Med. Model 1 0.229 0.150 0.166 0.103 0.802 0.930 0.020 0.010 0.019 0.009 0.715 0.834 0.034 0.018 0.025 0.011 0.859 0.977 Model 2 0.197 0.118 0.118 0.065 0.820 0.943 0.020 0.009 0.020 0.008 0.716 0.837 0.031 0.018 0.023 0.010 0.861 0.978 Full Model 0.131 0.076 0.079 0.043 0.841 0.957 0.019 0.009 0.020 0.009 0.723 0.843 0.028 0.015 0.022 0.010 0.875 0.981",
+      "images": []
+    },
+    {
+      "id": "A1.F6",
+      "text": "Figure 6: Comparison of predicted pose distributions . We visualize the predicted pose distributions in 3D space. π 3 \\pi^{3} shows a clear low-dimensional structure, while VGGT’s distribution is scattered.",
+      "images": [
+        {
+          "src": "2507.13347v3/pose_dist2.png",
+          "id": "A1.F6.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "style": "aspect-ratio:274/132;",
+          "width": "274",
+          "height": "132",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.T8",
+      "text": "Table 8: Comparison with VGGT when trained from scratch. Method ETH3D 7-Scenes NRGB Acc. ↓ \\downarrow Comp. ↓ \\downarrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow Acc. ↓ \\downarrow Comp. ↓ \\downarrow π 3 \\pi^{3} 0.618 0.453 0.064 0.068 0.071 0.047 VGGT ( Wang et al., 2025a ) 0.563 0.449 0.057 0.046 0.060 0.042 π 3 \\pi^{3} + global proxy 0.418 0.266 0.059 0.071 0.052 0.035",
+      "images": []
+    },
+    {
+      "id": "A1.F7",
+      "text": "Figure 7: Qualitative comparison of in-the-wild multi-view 3D reconstruction. π 3 \\pi^{3} demonstrates superior robustness on challenging in-the-wild sequences, consistently producing more coherent and complete 3D structures for both dynamic and complex static scenes compared to other feed-forward approaches.",
+      "images": [
+        {
+          "src": "2507.13347v3/qualitative_results_wo_gt.png",
+          "id": "A1.F7.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_square",
+          "style": "aspect-ratio:548/508;",
+          "width": "548",
+          "height": "508",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.T9",
+      "text": "Table 9: Camera pose estimation with tighter angular thresholds on RealEstate10K Method RRA ( ↑ \\uparrow ) RTA ( ↑ \\uparrow ) AUC ( ↑ \\uparrow ) @1 @3 @5 @10 @15 @1 @3 @5 @10 @15 @1 @3 @5 @10 @15 Fast3R ( Yang et al., 2025 ) 54.30 87.24 94.78 97.90 98.46 5.47 24.56 39.23 59.29 69.11 3.77 13.67 22.36 37.33 46.71 CUT3R ( Wang et al., 2025b ) 78.63 96.06 98.15 99.31 99.63 16.23 51.43 67.44 82.98 88.93 13.40 33.39 45.63 61.78 70.15 FLARE ( Zhang et al., 2025 ) 70.99 93.42 97.11 98.98 99.44 11.01 43.33 62.39 82.29 89.20 8.43 25.67 38.47 57.20 67.02 VGGT ( Wang et al., 2025a ) 69.68 92.70 97.06 99.40 99.74 8.58 39.93 60.61 80.20 86.34 6.23 22.25 35.46 54.76 64.54 π 3 \\pi^{3} (Ours) 85.19 97.56 98.83 99.63 99.86 27.57 65.57 78.32 88.69 92.02 24.87 47.28 58.63 72.11 78.39",
+      "images": []
+    },
+    {
+      "id": "A1.T10",
+      "text": "Table 10: Point map estimation with Chamfer Distance. Method 7-Scenes-sparse 7-Scenes-dense NRGBD-sparse NRGBD-dense DTU ETH3D CD-mean ↓ \\downarrow CD-med ↓ \\downarrow CD-mean ↓ \\downarrow CD-med ↓ \\downarrow CD-mean ↓ \\downarrow CD-med ↓ \\downarrow CD-mean ↓ \\downarrow CD-med ↓ \\downarrow CD-mean ↓ \\downarrow CD-med ↓ \\downarrow CD-mean ↓ \\downarrow CD-med ↓ \\downarrow Fast3R ( Yang et al., 2025 ) 0.150 0.111 0.048 0.018 0.150 0.097 0.061 0.024 3.134 1.476 0.875 0.646 CUT3R ( Wang et al., 2025b ) 0.097 0.049 0.025 0.009 0.091 0.036 0.065 0.025 4.021 1.886 0.684 0.551 FLARE ( Zhang et al., 2025 ) 0.115 0.083 0.023 0.010 0.052 0.023 0.020 0.009 2.834 1.409 0.564 0.377 VGGT ( Wang et al., 2025a ) 0.050 0.029 0.024 0.010 0.058 0.032 0.015 0.007 1.619 0.888 0.287 0.177 π 3 \\pi^{3} (Ours) 0.061 0.039 0.019 0.009 0.026 0.013 0.013 0.006 1.472 0.626 0.199 0.128",
+      "images": []
+    },
+    {
+      "id": "A1.T11",
+      "text": "Table 11: Monocular depth estimation. Method Sintel Bonn KITTI NYU-v2 Abs Rel ↓ \\downarrow δ < 1.25 ↑ \\delta<1.25\\uparrow Abs Rel ↓ \\downarrow δ < 1.25 ↑ \\delta<1.25\\uparrow Abs Rel ↓ \\downarrow δ < 1.25 ↑ \\delta<1.25\\uparrow Abs Rel ↓ \\downarrow δ < 1.25 ↑ \\delta<1.25\\uparrow DA V2 ( Yang et al., 2024 ) 0.372 0.541 0.126 0.804 0.090 0.919 0.081 0.921 - metric indoor - 0.372 - 0.541 - 0.126 - 0.804 - 0.097 - 0.912 - 0.081 - 0.921 - metric outdoor - 0.478 - 0.477 - 0.186 - 0.668 - 0.090 - 0.919 - 0.172 - 0.689 MoGe 0.273 0.695 0.050 0.976 0.049 0.979 0.055 0.952 - v1 ( Wang et al., 2025c ) - 0.273 - 0.695 - 0.050 - 0.976 - 0.054 - 0.977 - 0.055 - 0.952 - v2 ( Wang et al., 2025d ) - 0.277 - 0.687 - 0.063 - 0.973 - 0.049 - 0.979 - 0.060 - 0.940 π 3 \\pi^{3} (Ours) 0.277 0.614 0.044 0.976 0.060 0.971 0.054 0.956",
+      "images": []
+    }
+  ]
+}

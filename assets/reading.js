@@ -1,0 +1,20 @@
+(() => {
+  const progress=document.querySelector('.reading-progress');
+  const update=()=>{if(progress){const max=document.documentElement.scrollHeight-innerHeight;progress.style.width=(max>0?100*scrollY/max:0)+'%';}};
+  addEventListener('scroll',update,{passive:true});addEventListener('resize',update);update();
+  const anchors=[...document.querySelectorAll('.sidebar nav a[href^="#"]')];
+  const sections=anchors.map(a=>document.getElementById(a.hash.slice(1))).filter(Boolean);
+  const mark=()=>{let current=sections[0];sections.forEach(s=>{if(s.getBoundingClientRect().top<180)current=s;});anchors.forEach(a=>a.classList.toggle('current',a.hash==='#'+current?.id));};
+  addEventListener('scroll',mark,{passive:true});mark();
+  document.querySelector('[data-reading-size]')?.addEventListener('click',e=>{const large=document.body.classList.toggle('large-reading');e.currentTarget.textContent=large?'标准字号':'加大字号';e.currentTarget.setAttribute('aria-pressed',String(large));});
+  document.querySelectorAll('.mobile-toc a').forEach(a=>a.addEventListener('click',()=>a.closest('details').open=false));
+  const figures=[...document.querySelectorAll('.figure-open')];if(!figures.length)return;
+  const dialog=document.createElement('dialog');dialog.className='dialog-figure';dialog.setAttribute('aria-label','查看原论文图表');
+  dialog.innerHTML='<div class="dialog-toolbar"><span id="dialog-title"></span><a id="dialog-original" target="_blank" rel="noopener">新窗口 ↗</a><button type="button" id="dialog-zoom" aria-pressed="false">100%</button><button type="button" data-close autofocus aria-label="关闭图表">关闭 ×</button></div><div class="dialog-image-area"><img id="dialog-image" alt=""></div>';
+  document.body.append(dialog);let trigger;
+  figures.forEach(button=>button.addEventListener('click',()=>{trigger=button;const img=button.querySelector('img');dialog.querySelector('img').src=img.src;dialog.querySelector('img').alt=img.alt;dialog.querySelector('#dialog-title').textContent=button.dataset.title;dialog.querySelector('#dialog-original').href=img.src;dialog.querySelector('.dialog-image-area').classList.remove('full-resolution');dialog.querySelector('#dialog-zoom').textContent='100%';dialog.querySelector('#dialog-zoom').setAttribute('aria-pressed','false');dialog.showModal();}));
+  dialog.querySelector('[data-close]').addEventListener('click',()=>dialog.close());
+  dialog.querySelector('#dialog-zoom').addEventListener('click',e=>{const full=dialog.querySelector('.dialog-image-area').classList.toggle('full-resolution');e.currentTarget.textContent=full?'适应':'100%';e.currentTarget.setAttribute('aria-pressed',String(full));});
+  dialog.addEventListener('click',e=>{if(e.target===dialog){const b=dialog.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)dialog.close();}});
+  dialog.addEventListener('close',()=>trigger?.focus());
+})();

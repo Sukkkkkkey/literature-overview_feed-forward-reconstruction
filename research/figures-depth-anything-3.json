@@ -1,0 +1,277 @@
+{
+  "id": "A10",
+  "slug": "depth-anything-3",
+  "name": "Depth Anything 3",
+  "version": "2511.10647v1",
+  "pdf": "research/sources/2511.10647v1.pdf",
+  "url": "https://arxiv.org/pdf/2511.10647v1",
+  "sha256": "afa74735e20b667b91183f604224abbcd61d4f927c23a3c635015d0c9d83d083",
+  "pages": 32,
+  "figures": [
+    {
+      "id": "id1",
+      "text": "",
+      "images": [
+        {
+          "src": "2511.10647v1/x1.png",
+          "id": "id1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "830",
+          "height": "305",
+          "alt": "[Uncaptioned image]"
+        }
+      ]
+    },
+    {
+      "id": "S0.F1",
+      "text": "Figure 1 : Given any number of images and optional camera poses, Depth Anything 3 reconstructs the visual space, producing consistent depth and ray maps that can be fused into accurate point clouds, resulting in high-fidelity 3D Gaussians and geometry. It significantlyoutperforms VGGT in multi-view geometry and pose accuracy; with monocular inputs, it also surpasses Depth Anything 2 while matching its detail and robustness.",
+      "images": [
+        {
+          "src": "2511.10647v1/x2.png",
+          "id": "S0.F1.1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "660",
+          "height": "515",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S2.F2",
+      "text": "Figure 2 : Pipeline of Depth Anything 3. Depth Anything 3 employs a single transformer (vanilla DINOv2 model) without any architectural modifications. To enable cross-view reasoning, an input-adaptive cross-view self-attention mechanism is introduced. A dual-DPT head is used to predict depth and ray maps from visual tokens. Camera parameters, if available, are encoded as camera tokens and concatenated with patch tokens, participating in all attention operations.",
+      "images": [
+        {
+          "src": "2511.10647v1/figs/pdfs/pipeline.png",
+          "id": "S2.F2.1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "452",
+          "height": "155",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.F3",
+      "text": "Figure 3 : Dual-DPT Head. Two branchs share reassembly modules for better outputs alignment.",
+      "images": [
+        {
+          "src": "2511.10647v1/x3.png",
+          "id": "S3.F3.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "317",
+          "height": "210",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S3.T1",
+      "text": "Table 1 : Datasets used in Depth Anything 3 , including number of scenes, data type. Usage Dataset #Scenes Data Type Pose-geometry benchmark HiRoom (ours) 29 Synthetic ETH3D [ schops2017eth3d ] 11 LiDAR DTU [ aanaes2016dtu ] 22 LiDAR 7Scenes [ shotton2013sevenscene ] 7 LiDAR ScanNet++ [ yeshwanth2023scannet++ ] 20 LiDAR Pose-geometry Training AriaDigitalTwin [ pan2023aria ] 237 Synthetic AriaSyntheticENV [ pan2023aria ] 99950 Synthetic ArkitScenes [ baruch2021arkitscenes ] 4388 LiDAR BlendedMVS [ yao2020blendedmvs ] 503 3D Recon Co3dv2 [ reizenstein2021common ] 30616 Colmap DL3DV [ ling2024dl3dv ] 6379 Colmap HyperSim [ roberts2021hypersim ] 344 Synthetic MapFree [ arnold2022map ] 921 Colmap MegaDepth [ li2018megadepth ] 268 Colmap MegaSynth [ jiang2025megasynth ] 6049 Synthetic MvsSynth [ DeepMVS ] 121 Synthetic Objaverse [ deitke2023objaverse ] 505557 Synthetic Omniobject [ wu2023omniobject3d ] 5885 Synthetic OmniWorld [ zhou2025omniworld ] 1039 Synthetic PointOdyssey [ zheng2023pointodyssey ] 44 Synthetic ReplicaVMAP [ straub2019replica ] 17 Synthetic ScanNet++ [ yeshwanth2023scannet++ ] 230 LiDAR ScenenetRGBD [ mccormac2017scenenet ] 16866 Synthetic TartanAir [ tartanair2020iros ] 355 Synthetic Trellis [ xiang2024structured ] 557408 Synthetic vKitti2 [ cabon2020vkitti2 ] 50 Synthetic WildRGBD [ xia2024rgbd ] 23050 LiDAR",
+      "images": []
+    },
+    {
+      "id": "S4.F4",
+      "text": "Figure 4 : Poor quality real-world datasets. We show some examples of the poor quality real-world datasets.",
+      "images": [
+        {
+          "src": "2511.10647v1/x4.png",
+          "id": "S4.F4.g1",
+          "class": "ltx_graphics ltx_img_landscape",
+          "width": "317",
+          "height": "184",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S7.T2",
+      "text": "Table 2 : Comparisons with SOTA methods on pose accuracy. We report both Auc3 ↑ \\uparrow and Auc30 ↑ \\uparrow metrics. The top-3 results are highlighted as first , second , and third . Methods Params HiRoom ETH3D DTU 7Scenes ScanNet++ Auc3 Auc30 Auc3 Auc30 Auc3 Auc30 Auc3 Auc30 Auc3 Auc30 DUSt3R 0.57B 17.6 54.3 4.30 27.3 4.00 74.3 6.90 61.6 8.10 33.9 Fast3R 0.65B 25.9 77.0 8.10 44.4 9.50 79.1 19.0 78.6 17.9 72.5 MapAnything 0.56B 17.9 82.8 19.2 77.4 6.50 72.7 12.6 79.7 20.2 84.1 Pi3 0.96B 67.0 94.8 35.2 87.3 62.5 94.9 25.5 86.3 50.7 92.1 VGGT 1.19B 49.1 88.0 26.3 80.8 79.2 99.8 23.9 85.0 62.6 95.1 DA3-Giant 1.10B 80.3 95.9 48.4 91.2 94.1 99.4 28.5 86.8 85.0 98.1 DA3-Large 0.36B 58.7 94.2 32.2 86.9 70.2 96.7 29.2 86.6 60.2 94.7 DA3-Base 0.11B 19.0 83.2 15.1 74.6 60.1 95.9 20.1 82.9 25.1 83.4 DA3-Small 0.03B 9.49 75.2 8.59 62.1 30.6 91.2 14.0 78.7 10.9 71.9",
+      "images": []
+    },
+    {
+      "id": "S7.F5",
+      "text": "Figure 5 : Comparisons of pose estimation quality. Camera trajectories for two videos are shown. Ground-truth trajectories are derived using COLMAP on images with dynamic objects masked.",
+      "images": [
+        {
+          "src": "2511.10647v1/figs/pngs/vis_traj.png",
+          "id": "S7.F5.1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "476",
+          "height": "170",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S7.T3",
+      "text": "Table 3 : Comparisons with SOTA methods on reconstruction accuracy. For all datasets except DTU, we report the F-Score ( F1 ↑ \\uparrow ). For DTU, we report the chamfer distance ( CD ↓ \\downarrow , unit: mm). w/o p. and w/ p. denote without pose and with pose, indicating whether ground-truth camera poses are provided for reconstruction. The top-3 results are highlighted as first , second , and third . Methods Params HiRoom ETH3D DTU 7Scenes ScanNet++ w/o p. w/ p. w/o p. w/ p. w/o p. w/ p. w/o p. w/ p. w/o p. w/ p. DUSt3R 0.57B 30.1 39.5 19.7 18.8 7.60 7.97 26.6 39.8 18.9 27.3 Fast3R 0.65B 40.7 48.2 38.5 50.3 6.88 8.20 41.0 49.8 37.1 53.7 MapAnything 0.56B 32.4 69.2 54.8 71.9 7.91 3.97 44.8 55.2 39.4 71.3 Pi3 0.96B 75.8 85.0 72.7 80.6 3.28 1.72 44.2 57.5 63.1 73.3 VGGT 1.19B 56.7 70.2 57.2 66.7 2.05 1.44 47.9 51.4 66.4 70.7 DA3-Giant 1.10B 85.1 95.6 79.0 87.1 1.85 1.85 53.5 56.5 77.0 79.3 DA3-Large 0.36B 69.5 87.1 65.8 75.2 2.08 1.23 56.3 49.2 67.9 75.7 DA3-Base 0.11B 25.9 71.4 49.5 66.7 2.87 2.36 49.9 50.6 47.2 67.8 DA3-Small 0.03B 18.3 52.2 41.6 63.4 5.83 2.49 41.0 46.8 32.3 53.8",
+      "images": []
+    },
+    {
+      "id": "S7.F6",
+      "text": "Figure 6 : Comparisons of point cloud quality. Our model produces point clouds that are more geometrically regular and substantially less noisy than those generated by other methods.",
+      "images": [
+        {
+          "src": "2511.10647v1/x5.png",
+          "id": "S7.F6.1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "660",
+          "height": "285",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S7.T4",
+      "text": "Table 4 : Monocular depth comparisons. δ 1 ↑ \\delta_{1}\\uparrow Method KITTI NYU SINTEL ETH3D DIODE Rank DA2 94.6 97.9 77.2 86.5 95.2 2.60 VGGT 91.7 97.9 67.9 97.5 95.3 3.75 DA3 95.3 97.4 75.5 98.6 95.4 2.20 Teacher 97.2 97.9 81.4 99.8 96.6 1.00",
+      "images": []
+    },
+    {
+      "id": "S7.F7",
+      "text": "Figure 7 : Comparisons of depth quality. Compared with other methods, our depth maps exhibit finer structural detail and higher semantic correctness across diverse scenes.",
+      "images": [
+        {
+          "src": "2511.10647v1/figs/pngs/vis_depth.png",
+          "id": "S7.F7.1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "476",
+          "height": "116",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S7.T5",
+      "text": "Table 5 : Comparisons with SOTA methods on NVS task. We report NVS comparsions with exisiting feed-forward 3DGS models and counterparts using other backbones. For each scene, we use 12 input context views and test on target views sampled every 8 views over a set of over 300 views. Image resolution is 270 × 480 270\\times 480 . Methods In-domain Dataset Out-of-domain Datasets DL3DV-Benchmarks (140) Tanks and Temples (6) MegaDepth (19) PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow PSNR ↑ \\uparrow SSIM ↑ \\uparrow LPIPS ↓ \\downarrow pixelSplat 16.55 0.456 0.480 13.81 0.347 0.558 13.87 0.367 0.561 MVSplat 18.13 0.559 0.393 14.81 0.391 0.508 14.67 0.398 0.533 DepthSplat 19.24 0.620 0.322 15.80 0.474 0.418 15.90 0.471 0.450 Fast3R 19.30 0.604 0.320 16.24 0.478 0.409 16.43 0.493 0.421 MV-DUSt3R 20.01 0.645 0.294 17.04 0.529 0.370 16.20 0.484 0.437 VGGT 20.96 0.697 0.253 17.18 0.550 0.347 16.45 0.500 0.417 DAv3 (Ours) 21.33 0.711 0.241 18.10 0.578 0.311 17.89 0.561 0.351",
+      "images": []
+    },
+    {
+      "id": "S7.T6",
+      "text": "Table 6 : Ablations of prediction-target combinations. Note that all experiments in this table do not have camera condition token. The best and second best are highlighted. Methods HiRoom ETH3D DTU 7Scenes ScanNet++ Auc3 ↑ \\uparrow F1 ↑ \\uparrow Auc3 ↑ \\uparrow F1 ↑ \\uparrow Auc3 ↑ \\uparrow CD ↓ \\downarrow Auc3 ↑ \\uparrow F1 ↑ \\uparrow Auc3 ↑ \\uparrow F1 ↑ \\uparrow depth + pcd + cam 9.1 12.8 19.0 60.4 42.3 4.918 20.8 43.4 22.0 43.0 depth + cam 10.8 16.5 9.9 48.0 23.3 5.316 13.0 38.5 13.3 41.0 depth + ray 48.7 60.3 25.5 65.4 46.5 3.919 24.0 46.5 35.5 53.4 0pt+ ray + cam 37.2 45.4 22.3 59.4 56.3 3.066 25.7 45.6 34.1 56.5",
+      "images": []
+    },
+    {
+      "id": "S7.T7",
+      "text": "Table 7 : Ablation study. We evaluate three architectural designs with comparable model sizes (a-c), the effects of the dual-DPT head (d), teacher label supervision (e), and the pose conditioning module (f-g). The best and second best are highlighted. Methods marked with \"*\" are evaluated with ground-truth pose fusion. Methods HiRoom ETH3D DTU 7Scenes ScanNet++ Auc3 ↑ \\uparrow F1 ↑ \\uparrow Auc3 ↑ \\uparrow F1 ↑ \\uparrow Auc3 ↑ \\uparrow CD ↓ \\downarrow Auc3 ↑ \\uparrow F1 ↑ \\uparrow Auc3 ↑ \\uparrow F1 ↑ \\uparrow a. Proposed Arch. 39.2 47.0 21.0 55.4 45.8 3.82 26.2 47.6 30.3 51.1 b. VGGT Style 3.72 14.5 2.31 27.4 1.38 6.93 0.97 21.4 2.03 12.2 c. Full Alt. 24.7 29.3 13.1 51.9 44.6 4.23 21.1 48.6 27.7 47.5 d. w/o Dual DPT 5.59 11.5 13.6 33.4 21.7 5.14 14.2 49.4 26.5 46.6 e. w/o Teacher 11.2 16.0 16.2 57.6 52.5 3.29 23.3 40.3 26.2 47.7 f. w/o Pose Cond.* 65.8 63.2 3.65 58.4 62.8 g. w/ Pose Cond.* 73.8 70.9 2.14 46.0 65.7",
+      "images": []
+    },
+    {
+      "id": "S7.T8",
+      "text": "Table 8 : Comparison of Models with Parameters and Running Speed. The maximum number of images was tested on an 80 GB A100 GPU. If we store some intermediate tokens in CPU memory, we could process many more images. The running speed was measured on an A100 GPU with a scene of 32 images, and we report the average speed per image. The image resolution is 504 × 336 504\\times 336 . Model Max # of Images Parameters Running Speed Backbone DualDPT CameraHead VGGT(Reference) 400-500 0.91B 0.064B 0.22B 34.1 FPS DA3-Giant 900-1000 1.130B 0.050B 0.018B 37.6 FPS DA3-Large 1500-1600 0.300B 0.047B 0.008B 78.37 FPS DA3-Base 2100-2200 0.086B 0.015B 0.004B 126.5 FPS DA3-Small 4000-4100 0.022B 0.003B 0.001B 160.5 FPS",
+      "images": []
+    },
+    {
+      "id": "S7.F8",
+      "text": "Figure 8 : Comparison of teacher-label supervision. Supervision with teacher-generated labels yields depth maps with substantially richer detail and finer structures.",
+      "images": [
+        {
+          "src": "2511.10647v1/x6.png",
+          "id": "S7.F8.1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "660",
+          "height": "273",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S7.T9",
+      "text": "Table 9 : Ablations for teacher model. Training with V3 datasets and multi-resolution strategy yields the best performance. Depth-based geometry achieves the best AbsRel and SqRel. The full teacher-loss outperforms other variants. (AbsRel: ↓ \\downarrow , SqRel: ↓ \\downarrow , δ 1 \\delta_{1} : ↑ \\uparrow ). The results are averaged over KITTI, NYU, ETH3D, SUN-RGBD and DIODE. Data Geometry Loss Data δ 1 \\delta_{1} AbsRel SqRel Geometry δ 1 \\delta_{1} AbsRel SqRel Loss δ 1 \\delta_{1} AbsRel SqRel V2 0.919 0.087 0.596 Disparity 0.919 0.095 1.033 MAE-Loss 0.918 0.089 0.637 V3 0.929 0.079 0.508 Pointmap 0.912 0.096 0.693 w/o Dist. Nor. 0.918 0.087 0.600 V3 + mr. 0.938 0.072 0.452 Depth 0.918 0.089 0.637 Full loss 0.919 0.087 0.596",
+      "images": []
+    },
+    {
+      "id": "S7.F9",
+      "text": "Figure 9 : Visualizations of camera pose and depth estimation on in-the-wild scenes.",
+      "images": [
+        {
+          "src": "2511.10647v1/x7.png",
+          "id": "S7.F9.1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "660",
+          "height": "445",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S7.T10",
+      "text": "Table 10 : Monocular student depth comparisons. δ 1 ↑ \\delta_{1}\\uparrow Method KITTI NYU SINTEL ETH3D DIODE DA2 94.6 97.9 77.2 86.5 95.2 mono-student 97.1 98.0 82.3 98.8 96.5",
+      "images": []
+    },
+    {
+      "id": "S7.T11",
+      "text": "Table 11 : Comparison with state-of-the-arts on metric depth estimation. The best and second best are highlighted. Bottom rows show ablation results with and without teacher supervision. Note that the ablation setting is slightly different from the final model on training resolution, which leads to minor differences in performance. Methods NYUv2 KITTI ETH3D SUN-RGBD DIODE δ 1 \\delta_{1} ↑ \\uparrow AbsRel ↓ \\downarrow δ 1 \\delta_{1} ↑ \\uparrow AbsRel ↓ \\downarrow δ 1 \\delta_{1} ↑ \\uparrow AbsRel ↓ \\downarrow δ 1 \\delta_{1} ↑ \\uparrow AbsRel ↓ \\downarrow δ 1 \\delta_{1} ↑ \\uparrow AbsRel ↓ \\downarrow DepthPro [ bochkovskiydepth ] 0.932 0.093 0.843 0.121 0.386 0.349 0.950 0.126 0.734 0.173 Metric3D v2 [ hu2024metric3d ] 0.971 0.067 0.976 0.051 0.830 0.138 0.954 0.132 0.018 0.154 UniDepthv1 [ piccinelli2024unidepth ] 0.980 0.061 0.978 0.051 0.234 0.464 0.971 0.113 0.570 0.266 UniDepthv2 [ piccinelli2025unidepthv2 ] 0.968 0.064 0.968 0.076 0.863 0.152 0.977 0.111 0.856 0.123 DA3-metric 0.963 0.070 0.953 0.086 0.917 0.104 0.973 0.105 0.838 0.128 w/ teacher 0.966 0.073 0.947 0.086 0.906 0.105 0.973 0.104 0.824 0.132 w/o teacher 0.969 0.066 0.965 0.067 0.907 0.105 0.975 0.099 0.816 0.134",
+      "images": []
+    },
+    {
+      "id": "S7.F10",
+      "text": "Figure 10 : Effectiveness of Teacher model for supervising metric depth estimation. Incorporating Teacher model for supervision significantly improves the metric depth sharpness.",
+      "images": [
+        {
+          "src": "2511.10647v1/x8.png",
+          "id": "S7.F10.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "830",
+          "height": "381",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "S7.F11",
+      "text": "Figure 11 : Qualitative comparisons with state-of-the-art methods for visual rendering. The first column shows the selected input views, while the remaining columns display novel views rendered by comparison models and ground truth. For each scene, two rendered novel viewpoints are presented in consecutive rows. The first three scenes are from DL3DV, the following two are from Tanks and Temples, and the last three are from MegaDepth. Compared to other methods, our model consistently achieves superior rendering quality across diverse and challenging scenes.",
+      "images": [
+        {
+          "src": "2511.10647v1/x9.png",
+          "id": "S7.F11.1.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_portrait",
+          "width": "528",
+          "height": "754",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F12",
+      "text": "Figure 12 : Invalid background of amusement scene in TartanAir dataset.",
+      "images": [
+        {
+          "src": "2511.10647v1/x10.png",
+          "id": "A1.F12.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "830",
+          "height": "156",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F13",
+      "text": "Figure 13 : Image-depth spatial misalignment in IRS dataset.",
+      "images": [
+        {
+          "src": "2511.10647v1/x11.png",
+          "id": "A1.F13.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "830",
+          "height": "115",
+          "alt": "Refer to caption"
+        }
+      ]
+    },
+    {
+      "id": "A1.F14",
+      "text": "Figure 14 : Erroneous samples in UnrealStereo4K dataset. The windows in scene 00003 are transparent; scene 00004 suffers from clipping issue; the sea in scene 00008 does not have depth values.",
+      "images": [
+        {
+          "src": "2511.10647v1/x12.png",
+          "id": "A1.F14.g1",
+          "class": "ltx_graphics ltx_centering ltx_img_landscape",
+          "width": "830",
+          "height": "313",
+          "alt": "Refer to caption"
+        }
+      ]
+    }
+  ]
+}

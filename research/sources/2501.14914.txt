@@ -1,0 +1,2279 @@
+Light3R-SfM: Towards Feed-forward Structure-from-Motion
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Work
+3 Light3R-SfM
+3.1 Latent Global Alignment
+3.2 Scene Graph Construction
+3.3 Global Optimization-free Reconstruction
+3.4 Supervision
+4 Experiments
+4.1 Scene-level Multi-view Pose Estimation
+4.2 Object-centric Multi-view Pose Estimation
+4.3 Evaluation on Driving Scenes
+4.4 Ablation Studies
+5 Conclusion
+References
+A Implementation Details
+B Additional Details on Tanks & Temples [21]
+C Evaluation on 3D Reconstruction
+D Additional Ablation Studies
+E Additional Visualizations
+License: CC BY 4.0
+arXiv:2501.14914v1 [cs.CV] 24 Jan 2025
+Light3R-SfM: Towards Feed-forward Structure-from-Motion
+Sven Elflein
+Affiliation: NVIDIA
+Affiliation: Vector Institute
+Affiliation: University of Toronto
+Qunjie Zhou
+Affiliation: NVIDIA
+Sérgio Agostinho
+Affiliation: NVIDIA
+Laura Leal-Taixé
+Affiliation: NVIDIA
+Abstract
+We present Light3R-SfM, a feed-forward, end-to-end learnable framework for efficient large-scale Structure-from-Motion (SfM) from unconstrained image collections. Unlike existing SfM solutions that rely on costly matching and global optimization to achieve accurate 3D reconstructions, Light3R-SfM addresses this limitation through a novel latent global alignment module. This module replaces traditional global optimization with a learnable attention mechanism, effectively capturing multi-view constraints across images for robust and precise camera pose estimation. Light3R-SfM constructs a sparse scene graph via retrieval-score-guided shortest path tree to dramatically reduce memory usage and computational overhead compared to the naive approach. Extensive experiments demonstrate that Light3R-SfM achieves competitive accuracy while significantly reducing runtime, making it ideal for 3D reconstruction tasks in real-world applications with a runtime constraint. This work pioneers a data-driven, feed-forward SfM approach, paving the way toward scalable, accurate, and efficient 3D reconstruction in the wild.
+1 Introduction
+Figure 1: Processing speed vs. accuracy for various SfM methods. Our work significantly decreases the runtime across various sizes of image collections compared to traditional pipelines while obtaining comparable accuracy. Results are measured on the Tanks&Temples dataset.
+Structure-from-Motion (SfM) is the task of jointly recovering camera poses and reconstructing the 3D scene structure from a set of unconstrained images. This long-standing problem is essential to many computer vision applications, including novel view synthesis via NeRFs [29, 3] and 3DGS [20], multi-view stereo (MVS) reconstruction [31, 49], and visual localization [34, 36].
+Traditional SfM methods generally follow two main approaches: incremental [41, 56, 37] and global [30, 55, 8] SfM. Both paradigms rely on key components such as feature detection and matching for correspondence search, 3D triangulation to reconstruct geometry from 2D correspondences, and joint optimization of camera poses and scene geometry through bundle adjustment. A major research direction has been to replace these components with learning-based modules, progressing towards fully end-to-end SfM [7, 40, 50].
+Recently, the seminal work DUSt3R [51] proposed to train an unconstrained stereo 3D reconstruction model through pointmap regression, i.e., by directly predicting 3D points in a common reference system for every pixel. Learning from large-scale annotated data, it shows impressive performance in handling
+images with extreme viewpoint changes.
+To perform SfM from an image collection, DUSt3R works [51, 22] first compute stereo reconstruction exhaustively for all image pairs and then obtain globally aligned pointmaps for all cameras through joint optimization of pairwise rigid transformations and local pointmaps.
+This baseline has been significantly improved by the concurrent work MASt3R-SfM [12] that leverages image retrieval to drastically reduce the computation overhead, boosts optimization efficiency by optimizing only over the sparse pixel correspondences, and appends a global bundle adjustment stage for accuracy refinement.
+While optimization-based alignment has been proven to be the key to accurate 3D reconstruction by DUSt3R, MASt3R-SfM and classical SfM methods [37, 30, 25], this comes at the cost of slow runtime and extensive memory footprint even for moderately-sized image collections.
+To this end, we propose Light3R-SfM, a fully learnable feed-forward SfM model that directly obtains globally aligned camera poses from an unordered image collection, without expensive optimization-based global alignment.
+Instead, we perform implicit global alignment in the latent space with a scalable attention module between the image encoding and 3D decoding stages, which enables global information sharing between features before solving the pairwise 3D reconstruction.
+This enables exploiting multi-view information across images, which is crucial for learning globally consist pointmaps.
+Concurrent work Spann3R [48] tackles online reconstruction from videos by directly regressing pointmaps in a global coordinate system leveraging an explicit memory bank to store information from all previous frames and the current frame. The price paid for being an online model is that the memory bank is constrained by its fixed capacity and prone to drifting due to the propagation of errors over time. In contrast, our work focuses on offline reconstruction from unordered image sets.
+We exploit multi-view constraints via latent attention while minimizing the redundant processing supported by intelligent graph construction, delivering significantly more accurate camera poses with lower runtime than Spann3R.
+We summarize the key contributions of this work as follows:
+(i) We propose Light3R-SfM, a novel feed-forward SfM approach that replaces classical global optimization with a learnable latent alignment module, leveraging a scalable attention mechanism.
+(ii) Through extensive experiments, we demonstrate that Light3R-SfM achieves more accurate globally aligned camera poses compared to the concurrent Spann3R method. Its performance rivals state-of-the-art optimization-based SfM techniques while offering significant improvements in efficiency and scalability. Specifically, Light3R-SfM reconstructs a scene of 200 images in just 33 seconds, whereas the comparable MASt3R-SfM takes approximately 27 minutes, resulting in a >49 \times speedup. We highlight the potential of fully feed-forward SfM and aim to inspire future research toward developing more reliable and accurate feed-forward methods for large-scale 3D reconstruction in real-world settings.
+2 Related Work
+Classical SfM.
+Conventional structure from motion (SfM) methods can be divided into two main categories: incremental and global SfM. Incremental SfM [41, 17, 1, 56, 37] approaches gradually reconstruct a 3D scene from a collection of images starting from a carefully selected two-view initialization. Its main building blocks involve correspondence searching via feature detection and matching, pairwise pose estimation and 3D triangulation followed by bundle adjustment.
+Compared to incremental SfM, global SfM methods [30, 55, 8, 9, 2] start with a similar correspondence search and pairwise pose estimation stage, but then jointly align all cameras through rotation and translation averaging followed by 3D triangulation and bundle adjustment.
+Global methods usually have faster runtime yet being less accurate and robust.
+A recent work GLOMAP [30] reduces its accuracy gap to incremental methods by combining the estimation of camera positions and 3D structure in a single global positioning step.
+Our method, similar to the hybrid SfM method [27], divide images into subsets and incremental reconstruct the whole scene by accumulating locally aligned subsets.
+However, we fundamentally differ from them by estimating camera poses for each local subset in a feed-forward manner through our learned deep network without requiring a further step of global bundle adjustment.
+Optimization-based deep SfM.
+Recently, deep learning has been leveraged to improve core building blocks in SfM pipelines such as sparse feature detection [10, 33] and matching [35, 26].
+DFSfM [18] adapts traditional keypoint-based SfM for leveraging dense feature matchers [59, 42, 14, 13].
+PixSfM [25] introduces features-metric alignment to keypoints refinement and bundle adjustment, leading to improved accuracy and robustness under challenging conditions.
+VGGSfM [50] adapts individual SfM components to their learned version forming a fully differentiable SfM framework.
+Instead of optimizing camera parameters and scene geometries,
+ACEZero [7] proposes a new learning-based SfM pipeline to incrementally optimizing scene coordinate regression and camera refinement networks that output camera parameters and geometries through reprojection errors.
+Similarly, FlowMap [40] presents another end-to-end differentiable SfM pipeline where a depth estimation network is optimized per-scene through offline optical flow and point tracking supervisions.
+Yet, those methods [7, 40] struggle with image pairs with low visual overlapping.
+Recently, the emerging unconstrained stereo 3D reconstruction model, DUSt3R [51], opened up a new paradigm for tackling 3D reconstruction tasks such as SfM and multi-view stereo (MVS). Essentially, it proposed a radically novel approach for a two-view reconstruction via direct pointmap regression from a pair of RGB images. Different from monocular scene coordinate regression [5, 6, 39, 7], such stereo pointmap regression formulation can benefit from large-scale training achieving strong generalization capability to new scenes.
+To perform SfM from an image collection, DUSt3R [51] and its improved version MASt3R [22] merge pairwise pointmap predictions via optimization-based global alignment, however, exhaustive pairwise pointmaps in a brute-force manner limits their application to a small set of images [7].
+To tackle this, MASt3R-SfM [12] incorporates image retrieval exploiting the MASt3R encoder feature embedding to build a sparse scene graph, leading to significantly reduced runtime. Additionally, it leverages sparse correspondences to boost optimization efficiency and accuracy.
+Another concurrent work MonST3R [58] extends MASt3R to handle dynamic scenes by leveraging an offline optical flow estimation.
+However, those DUSt3R-based SfM methods still rely on expensive iterative optimization for accurate globally aligned poses.
+Feed-forward SfM.
+Instead of performing optimization-based global alignment, Spann3R [48],
+leverages explicit spatial memory to implicitly align pointmaps w.r.t. the first frame, which requires to maintain spatial information for all following frames in a sequence of arbitrary length overtime.
+Compared to Spann3R, our proposed feed-forward SfM efficiently exploits multi-view constraints from a collection of unconstrained images at the same time, utilizing a scalable latent alignment module together with efficient graph construction, leading to more efficient and accurate global alignment of pointmaps than Spann3R.
+3 Light3R-SfM
+Figure 2: Light3R-SfM Pipeline. Given an unordered set of images, we first encode them to obtain image tokens from which we average pool global features for constructing a shortest path tree. We next feed image tokens into our attention-based latent global alignment to enable global context sharing. Afterwards, for each edge in the SPT, we decode pairwise pointmaps using the implicitly aligned feature tokens. Finally, we use global accumulation to obtain globally aligned pointmaps per image.
+In this section, we present Light3R-SfM, a novel feed-forward SfM model that enables robust, accurate and efficient structure-from-motion in the wild for large-scale real-world applications. The key component is an attention mechanism that allows optimization-free globally aligned pose estimation for the entire image set.
+Given an unordered image collection or a sequence of images, denoted as \{\mathcal{I}_{i}\}_{i=1}^{N} with \mathcal{I}_{i}\in\mathbb{R}^{H\times W\times 3} , our pipeline reconstructs per image camera extrinsics P\in\mathbb{R}^{4\times 4} , intrinsics K_{i}\in\mathbb{R}^{3\times 3} and dense 3D pointmap at image resolution X\in\mathbb{R}^{H\times W\times 3} , which represents the globally aligned scene geometry observed by individual images.
+As shown in Fig. 2, we start with the (i) encoding, where an image encoder extract per-image feature tokens. After that we have the (ii) latent global alignment, in which information is exchanged between all image tokens via a scalable attention mechanism to globally align image tokens in the feature space (Sec. 3.1). Next, the (iii) scene graph construction constructs a scene graph maximizing pairwise image similarities via running the shortest path tree (SPT) algorithm. The (iv) decoding step converts image pairs connected by an edge to pointmaps using a stereo reconstruction decoder (Sec. 3.2). Finally, we run the (iiv) global optimization-free reconstruction, which accumulates the pairwise pointmaps by traversing the scene graph (Sec. 3.3) to obtain the globally aligned pointmaps.
+3.1 Latent Global Alignment
+We start by encoding each image \mathcal{I}_{i} to image tokens
+|
+| F^{(0)}_{i}=\mathtt{Enc}(\mathcal{I}_{i}),\quad F^{(0)}_{i}\in\mathbb{R}^{\lfloor H/p\rfloor\times\lfloor W/p\rfloor\times d},
+|
+| (1)
+where p is the patch size of the encoder and d is the token dimensionality.
+To allow information sharing between all images without running into memory constraints, we take inspiration from Karaev et al. [19], who apply a similar principle to point tracks, and factorize the attention operation between all frames via a smaller set of tokens.
+Specifically, for each set of image tokens F^{(0)}_{i} we compute its global token g_{i}^{(0)}\in R^{d} via averaging along its spatial dimensions.
+We then use L blocks of our latent global alignment block to achieve global information sharing across all image tokens.
+For each level l\in(0,L) , we first share information across all global image tokens \{g^{(l)}_{i}\}_{i=1}^{N} using self-attention defined as
+|
+| \{g_{i}^{(l+1)}\}_{i=1}^{N}=\mathtt{Self}(\{g_{i}^{(l)}\}_{i=1}^{N}).
+|
+| (2)
+We then propagate the updated global information to dense image tokens \{F^{(l)}_{i}\}_{i=1}^{N} for each image independently via cross-attention:
+|
+| F_{i}^{(l+1)}=\mathtt{Cross}(F_{i}^{(l)},\{g_{i}^{(l+1)}\}_{i=1}^{N}).
+|
+| (3)
+Finally, we obtain the globally aligned image tokens F_{i} via a residual connection, i.e., F_{i}\coloneq F_{i}^{(0)}+F_{i}^{(L)} .
+Discussion.
+A naive implementation through self-attention between all image tokens requiring \mathcal{O}((N\times T)^{2}) , while our latent global alignment module is able to achieve a time complexity of \mathcal{O}(N^{2}+N\times T) , where T=\lfloor H/p\rfloor\times\lfloor W/p\rfloor is the number of per-image tokens and N is the number of images.
+While the same asymptotic complexity class, we find reducing the constant factor for practical values of N\approx T to be the key to scale to larger image collections.
+3.2 Scene Graph Construction
+Despite our global feature attention being lightweight by design, exhaustively decoding 3D pointmaps for all image pairs through a fully connected scene graph still leads to a computational bottleneck.
+We thus propose a more scalable approach to scene graph construction allowing us to decode pointmaps with just N-1 edges.
+For that, we leverage the encoder embeddings to compute pairwise similarities similar to concurrent work [22], which allows us
+to filter out irrelevant image pairs, e.g., pairs with low visual overlap, to avoid unnecessary computation [12, 57].
+Specifically, we average pool the tokens of each image F_{i} to obtain one-dimensional embedding \bar{F}_{i} and then compute the matrix S containing all pairwise cosine similarities as
+|
+| S_{ij}=\langle\|\bar{F}_{i}\|_{2},\|\bar{F}_{j}\|_{2}\rangle
+|
+| (4)
+where \langle\cdot,\cdot\rangle denotes the scalar product.
+Classical SfM methods [37, 30] build a scene graph as a minimum spanning tree (MST) which
+minimizes the sum of costs, i.e., the negative similarities, of all edges.
+However, this often results in trees with high depth that
+result in drift when we accumulate pairwise pointmaps, as proposed in the next section.
+Therefore, we propose to replace the MST with a shortest path tree (SPT) [16] to obtain a scene graph as a set of edges E_{\mathtt{SPT}}=\{(i,j)\} connecting all images, while minimizing the cost of the paths towards each node. Intuitively, this leads to a flatter tree which only runs deep when it benefits the overall reconstruction.
+We set the root node for the SPT as the one with lowest total cost w.r.t. all other nodes, i.e., \operatorname*{argmin}_{j}\sum_{i}-S_{ij} .
+By design, the number of edges in a tree is linear in the number of images N , i.e., \left|E_{\mathtt{SPT}}\right|=N-1 , leading to significantly better scalability than a fully-connected graph.
+3.3 Global Optimization-free Reconstruction
+To obtain the global reconstruction while still being end-to-end trainable, we first obtain per-edge local pointmap predictions and then merge local pointmaps into a global one.
+Edge-wise pointmap decoding. For every edge in the scene graph (i,j)\in E_{\mathtt{SPT}} , we run the decoder to output two pointmaps and associated confidence maps defined as:
+|
+| (X^{i,i},X^{j,i}),(C^{i,i},C^{j,i})=\mathtt{Dec}\left(F_{i},F_{j}\right).
+|
+| (5)
+Here, X^{i,i}\in\mathbb{R}^{H\times W\times 3} is the pointmap of the i -th image and X^{j,i} is the pointmap of the j -th image, both in the coordinate frame of the i -th image.
+C^{j,i},C^{i,i}\in\mathbb{R}^{H\times W} are the per-point confidence scores for each pointmap respectively.
+While this closely follows the setup in [51], note that the input features to the decoder are conditioned on all images which facilitates globally aligned pairwise pointmaps.
+Global accumulation.
+To combine the pairwise pointmap predictions into a global reconstruction \mathbf{X} with per-point confidences \mathbf{C} , we traverse the SPT E_{\mathtt{SPT}} in breadth-first order, starting from the root of the tree.
+For the first edge, we initialize the global point cloud as \mathbf{X}=\{X^{i},X^{j}\} and \mathbf{C}=\{C^{i},C^{j}\} where X^{i}\coloneq X^{i,i} and X^{j}\coloneq X^{j,i} are the pointmap predictions for the edge in the coordinate system of the i -th image and C^{i},C^{j} their corresponding confidences.
+The i -th camera is thus implicitly defined as the canonical frame for the global reconstruction.
+We next register the remaining local reconstructions predicted from the consecutive edges to this initial global reconstruction.
+Based on the traversal order, node k of the next edge (k,l) has already obtained its global registered pointmap X^{k}\in\mathbf{X} in the previous step.
+We first update the global confidence map of this node to C^{k}\coloneq C^{k}\odot C^{k,k} , where \odot denotes the element-wise geometric mean, to take into consideration the confidence of the pointmap prediction C^{k,k} given the current pair.
+To register the l -th node to the global reconstruction, we then estimate the optimial rigid body transformation between the two pointmaps, X^{k} (in the global coordinate) and X^{k,k} (in the same coordinate system of the l -th node) via Procrustes alignment [45]
+|
+| P_{k}=\mathtt{Procrustes}(X^{k},X^{k,k},\log C^{k})
+|
+| (6)
+where \log C^{k}\in\left[0,\infty\right]^{H\times W} serves as a per-point weight.
+Finally, we transform the pointmap of node l into the global coordinate frame
+|
+| X^{l,}=P_{k}^{-1}X^{k,l}
+|
+| (7)
+and add it the global reconstruction \mathbf{X}\coloneq\mathbf{X}\cup\{X^{l}\} .
+Repeat it for all edges in E_{\mathtt{SPT}} , we obtain per-image globally registered pointmaps X^{i} with associated
+confidences C^{i} .
+Discussion.
+While our method still involves Procrustes alignment for each node, it is a significantly simpler problem compared to jointly optimizing a large number of 3D points and camera parameters among all images, which is much more sensitive to noisy pointmap and confidence predictions and limited to small number of images.
+Furthermore, compared to iterative solvers used in bundle adjustment, Procrustes alignment can be efficiently solved in closed form, and thus its computation overhead, linear in the number of images, is negligible.
+3.4 Supervision
+We jointly supervise pairwise local pointmaps and the globally aligned pointmaps, with the focus of the latter to enforce accurate and consistent global alignment learning.
+Pairwise supervision.
+Given a set of ground-truth pointmaps in the world coordinate frame \mathbf{\bar{X}}=\{\bar{X}^{i}\}_{i=1}^{N} , the corresponding valid pixels \{\mathcal{D}^{i}\}_{i=1}^{N} , and the ground truth camera poses {P^{i}}_{i=1}^{N} ,
+we compute \mathcal{L}_{\mathtt{pair}} that supervises the pairwise local pointmaps per-edge in the coordinate frame of the first camera following DUSt3R [51]:
+|
+| \mathcal{L}_{\mathtt{pair}}=\sum_{(i,j)\in E_{\mathtt{SPT}}}(\mathcal{L}_{\mathtt{conf}}(P_{i}\bar{X}^{i},X^{i,i},C^{i,i},\mathcal{D}^{i})\\
++\mathcal{L}_{\mathtt{conf}}(P_{i}\bar{X}^{j},X^{j,i},C^{j,i},\mathcal{D}^{j}))\,,
+|
+| (8)
+|
+| \mathcal{L}_{\mathtt{conf}}(\bar{X},X,C,\mathcal{D})\coloneq\sum_{p\in\mathcal{D}}C_{p}\left\|X_{p}-\bar{X}_{p}\right\|-\alpha C_{p}.
+|
+| (9)
+Here X,C,\bar{X} are the predicted pointmap, confidence map and the ground-truth pointmap, D\subseteq\{1\ldots W\}\times\{1\ldots H\} defines the valid pixels with ground-truth, and \alpha>0 regularizes the confidences to not be pushed to 0 [47].
+Global supervision.
+We first align the global pointmaps \mathbf{X}=\left\{X^{1,},\ldots,X^{N,}\right\} that are defined w.r.t. the root node of the SPT, to the ground truth pointmaps, by estimating the optimal rigid body transformation:
+|
+| \smash{P_{\mathtt{align}}=\mathtt{Procrustes}(\mathbf{\bar{X}},\mathbf{X}).}
+|
+| (10)
+We then supervise the transformed global pointmap prediction for each image as
+|
+| \mathcal{L}_{\mathtt{global}}=\sum_{i\in\{1,\ldots,N\}}\mathcal{L}_{\mathtt{conf}}(\bar{X}^{i},P_{\mathtt{align}}X^{i},C^{i},\mathcal{D}^{i})
+|
+| (11)
+In practice, we do not compute the loss for samples with less than 100 valid pixels due to inaccurately estimated rigid body transformation.
+This loss implicitly supervises the accuracy of poses extracted from these pointmaps since
+inaccurate poses from the pairwise Procrustes alignment
+leads to higher global loss.
+We optimize \mathcal{L}=\mathcal{L}_{\mathtt{pair}}+\lambda\mathcal{L}_{\mathtt{global}} , empirically setting \lambda=0.1 .
+4 Experiments
+In this section, we conduct extensive evaluation across diverse datasets and scenes, covering a wide range of typical SfM settings, and thorough ablations to understand our model. We provide implementation details for training and inference in the supplementary material.
+4.1 Scene-level Multi-view Pose Estimation
+Dataset.
+We first evaluate our method on multi-view pose estimation using Tanks&Temples [21] covering 21 indoor and outdoor scenes, where each scene contains 150-1100 images with uncalibrated cameras [7].
+Baselines.
+We categorize our SfM baselines into two main categories, i.e., optimization-based (OPT) and feedforward-based (FFD) methods, according to their global alignment methodology.
+For optimization-based methods, we consider the classical SfM pipelines Colmap [37] (with SuperPoint [10] and SuperGlue [35]), DF-SfM [18], Glomap [30], PixelSfM [25] and VGGSfM [50], the end-to-end SfM including ACE-Zero [7] and FlowMap [40], as well as the recent state-of-the-art MASt3R-SfM [12].
+For feedforward-based methods, we compare to our only baseline, the concurrent method Spann3R, where we evaluate both its online and offline version whenever possible.
+Metrics.
+Given a set of images, we follow previous work [51, 12, 30] to compute the relative camera pose errors for all image pairs and measure the percentage of pairs with angular rotation/translation error below a certain threshold \tau , denoted as relative rotation accuracy (RRA @\tau ) and relative translation accuracy (RTA @\tau ). We report its accuracy score average over all data samples.
+We further report the percentage of successfully registered images (Reg.) where we count failed scenes with a registration rate of 0, and average translation errors (ATE) where we align estimated camera positions to the ground-truth (estimated using Colmap using all frames provided and provided by [12]) with Procrustes [45] and report an average normalized error. We also report the runtime for a subset of methods on a system with a NVIDIA V100-32GB.
+|
+| Method
+| Align.
+| RRA@5 \uparrow
+| RTA@5 \uparrow
+| ATE \downarrow
+| Reg. \uparrow
+| Time [s] \downarrow
+|
+25
+| COLMAP
+| OPT
+| 13.7
+| 12.6
+| 0.038
+| 44.4
+| -
+| GLOMAP
+| OPT
+| 58.4
+| 53.6
+| 0.076
+| 86.1
+| 16.1
+| ACE0
+| OPT
+| 1.2
+| 1.4
+| 0.112
+| 100.0
+| 1042.7
+| DF-SfM
+| OPT
+| 47.5
+| 48.7
+| 0.081
+| 99.4
+| -
+| FlowMap
+| OPT
+| 0.7
+| 1.5
+| 0.107
+| 100.0
+| -
+| VGGSfM
+| OPT
+| 55.7
+| 57.4
+| 0.058
+| 96.2
+| 135.7
+| MASt3R-SfM
+| OPT
+| 68.0
+| 70.3
+| 0.034
+| 100.0
+| 283.2
+| Spann3r
+| FFD
+| 19.6
+| 30.7
+| 0.060
+| 100.0
+| 8.3
+| Light3R-SfM
+| FFD
+| 50.9
+| 54.2
+| 0.048
+| 100.0
+| 4.4
+|
+50
+| COLMAP
+| OPT
+| 28.2
+| 27.4
+| 0.029
+| 60.5
+| -
+| GLOMAP
+| OPT
+| 69.3
+| 70.3
+| 0.039
+| 97.3
+| 47.5
+| ACE0
+| OPT
+| 11.9
+| 11.5
+| 0.071
+| 100.0
+| 1530.0
+| DF-SfM
+| OPT
+| 63.0
+| 62.7
+| 0.041
+| 100.0
+| -
+| FlowMap
+| OPT
+| 1.9
+| 3.4
+| 0.073
+| 100.0
+| -
+| VGGSfM
+| OPT
+| 63.1
+| 64.2
+| 0.035
+| 98.7
+| 291.3
+| MASt3R-SfM
+| OPT
+| 69.1
+| 70.1
+| 0.026
+| 100.0
+| 503.0
+| Spann3r
+| FFD
+| 21.1
+| 31.4
+| 0.037
+| 100.0
+| 16.7
+| Light3R-SfM
+| FFD
+| 52.5
+| 55.2
+| 0.032
+| 100.0
+| 8.5
+|
+100
+| COLMAP
+| OPT
+| 46.4
+| 45.6
+| 0.026
+| 85.7
+| -
+| GLOMAP
+| OPT
+| 69.2
+| 71.1
+| 0.024
+| 99.8
+| 162.3
+| ACE0
+| OPT
+| 27.3
+| 30.6
+| 0.040
+| 100.0
+| 3393.0
+| DF-SfM
+| OPT
+| 67.4
+| 67.4
+| 0.027
+| 99.9
+| -
+| FlowMap
+| OPT
+| 6.8
+| 10.5
+| 0.045
+| 100.0
+| -
+| VGGSfM
+| OPT
+| 61.7
+| 61.8
+| 0.029
+| 98.5
+| 680.0
+| MASt3R-SfM
+| OPT
+| 70.1
+| 72.3
+| 0.017
+| 100.0
+| 861.5
+| Spann3r
+| FFD
+| 23.5
+| 32.7
+| 0.026
+| 100.0
+| 31.1
+| Light3R-SfM
+| FFD
+| 54.3
+| 55.2
+| 0.022
+| 100.0
+| 16.8
+|
+200
+| COLMAP
+| OPT
+| 64.7
+| 57.7
+| 0.019
+| 97.0
+| -
+| GLOMAP
+| OPT
+| 73.5
+| 74.8
+| 0.016
+| 100.0
+| 536.7
+| ACE0
+| OPT
+| 55.7
+| 57.4
+| 0.019
+| 100.0
+| 4604.4
+| DF-SfM
+| OPT
+| 66.8
+| 69.3
+| 0.016
+| 33.3
+| -
+| FlowMap
+| OPT
+| 22.2
+| 25.8
+| 0.024
+| 100.0
+| -
+| VGGSfM
+| OPT
+| 84.5
+| 86.3
+| 0.007
+| 47.6
+| 1511.6
+| MASt3R-SfM
+| OPT
+| 68.2
+| 68.4
+| 0.013
+| 100.0
+| 1609.0
+| Spann3r
+| FFD
+| 22.8
+| 28.6
+| 0.019
+| 100.0
+| 60.4
+| Light3R-SfM
+| FFD
+| 52.4
+| 53.1
+| 0.016
+| 100.0
+| 33.4
+|
+full
+| COLMAP
+| OPT
+| GT
+| GT
+| GT
+| GT
+| -
+| GLOMAP
+| OPT
+| 75.8
+| 76.7
+| 0.010
+| 100.0
+| 1977.7
+| ACE0
+| OPT
+| 56.9
+| 57.9
+| 0.015
+| 100.0
+| 5499.5
+| DF-SfM
+| OPT
+| 69.6
+| 69.3
+| 0.014
+| 76.2
+| -
+| FlowMap
+| OPT
+| 31.7
+| 35.7
+| 0.017
+| 66.7
+| -
+| VGGSfM
+| OPT
+| -
+| -
+| -
+| 0.0
+| 2134.2
+| MASt3R-SfM
+| OPT
+| 49.2
+| 54.0
+| 0.011
+| 100.0
+| 2723.1
+| Spann3r
+| FFD
+| 20.3
+| 24.7
+| 0.016
+| 100.0
+| 116.2
+| Light3R-SfM
+| FFD
+| 52.0
+| 52.8
+| 0.011
+| 100.0
+| 63.4
+Table 1: Multi-view pose estimation on Tanks&Temples [21]. We adopt the benchmark by [12] and consider 25/50/100/200 view subsets and using the full sequence. We report relative pose accuracy RRA@5 and RTA@5, absolute translation error (ATE) and registration rate (Reg.). For clarity, we color-code results with a linear gradient between the worst and best result for a given scene. ‘-’ results indicate that all scenes did not converge or that we did not obtain runtime measurements. We specify the type of alignment used by each methods, ‘OPT’ stands for optimization-based and ‘FFD’ stands for feedforward-based.
+Comparison to state-of-the-art methods.
+We follow previous work [12] compare across 5 different view settings including sparsely sampled 25/50/100/200 frame subsets and the original full sequence.
+As shown in Tab. 1, our method is competitive with other learning-based methods including VGGSfM, ACE-Zero, and FlowMap. Our method is less accurate than Glomap, Colmap and the concurrent work MASt3R-SfM, particularly for the dense view setting with more than 200 images.
+Those methods rely on classical optimization techniques such as bundle adjustment [12, 37, 30, 18] or 3D global alignment [51, 12] to achieve better accuracy, but they suffer from limited scalability. For example, Glomap and MASt3R-SfM require 30\times and 43\times more runtime than our method in full-sequence.
+The only method that has a runtime in the same magnitude as ours is Spann3R, which also proposes to replace the computationally expensive global alignment of DUSt3R with an implicit alignment implemented via a memory bank.
+To enable Spann3R online evaluation, we sort the multi-view image frames based on their timestamps.
+Compared to Spann3R, we show that our latent global alignment module is significantly superior for the SfM setting in both accuracy and runtime, leading to an average of 145\% and 84\% increase in RRA and RTA scores across 5 view settings with approximately half of its runtime.
+|
+| Model
+| Images
+| RRA@5 \uparrow
+| RTA@5 \uparrow
+| ATE \downarrow
+| Time [s] \downarrow
+|
+25
+| Spann3R
+| sorted
+| 19.6
+| 30.7
+| 0.060
+| 8.3
+| unordered
+| 10.6
+| 20.1
+| 0.070
+| 9.3
+| all pairs
+| 20.5
+| 31.8
+| 0.057
+| 77.7
+| Light3R-SfM 224
+| SPT
+| 29.9
+| 33.0
+| 0.066
+| 2.2
+| Light3R-SfM
+| SPT
+| 50.9
+| 54.2
+| 0.048
+| 4.4
+|
+50
+| Spann3R
+| sorted
+| 21.1
+| 31.4
+| 0.037
+| 16.7
+| unordered
+| 12.4
+| 19.0
+| 0.050
+| 18.3
+| all pairs
+| 25.8
+| 33.5
+| 0.043
+| 306.0
+| Light3R-SfM 224
+| SPT
+| 34.8
+| 36.3
+| 0.044
+| 4.3
+| Light3R-SfM
+| SPT
+| 52.5
+| 55.2
+| 0.032
+| 8.5
+|
+full
+| Spann3R
+| sorted
+| 20.3
+| 24.7
+| 0.016
+| 116.2
+| unordered
+| 12.8
+| 19.8
+| 0.018
+| 125.6
+| all pairs
+| OOM
+| Light3R-SfM 224
+| SPT
+| 32.9
+| 34.5
+| 0.017
+| 29.4
+| Light3R-SfM
+| SPT
+| 52.0
+| 52.8
+| 0.011
+| 63.4
+Table 2: Detailed comparison to Spann3R. We compare on Tanks&Temples using the 25 and 50 image subsets as well as the full sequences.
+Detailed comparison to Spann3R.
+To fully demonstrate the advantage of our proposed approach for feed-forward SfM, we present a more thorough comparison to the other feed-forward method Spann3R.
+As shown in Tab. 2, Spann3R degrades significantly if the input is an unordered image set due to the lack temporal coherence between frames.
+To process an unordered image set, Spann3R proposes an offline version that relies on estimating the optimal order of frames via exhaustively evaluating all images pairs. We find that this leads to a significant runtime increase, e.g., \times 36 higher runtime than our Light3R-SfM in the 50-view setting, while still being significantly less accurate. When moving to the full video sequences with up to 1100 frames, this setup even encounters out-of-memory errors.
+Finally, even when operating on the full, sorted video sequence, which Spann3R is specifically designed to handle, performance is still subpar. In comparison, our method is able to provide more accurate poses, even when considering the same image resolution, fully validating the superiority of our method for the SfM setting.
+4.2 Object-centric Multi-view Pose Estimation
+Dataset. Next, we evaluate our method on object-centric scenes, for which we consider CO3Dv2 [32], containing 37k turntable-like videos of objects from 51 MS-COCO categories and camera poses annotated using Colmap.
+Baselines. In addition to the previously mentioned baselines, we further compare to the state-of-the-art multi-view pose regression methods including PoseDiff [49], PosReg [49], and RelPose++ [24], which also predict aligned camera poses in a feed-forward manner.
+We also compare to a MASt3R * baseline where we employ the off-the-shelf MASt3R model without any additional training inside our proposed framework.
+Metrics. We report relative rotation accuracy and relative translation accuracy with threshold 15, e.g., RRA@15 and RTA@15.
+We further calculate the mean Average Accuracy (mAA)@30, defined as the area under the curve accuracy of the angular differences at \min (RRA@30, RTA@30).
+|
+| Method
+| Global
+| Co3Dv2 \uparrow
+|
+| Align.
+| RRA@15
+| RTA@15
+| mAA@30
+|
+10
+| Colmap [37]
+| OPT
+| 31.6
+| 27.3
+| 25.3
+| Glomap [30]
+| OPT
+| 45.9
+| 40.3
+| 37.3
+| PixSfM [25]
+| OPT
+| 33.7
+| 32.9
+| 30.1
+| VGGSfM [50]
+| OPT
+| 92.1
+| 88.3
+| 74.0
+| DUSt3R-GA [51]
+| OPT
+| 96.2
+| 86.8
+| 76.7
+| MASt3R-SfM [12]
+| OPT
+| 96.0
+| 93.1
+| 88.0
+| PoseDiff [49]
+| FFD
+| 80.5
+| 79.8
+| 66.5
+| PosReg [49]
+| FFD
+| 53.2
+| 49.1
+| 45.0
+| RelPose++ [24]
+| FFD
+| 82.3
+| 77.2
+| 65.1
+| Spann3R [48]
+| FFD
+| 89.5
+| 83.2
+| 70.3
+| MASt3R * [22]
+| FFD
+| 94.5
+| 80.9
+| 68.7
+|
+| Light3R-SfM
+| FFD
+| 94.7
+| 85.8
+| 72.8
+|
+2
+| DUSt3R [51]
+| FFD
+| 94.3
+| 88.4
+| 77.2
+| MASt3R [22]
+| FFD
+| 94.6
+| 91.9
+| 81.8
+| Spann3R [48]
+| FFD
+| 91.9
+| 89.9
+| 77.6
+| Light3R-SfM
+| FFD
+| 95.5
+| 93.2
+| 81.6
+Table 3: Wide-baseline, multi-view camera pose estimation on CO3Dv2 [32]. We vary the number of input images by randomly sampling from the original sequence.
+Results.
+Similar to [12], we evaluate on 2-view and 10-view settings.
+As shown in the upper part of Tab. 3, for the 10-view setting, we are significantly more accurate than traditional optimization-based SfM methods such as Colmap, Glomap and PixSfM.
+Our performance is on-par with VGGSfM which trains one model per dataset for evaluation, while our method generalizes across datasets.
+We are less accurate than DUSt3R and concurrent MASt3R-SfM that benefit from optimization-based global alignment at the cost of scalability and efficiency as discussed in Sec. 4.1, however, we note that our latent global alignment almost closes the gap towards DUSt3R-GA.
+Compared to other feed-forward methods, our method achieves the best performance across all metrics.
+Comparing to MASt3R *, we demonstrate the benefit coming from our contributions leading to a 6.1\% increase in RTA@15.
+Among the feed-forward methods, only ours and Spann3R evaluate on a large number of images, while the other works typically focus on object-centric scenes.
+In the bottom part of Tab. 3, we demonstrate superior performance compared to other feed-forward methods on pairwise pose estimation. This setting decouples the need for global alignment, indicating that our proposed global supervision on the accumulated pairwise predictions helps to predict more accurate pointmaps for pose estimation in general.
+|
+| Waymo [43] Val. Split
+| Method
+| RRA@5 \uparrow
+| RTA@5 \uparrow
+| ATE \downarrow
+| Runtime(s) \downarrow
+| MASt3R-SfM [22]
+| 75.7
+| 63.7
+| 0.005
+| 1662.0
+| Spann3R [48]
+| 55.1
+| 14.5
+| 0.025
+| 53.8
+| Light3R-SfM
+| 78.3
+| 57.7
+| 0.019
+| 8.5
+Table 4: Camera pose estimation on driving scenes.
+4.3 Evaluation on Driving Scenes
+Dataset. We further evaluate our model on driving scenes where we validate our generalization capability to translating camera motion. We use the validation split of Waymo Open Dataset [43], which contains a collection of 200 20-second clips recorded at 10Hz from an autonomous vehicle.
+For each sequence, we use the 200 input frames from the forward-looking camera.
+Baselines. We compare against our concurrent works Spann3R and MASt3R-SfM, which also build on top of DUSt3R and have also seen Waymo training split as us.
+Results.
+As shown in Tab. 4, Light3R-SfM achieves comparable accuracy to optimization-based MASt3R-SfM at \sim 195\times lower runtime.
+Compared to the concurrent feed-forward Spann3R, we significantly outperform Spann3R achieving \sim 4\times better accuracy in RTA@5 at > 6\times lower runtime.
+This confirms that our latent alignment design leads to a more accurate and efficient modeling of global alignment compared to a memory-based architecture in Spann3R.
+We visualize pointmaps predicted by Light3R-SfM and our baselines in Fig. 3.
+Figure 3: Qualitative comparison on a Waymo scene. Note how the MASt3R-SfM reconstruction does not truthfully reconstruct the 90° turn, while Spann3R predictions degrade after tens of frames.
+4.4 Ablation Studies
+In this section, we perform in-depth ablation study to fully understand each component of our method. We perform all ablation experiments on Tanks&Temple [21] dataset using its 200 view subset and report the same multi-view pose estimation metrics as defined in Sec. 4.1.
+|
+| Backbone
+| Global
+| Latent
+| Graph
+| Tanks&Temple [21] - 200 Views
+|
+| Init.
+| Sup.
+| Align.
+| Const.
+| RRA@5 \uparrow
+| RTA@5 \uparrow
+| ATE \downarrow
+| (a)
+| MASt3R
+| ✗
+| ✗
+| SPT
+| 47.5
+| 48.3
+| 0.019
+| MASt3R
+| ✗
+| ✓
+| SPT
+| 50.8
+| 48.7
+| 0.016
+| DUSt3R
+| ✓
+| ✓
+| SPT
+| 48.8
+| 48.8
+| 0.016
+| (b)
+| MASt3R
+| ✓
+| ✓
+| Oracle
+| 52.8
+| 53.8
+| 0.016
+| MASt3R
+| ✓
+| ✓
+| MST
+| 44.4
+| 39.5
+| 0.017
+|
+| MASt3R
+| ✓
+| ✓
+| SPT
+| 52.4
+| 53.1
+| 0.016
+Table 5: Model ablation. We study the impact of backbone initialization, global supervision, latent alignment as well as different ways for graph construction on pose estimation performance.
+Model components.
+In the part (a) of Tab. 5, we ablate the influence of backbone initialization, global supervision defined in Eq. 11 and latent alignment defined in Sec. 3.1 when using the same graph construction process and pose accumulation process described in Sec. 3.3.
+We show that adding latent alignment leads to 6.95% increase in RRA@5 and 15.78% decrease in ATE over the baseline.
+By further adding global supervision, we obtain our final model (last row), which brings another 3.14% and 9.03% increase in RRA@5 and RTA@5.
+Switching the backbone initialization of our full model from MASt3R to DUSt3R leads to 6.87% and 8.1% drop in RRA@5 and RTA@5.
+Scene graph construction.
+In part (b) of Tab. 5, we analyze the impact of different options in building the scene graph introduced in Sec. 3.2.
+Specifically, we present an graph construction Oracle, where we use ground truth overlapping score to obtain an optimal spanning tree, indicating the upper bound performance our method can achieve by improving the retrieval step.
+We show that our encoder retrieval is able to construct a high-quality scene graph that leads to performance very close to Oracle.
+We further compare to another baseline where we obtain a minimal spanning tree instead. This leads to 15.26% and 25.61% accuracy decrease in RRA@5 and RTA@5, demonstrating the importance modulating the depth of the tree for our method.
+|
+| Conf. thr.
+| Reg. ( \uparrow )
+| RRA@5 ( \uparrow )
+| RTA@5 ( \uparrow )
+| RRA@15 ( \uparrow )
+| RTA@15 ( \uparrow )
+| MASt3R-SfM
+| N/A
+| 100.0
+| 68.0
+| 70.3
+| 73.8
+| 77.3
+| Light3R-SfM
+| 3
+| 84.8
+| 56.5
+| 58.9
+| 77.6
+| 76.4
+| 5
+| 83.2
+| 63.0
+| 62.2
+| 80.0
+| 78.7
+| 7
+| 75.8
+| 65.2
+| 63.7
+| 81.3
+| 80.2
+Table 6: Pointmap confidence analysis on Tanks&Temples [21]. Our learned confidence maps effectively filter outlier points, leading to increased rejected frames yet overall more accurate poses.
+Pointmap confidence analysis.
+During inference, we compute global camera poses for each frame from the predicted pointmaps where we filter out 3D points if their confidence score is lower than a certain confidence threshold.
+In Tab. 6, we study the impact of different confident thresholds, e.g., from 3 to 7, on pose estimation performance.
+We show that the learned confidence maps effectively identify the confident points from images, leading to decreasing registration rate and improved pose accuracy when we increase the threshold, which enables a flexible control over trading-off accurateness and completeness depending on the downstream applications.
+Generalization.
+We showed that our method trained on a specific 8-view graph structure generalizes well to all kinds of view settings, e.g., (minimal) 2-view, (sparse) 10/25/100/200-view and full-view settings in Tab. 1.
+In addition, we confirm solid generalization of our method by consistently outperforming our concurrent baseline Spann3R, across different types scenes and datasets including object-centric scenes from Co3Dv2 [32], driving scenes from Waymo [43] and unseen natural indoor and outdoor scenes from Tanks and Temples [21].
+| Image
+| Image
+| Latent.
+| Graph
+| Pointmap
+| Global
+| Total
+| Max. GPU
+| Resol.
+| Encoding
+| Alignment
+| Const.
+| Decoding
+| Accum.
+| Runtime(s)
+| VRAM (GB)
+| 224
+| 3.6
+| 3.4
+| 0.1
+| 23.2
+| 0.9
+| 52.3
+| 8.0
+| 512
+| 12.3
+| 7.5
+| 1.4
+| 68.4
+| 1.0
+| 135.8
+| 25.6
+Table 7: Runtime Analysis. We evaluate Light3R-SfM on the Courthouse scene with 1106 images using a NVIDIA V100-32GB.
+Runtime analysis.
+We analyze the detailed runtime required by individual components and the memory footprint of our method in Tab. 7 by evaluating it on the Courthouse scene at two image resolutions using a NVIDIA V100-32GB. We split the batch into chunks of 32 for both the encoder and decoder which can be adapted to fit smaller or larger GPU memory budgets, trading off runtime.
+Figure 4: Reconstructing opposite-oriented cameras. After conditioning Light3R-SfM’s decoder with the output from our global latent alignment, it is able to predict pointmaps even for images recorded in opposite directions, suggesting the latent global alignment has learned a representation of the entire scene.
+5 Conclusion
+We presented Light3R-SfM, a novel pipeline to perform SfM without traditional components such as matching or global optimization. For this, we build upon 3D foundation models operating on image pairs and scale these to large image collections via a scalable global latent alignment module, effectively aligning pairwise predictions in latent space, replacing global optimization. Further, we leverage a sparse scene graph keeping memory requirements low. We show that such an approach allows to significantly reduce runtime while providing competitive accuracy, opening up exciting new research opportunities towards data-driven approaches for a field that is traditionally dominated by optimization-based methods.
+Limitations. We acknowledge that our current model does not scale to all SfM settings, for example for collections of tens of thousands of images. Furthermore, the accuracy of poses at tight thresholds still lacks behind SOTA optimization-based methods, most likely due to the low image resolution processed by learned methods.
+References
+[1]
+Sameer Agarwal, Yasutaka Furukawa, Noah Snavely, Ian Simon, Brian Curless,
+Steven M Seitz, and Richard Szeliski.
+Building rome in a day.
+Communications of the ACM, 54(10):105–112, 2011.
+[2]
+Mica Arie-Nachimson, Shahar Z Kovalsky, Ira Kemelmacher-Shlizerman, Amit
+Singer, and Ronen Basri.
+Global motion estimation from point matches.
+In 2012 Second international conference on 3D imaging,
+modeling, processing, visualization & transmission, pages 81–88. IEEE,
+2012.
+[3]
+Jonathan T Barron, Ben Mildenhall, Matthew Tancik, Peter Hedman, Ricardo
+Martin-Brualla, and Pratul P Srinivasan.
+Mip-nerf: A multiscale representation for anti-aliasing neural
+radiance fields.
+In Proceedings of the IEEE/CVF international conference on
+computer vision, pages 5855–5864, 2021.
+[4]
+H. G. Barrow, J. M. Tenenbaum, R. C. Bolles, and H. C. Wolf.
+Parametric correspondence and chamfer matching: Two new techniques
+for image matching.
+In Proceedings of the 5th International Joint Conference on
+Artificial Intelligence - Volume 2, pages 659–663.
+[5]
+Eric Brachmann, Alexander Krull, Sebastian Nowozin, Jamie Shotton, Frank
+Michel, Stefan Gumhold, and Carsten Rother.
+Dsac-differentiable ransac for camera localization.
+In Proceedings of the IEEE conference on computer vision and
+pattern recognition, pages 6684–6692, 2017.
+[6]
+Eric Brachmann, Tommaso Cavallari, and Victor Adrian Prisacariu.
+Accelerated coordinate encoding: Learning to relocalize in minutes
+using rgb and poses.
+In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition, pages 5044–5053, 2023.
+[7]
+Eric Brachmann, Jamie Wynn, Shuai Chen, Tommaso Cavallari, Áron
+Monszpart, Daniyar Turmukhambetov, and Victor Adrian Prisacariu.
+Scene coordinate reconstruction: Posing of image collections via
+incremental learning of a relocalizer.
+In European Conference on Computer Vision, 2024.
+[8]
+Qi Cai, Lilian Zhang, Yuanxin Wu, Wenxian Yu, and Dewen Hu.
+A pose-only solution to visual reconstruction and navigation.
+IEEE Transactions on Pattern Analysis and Machine
+Intelligence, 45(1):73–86, 2021.
+[9]
+Zhaopeng Cui and Ping Tan.
+Global structure-from-motion by similarity averaging.
+In Proceedings of the IEEE International Conference on Computer
+Vision, pages 864–872, 2015.
+[10]
+Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabinovich.
+Superpoint: Self-supervised interest point detection and description.
+In Proceedings of the IEEE conference on computer vision and
+pattern recognition workshops, pages 224–236, 2018.
+[11]
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn,
+Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg
+Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby.
+An Image is Worth 16x16 Words: Transformers for
+Image Recognition at Scale.
+In International Conference on Learning
+Representations, 2020.
+[12]
+Bardienus Duisterhof, Lojze Zust, Philippe Weinzaepfel, Vincent Leroy, Yohann
+Cabon, and Jerome Revaud.
+Mast3r-sfm: a fully-integrated solution for unconstrained
+structure-from-motion.
+arXiv preprint arXiv:2409.19152, 2024.
+[13]
+Johan Edstedt, Ioannis Athanasiadis, Mårten Wadenbäck, and Michael
+Felsberg.
+Dkm: Dense kernelized feature matching for geometry estimation.
+In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition, pages 17765–17775, 2023.
+[14]
+Johan Edstedt, Qiyu Sun, Georg Bökman, Mårten Wadenbäck, and
+Michael Felsberg.
+Roma: Robust dense feature matching.
+In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition, pages 19790–19800, 2024.
+[15]
+Martin A. Fischler and Robert C. Bolles.
+Random sample consensus: A paradigm for model fitting with
+applications to image analysis and automated cartography.
+Commun. ACM, (6):381–395, 1981.
+[16]
+L. R. Ford.
+Network Flow Theory.
+RAND Corporation, Santa Monica, CA, 1956.
+[17]
+Jan-Michael Frahm, Pierre Fite-Georgel, David Gallup, Tim Johnson, Rahul
+Raguram, Changchang Wu, Yi-Hung Jen, Enrique Dunn, Brian Clipp, Svetlana
+Lazebnik, et al.
+Building rome on a cloudless day.
+In European Conference on Computer Vision, pages 368–381.
+Springer, 2010.
+[18]
+Xingyi He, Jiaming Sun, Yifan Wang, Sida Peng, Qixing Huang, Hujun Bao, and
+Xiaowei Zhou.
+Detector-free structure from motion.
+In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition, pages 21594–21603, 2024.
+[19]
+Nikita Karaev, Ignacio Rocco, Benjamin Graham, Natalia Neverova, Andrea
+Vedaldi, and Christian Rupprecht.
+CoTracker: It is Better to Track Together.
+In European Conference on Computer Vision (ECCV), 2024.
+[20]
+Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and George Drettakis.
+3d gaussian splatting for real-time radiance field rendering.
+ACM Trans. Graph., 42(4):139–1, 2023.
+[21]
+Arno Knapitsch, Jaesik Park, Qian-Yi Zhou, and Vladlen Koltun.
+Tanks and temples: Benchmarking large-scale scene reconstruction.
+ACM Transactions on Graphics, 36(4), 2017.
+[22]
+Vincent Leroy, Yohann Cabon, and Jérôme Revaud.
+Grounding image matching in 3d with mast3r.
+European Conference on Computer Vision, 2024.
+[23]
+Zhengqi Li and Noah Snavely.
+MegaDepth: Learning Single-View Depth Prediction From Internet
+Photos.
+In Proceedings of the IEEE Conference on Computer
+Vision and Pattern Recognition, pages 2041–2050, 2018.
+[24]
+Amy Lin, Jason Y Zhang, Deva Ramanan, and Shubham Tulsiani.
+Relpose++: Recovering 6d poses from sparse-view observations.
+arXiv preprint arXiv:2305.04926, 2023.
+[25]
+Philipp Lindenberger, Paul-Edouard Sarlin, Viktor Larsson, and Marc Pollefeys.
+Pixel-perfect structure-from-motion with featuremetric refinement.
+In Proceedings of the IEEE/CVF international conference on
+computer vision, pages 5987–5997, 2021.
+[26]
+Philipp Lindenberger, Paul-Edouard Sarlin, and Marc Pollefeys.
+Lightglue: Local feature matching at light speed.
+In Proceedings of the IEEE/CVF International Conference on
+Computer Vision, pages 17627–17638, 2023.
+[27]
+Zhendong Liu, Wenhu Qv, Haolin Cai, Hongliang Guan, and Shuaizhe Zhang.
+An efficient and robust hybrid sfm method for large-scale scenes.
+Remote Sensing, 15(3):769, 2023.
+[28]
+Ilya Loshchilov and Frank Hutter.
+Decoupled Weight Decay Regularization, 2019.
+[29]
+Ben Mildenhall, Pratul P Srinivasan, Matthew Tancik, Jonathan T Barron, Ravi
+Ramamoorthi, and Ren Ng.
+Nerf: Representing scenes as neural radiance fields for view
+synthesis.
+Communications of the ACM, 65(1):99–106,
+2021.
+[30]
+Linfei Pan, Dániel Baráth, Marc Pollefeys, and Johannes L
+Schönberger.
+Global structure-from-motion revisited.
+In European Conference on Computer Vision (ECCV), 2024.
+[31]
+Rui Peng, Rongjie Wang, Zhenyu Wang, Yawen Lai, and Ronggang Wang.
+Rethinking depth estimation for multi-view stereo: A unified
+representation.
+In Proceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, pages 8645–8654, 2022.
+[32]
+Jeremy Reizenstein, Roman Shapovalov, Philipp Henzler, Luca Sbordone, Patrick
+Labatut, and David Novotny.
+Common Objects in 3D: Large-Scale Learning and
+Evaluation of Real-Life 3D Category Reconstruction.
+In Proceedings of the IEEE/CVF International Conference
+on Computer Vision, pages 10901–10911, 2021.
+[33]
+Jerome Revaud, Cesar De Souza, Martin Humenberger, and Philippe Weinzaepfel.
+R2d2: Reliable and repeatable detector and descriptor.
+Advances in neural information processing systems, 32, 2019.
+[34]
+Paul-Edouard Sarlin, Cesar Cadena, Roland Siegwart, and Marcin Dymczyk.
+From coarse to fine: Robust hierarchical localization at large scale.
+In Proceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, pages 12716–12725, 2019.
+[35]
+Paul-Edouard Sarlin, Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabinovich.
+Superglue: Learning feature matching with graph neural networks.
+In Proceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, pages 4938–4947, 2020.
+[36]
+Torsten Sattler, Bastian Leibe, and Leif Kobbelt.
+Improving image-based localization by active correspondence search.
+In Computer Vision–ECCV 2012: 12th European Conference on
+Computer Vision, Florence, Italy, October 7-13, 2012, Proceedings, Part I
+12, pages 752–765. Springer, 2012.
+[37]
+Johannes L Schonberger and Jan-Michael Frahm.
+Structure-from-motion revisited.
+In Proceedings of the IEEE conference on computer vision and
+pattern recognition, pages 4104–4113, 2016.
+[38]
+Thomas Schops, Johannes L. Schonberger, Silvano Galliani, Torsten Sattler,
+Konrad Schindler, Marc Pollefeys, and Andreas Geiger.
+A Multi-View Stereo Benchmark With High-Resolution Images and
+Multi-Camera Videos.
+In Proceedings of the IEEE Conference on Computer
+Vision and Pattern Recognition, pages 3260–3269, 2017.
+[39]
+Jamie Shotton, Ben Glocker, Christopher Zach, Shahram Izadi, Antonio Criminisi,
+and Andrew Fitzgibbon.
+Scene coordinate regression forests for camera relocalization in
+rgb-d images.
+In Proceedings of the IEEE conference on computer vision and
+pattern recognition, pages 2930–2937, 2013.
+[40]
+Cameron Smith, David Charatan, Ayush Tewari, and Vincent Sitzmann.
+Flowmap: High-quality camera poses, intrinsics, and depth via
+gradient descent.
+arXiv preprint arXiv:2404.15259, 2024.
+[41]
+Noah Snavely, Steven M Seitz, and Richard Szeliski.
+Photo tourism: exploring photo collections in 3d.
+In ACM siggraph 2006 papers, pages 835–846. 2006.
+[42]
+Jiaming Sun, Zehong Shen, Yuang Wang, Hujun Bao, and Xiaowei Zhou.
+Loftr: Detector-free local feature matching with transformers.
+In Proceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, pages 8922–8931, 2021.
+[43]
+Pei Sun, Henrik Kretzschmar, Xerxes Dotiwalla, Aurelien Chouard, Vijaysai
+Patnaik, Paul Tsui, James Guo, Yin Zhou, Yuning Chai, Benjamin Caine, Vijay
+Vasudevan, Wei Han, Jiquan Ngiam, Hang Zhao, Aleksei Timofeev, Scott
+Ettinger, Maxim Krivokon, Amy Gao, Aditya Joshi, Yu Zhang, Jonathon Shlens,
+Zhifeng Chen, and Dragomir Anguelov.
+Scalability in Perception for Autonomous Driving: Waymo
+Open Dataset.
+In Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, pages 2446–2454, 2020.
+[44]
+George Terzakis and Manolis Lourakis.
+A Consistently Fast and Globally Optimal Solution to the
+Perspective-n-Point Problem.
+In Computer Vision – ECCV 2020, pages 478–494, Cham,
+2020.
+[45]
+S. Umeyama.
+Least-squares estimation of transformation parameters between two
+point patterns.
+IEEE Transactions on Pattern Analysis and Machine
+Intelligence, (4):376–380, 1991.
+[46]
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
+Aidan N Gomez, Ł ukasz Kaiser, and Illia Polosukhin.
+Attention is All you Need.
+In Advances in Neural Information Processing Systems,
+2017.
+[47]
+Sheng Wan, Tung-Yu Wu, Wing H. Wong, and Chen-Yi Lee.
+Confnet: Predict with Confidence.
+In 2018 IEEE International Conference on Acoustics,
+Speech and Signal Processing (ICASSP), pages 2921–2925, 2018.
+[48]
+Hengyi Wang and Lourdes Agapito.
+3d reconstruction with spatial memory.
+arXiv preprint arXiv:2408.16061, 2024.
+[49]
+Jianyuan Wang, Christian Rupprecht, and David Novotny.
+Posediffusion: Solving pose estimation via diffusion-aided bundle
+adjustment.
+In Proceedings of the IEEE/CVF International Conference on
+Computer Vision, pages 9773–9783, 2023.
+[50]
+Jianyuan Wang, Nikita Karaev, Christian Rupprecht, and David Novotny.
+Vggsfm: Visual geometry grounded deep structure from motion.
+In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition, pages 21686–21697, 2024a.
+[51]
+Shuzhe Wang, Vincent Leroy, Yohann Cabon, Boris Chidlovskii, and Jerome Revaud.
+Dust3r: Geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition, pages 20697–20709, 2024b.
+[52]
+Wenshan Wang, Delong Zhu, Xiangwei Wang, Yaoyu Hu, Yuheng Qiu, Chen Wang, Yafei
+Hu, Ashish Kapoor, and Sebastian Scherer.
+TartanAir: A Dataset to Push the Limits of Visual
+SLAM.
+In 2020 IEEE/RSJ International Conference on
+Intelligent Robots and Systems (IROS), pages 4909–4916, 2020.
+[53]
+Philippe Weinzaepfel, Thomas Lucas, Vincent Leroy, Yohann Cabon, Vaibhav Arora,
+Romain Brégier, Gabriela Csurka, Leonid Antsfeld, Boris Chidlovskii, and
+Jerome Revaud.
+CroCo v2: Improved Cross-view Completion Pre-training for
+Stereo Matching and Optical Flow.
+In Proceedings of the IEEE/CVF International Conference
+on Computer Vision, pages 17969–17980, 2023.
+[54]
+E. Weiszfeld.
+Sur le point pour lequel la Somme des distances de n points
+donnés est minimum.
+Tohoku Mathematical Journal, First Series, pages 355–386,
+1937.
+[55]
+Kyle Wilson and Noah Snavely.
+Robust global translations with 1dsfm.
+In Computer Vision–ECCV 2014: 13th European Conference,
+Zurich, Switzerland, September 6-12, 2014, Proceedings, Part III 13, pages
+61–75. Springer, 2014.
+[56]
+Changchang Wu.
+Towards linear-time incremental structure from motion.
+In 2013 International Conference on 3D Vision-3DV 2013, pages
+127–134. IEEE, 2013.
+[57]
+Shen Yan, Maojun Zhang, Shiming Lai, Yu Liu, and Yang Peng.
+Image retrieval for structure-from-motion via graph convolutional
+network.
+Information Sciences, 573:20–36, 2021.
+[58]
+Junyi Zhang, Charles Herrmann, Junhwa Hur, Varun Jampani, Trevor Darrell,
+Forrester Cole, Deqing Sun, and Ming-Hsuan Yang.
+Monst3r: A simple approach for estimating geometry in the presence of
+motion.
+arXiv preprint arXiv:2410.03825, 2024.
+[59]
+Qunjie Zhou, Torsten Sattler, and Laura Leal-Taixe.
+Patch2pix: Epipolar-guided pixel-level correspondences.
+In Proceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, pages 4669–4678, 2021.
+Supplementary Material for Light3R-SfM
+In this supplementary document, we provide implementation details in Appendix A, additional evaluations on Tanks&Temples for pose estimation (Appendix B) and Waymo Open Dataset for 3D reconstruction (Appendix C).
+Furthermore, we conduct more ablation studies to validate our model design in Appendix D, followed by qualitative visualizations in Appendix E.
+Appendix A Implementation Details
+Model. Our model adopts the same encoder and decoder architecture as DUSt3R, i.e., the VIT-L image encoder and the two pointmap decoding regression heads parameterized by VIT-B [11]. For global alignment, we use L=4 blocks. \mathtt{Self} and \mathtt{Cross} are implemented as vanilla self-and cross-attention layers [46] with 8 attention heads and pre-normalization. Their feature dimensionality is the same as the VIT-L encoder dimension, i.e., 1024 .
+Training.
+We train our model on four datasets: Waymo Open Dataset [43], CO3Dv2 [32], MegaDepth [23], and TartanAir [52].
+For training, we sample graphs of N=8 images based on pairwise scores proposed in CroCo [53] and a greedy algorithm which iteratively adds additional images with maximum viewpoint angle difference w.r.t. all images already in the set, until the desired number of images is reached. Images are resized such that their longer side has length 512 and then center cropped such that the shorter side is in \{384,336,288,256,160\} leading to different aspect ratios for training. Further, we apply color jitter augmentation.
+We initialize our model encoder and decoder using MASt3R pretrained weights.
+We train it for 100,000 iterations with batch size 8 (each batch element corresponds to one graph of images) using AdamW [28] with learning rate 10^{-6} and weight decay 5\times 10^{-4} on 8 NVIDIA A100-80GB GPUs. The model on small resolutions (using 224\times 224) is trained on 16 NVIDIA V100-32 GPUs with per-GPU batch size of 2, resulting in overall batch size of 32. We scale the learning rale linearly with batch size.
+Inference. At test time, we extract the global camera pose from the pointmaps in global reference frame X^{i} and their corresponding confidence maps C^{i} . We follow Wang et al. [51] and first estimate the focal length with a robust estimator [54] and then proceed to extract the pose with RANSAC-PnP [15, 44] from points with their corresponding confidence in C^{i} larger than a threshold. By default we use a threshold of 3 , or the 90 %-quantile if all confidences fall below the threshold.
+To reduce regression noise, we further symmetrize the edges during inference and combine the pointmap predictions using a confidence-weighted average. In detail, we decode the symmetric edge (j,i) , now predicting in the reference frame of image j , for every edge (i,j)\in E_{\mathtt{SPT}} , extract the pairwise pose using Procrustes as described in the main paper, then apply the transformation to the output pointmaps X^{j,i} , X^{j,j} to obtain \tilde{X}^{i,i} and \tilde{X}^{i,j} respectively. We then compute the confidence-weighted average for the pointmaps of the edge (i,j) we are interested in.
+Here, we introduce the computation to combine X^{i,i} and \tilde{X}^{i,i} but it applies symmetrically to X^{i,j} .
+First, we compute weight from the confidences C^{i,i} corresponding to edge (i,j) and C^{j,i} from edge (j,i) as
+|
+| G^{i,i}_{u,v}=\frac{\log C^{i,i}_{u,v}}{\log C^{i,i}_{u,v}+\log C^{j,i}_{u,v}}
+|
+where u\in\{1,\dots,W\},v\in\{1,\dots,H\} are indexing into the confidence-/pointmaps. Note that the confidence maps correspond to the same image fed in different position to the pairwise decoder.
+We then compute the average-weighted pointmap as
+|
+| X^{i,i}_{u,v}\coloneqq(G^{i,i}_{u,v})X^{i,i}_{u,v}\cdot(1-G^{i,i}_{u,v})\tilde{X}^{i,i}_{u,v}
+|
+incorporating information from the decoder evaluation of the symmetric edge, thus refining the pointmap.
+Appendix B Additional Details on Tanks & Temples [21]
+Runtime evaluation.
+For completeness, we report the per-scene reconstruction runtime for all baseline methods in Tab. 12.
+For fair comparison, we run other methods using their open-source implementation with default parameters provided with the code on the same base system with 10 CPU cores, 64GB system memory, and one NVIDIA V100 GPU with 32GB VRAM.
+For MASt3R-SfM [22], we adopt the hyper-parameters reported in the paper.
+We have to do specific adjustment for VGGSfM [50] to fit the GPU memory budget where we follow their suggestions 11
+1
+https://github.com/facebookresearch/vggsfm/blob/main/README.md
+and reduce max_points_num to 40,960 and max_tri_points_num to 204,800 , i.e., \nicefrac{{1}}{{4}} their original values.
+However, this still leads to out-of-memory errors when evaluating on most of the full sequences and some of the 200-image sequences supposedly due to excessive amount of detected keypoints, and thus we do not report the runtime results in these situations.
+Pose accuracy evaluation.
+In the main paper, we report pose accuracy at tight error threshold of 5°. In Fig. 5, we provide a more complete overview of the model performance at other thresholds by plotting the pose accuracy as a function of the error threshold for both relative rotation and translation errors.
+We observe a gap at tight thresholds between feed-forward approaches (Light3R-SfM, Spann3R [48]) and optimization-based approaches, however, this gap rapidly shrinks for our method when moving towards looser thresholds, while Spann3R is consistently worse. This suggests that Light3R-SfM is generally able to locate the correct positions and orientations of cameras while struggling to regress the exact values which is more easily achieved via optimization.
+For some downstream applications that perform pose refinement, e.g., novel-view synthesis via Gaussian splatting [20], these coarse poses might already be sufficient and can directly enjoy the significant speed-ups of up to 198\times of our method. Further, these results suggest that a small optimization stage on top of the regressed outputs, converging fast due to good initialization, could significantly increase performance at tight thresholds. We leave investigation into this direction to future work.
+Figure 5: CDF of pose errors on 100-view Tanks&Temples scenes.
+Appendix C Evaluation on 3D Reconstruction
+We further evaluate our method on 3D reconstruction using Waymo Open Dataset [43].
+We evaluate the quality of the global predicted point cloud per scene by computing the Chamfer distance [4] w.r.t. the sparse lidar ground-truth point cloud. For this, we find the nearest neighbor for every ground truth point and compute the euclidean distance, then compute the average.
+We compare ourselves to Spann3R and MASt3R-SfM, as well as a variant of our method without latent global alignment.
+In Fig. 7, we report the cumulative distribution function of per-scene reconstruction errors as measured by the Chamfer distance.
+We show that our methods with and without latent global alignment are both able to largely outperform Spann3R, producing point cloud with smaller reconstruction errors for most of the scenes.
+It confirms the limitation of Spann3R in handling non-object-centric, natural scenes.
+We further highlight that our method with latent global alignment module is significantly better than the baseline without it (wo/ lat.align), validating its effectiveness to ensure global consistency across pairwise pointmaps, even for the long, forward-moving trajectories.
+Compared to the optimization-based MASt3R-SfM, Light3R-SfM manages to produce a subset of reconstructions with lower reconstruction errors. However, there is also a proportion of scenes where our method falls behind. After investigation, we find that these scenes contain many dynamic objects.
+Light3R-SfM was mostly trained on static scenes, and thus often assigns confidence to portions of the pointmap that are dynamic resulting in wrong pairwise pose estimates, affecting global accumulation, and thus degrading global reconstructions. For illustration, we visualize the confidence map for such a dynamic scene in Fig. 6. MASt3R-SfM, despite building on top of MASt3R as well, performs better in these situations as erroneous correspondences on dynamic objects are discounted by a robust error function during optimization.
+We believe Light3R-SfM will be able to handle these scenes by training on more diverse datasets containing dynamic objects, as the global supervision will encourage low confidence for dynamic parts of the image.
+Figure 6: Global confidence map (right) produced by Light3R-SfM for an image of a sequence containing dynamic objects (left).
+Figure 7: CDF of per-scene 3D reconstruction errors.
+Appendix D Additional Ablation Studies
+In addition to the ablation studies performed in the main paper, we consider more detailed ablations for hyper-parameters specific to our contributions. To save compute, we train the models for these ablation studies on lower resolution images, i.e., 224\times 224 , versus a maximum resolution of 512\times 384 for the results reported in the main paper. For these experiments, we report results on the 100-view subset of Tanks&Temples unless otherwise stated.
+Global alignment layers.
+For results reported in the main paper, we always consider L=4 latent global alignment layers. Here we ablate this choice by considering L\in\{2,4,8\} .
+In Tab. 8, we report pose accuracy metrics for the different settings of L . Using 4 latent alignment layers significantly improves results compared to 2, but doubling the number shows diminishing returns, leading us to select L=4 as a trade-off between memory usage/runtime and pose accuracy.
+|
+| RRA@5 \uparrow
+| RTA@5 \uparrow
+| ATE \downarrow
+| L
+|
+|
+|
+| 2
+| 33.1
+| 35.5
+| 0.033
+| 4
+| 35.7
+| 36.9
+| 0.032
+| 8
+| 35.3
+| 36.9
+| 0.032
+Table 8: Impact of number of latent alignment layers L .
+Weight of global supervision.
+For the loss supervising the globally aligned pointmaps, accumulated from the pairwise reconstructions, we consider \lambda=0.1 as the default. Here, we experiment with other choices of \lambda .
+In Tab. 9, we report pose accuracy metrics for choices \lambda\in\{0.01,0.1,1.0\} . We find that increasing the loss weight from 0.01 to 0.1 improves pose estimation, however, the higher setting of \lambda=1.0 decreases performance. We explain this behavior with the fact that the global loss produces more noisy supervision compared to the pairwise loss: if a pairwise reconstruction is incorrect it will potentially affects global pointmaps of other views due to global accumulation. Thus, it is beneficial when the pairwise supervision is the main driver of the optimization of model parameters where the global supervision acts as a contributing signal with relative lower weight.
+|
+| RRA@5 \uparrow
+| RTA@5 \uparrow
+| ATE \downarrow
+| \lambda
+|
+|
+|
+| 0.01
+| 30.6
+| 33.3
+| 0.034
+| 0.1
+| 35.7
+| 36.9
+| 0.032
+| 1
+| 34.5
+| 36.8
+| 0.031
+Table 9: Impact of weight of global supervision \lambda .
+|
+| RRA@5 \uparrow
+| RTA@5 \uparrow
+| ATE \downarrow
+| Backbone init.
+|
+|
+|
+| Scratch
+| 0.7
+| 0.1
+| 0.057
+| DUSt3R
+| 35.7
+| 36.9
+| 0.032
+| MASt3R
+| 34.6
+| 38.6
+| 0.032
+Table 10: Impact of backbone initialization.
+Number of images in training graph.
+All results in the main paper are achieved with models optimized with training graphs of N=8 images. In Tab. 11, we report results for N\in\{3,5,8,10\} . To achieve a fair comparison we increase the batch size for smaller settings of N such that the total number of images per batch and seen over the course of training remains the same.
+Overall, we find a small but consistent improvement for larger training graphs. We explain this consistent improvement by the number of relative constraints in the training graph increasing as the size of the graph increases. With global supervision enforcing consistency of these pairwise constraints the latent alignment layers experience additional supervision leading to better downstream performance. While we achieve better performance on N=10 , we use N=8 for the higher resolution model in the main paper since larger training graphs exceed the GPU memory capacity.
+|
+| RRA@5 \uparrow
+| RTA@5 \uparrow
+| ATE \downarrow
+| N
+|
+|
+|
+| 3
+| 37.3
+| 38.1
+| 0.033
+| 5
+| 38.0
+| 39.4
+| 0.030
+| 8
+| 39.0
+| 39.5
+| 0.030
+| 10
+| 39.2
+| 40.7
+| 0.031
+Table 11: Impact of training graph size N . We report results averaged over Tanks&Temples scenes with all frames.
+Model initialization.
+In Tab. 10, we report results with different pre-trained weights for the pairwise pointmap regressor used within our method. We find that initializing with either MASt3R [22] or the DUSt3R [51] backbone leads to comparable results. If we train the pairwise regressor from scratch, jointly with the other components, we observe that the model performs poorly. This highlights the significance of building on top of geometric foundation models as components for our approach.
+Appendix E Additional Visualizations
+Reconstruction examples. We provide visualizations of reconstructions obtained using Light3R-SfM. In Fig. 8, we show reconstruction of diverse Tanks&Temples scenes, including indoor, object-centric, and large scale reconstructions of landmarks. Further, we provide qualitative results on the challenging ETH3D [38] scenes in Fig. 9.
+Qualitative comparisons on Waymo sequences. We provide additional qualitative comparison of 3D reconstructions from the Waymo Open Dataset [43] obtained by MASt3R-SfM, Spann3R, and Light3R-SfM.
+As shown in Fig. 10, Spann3R fails to reconstruct the camera poses as well as the scene structure when the trajectory is longer, while MASt3R-SfM fails to recover the boundary and further away background regions, leading to noisy and coarse reconstruction. In contrast, our method is able to recover accurate camera poses as well as capture fine details in the scene, e.g., cars and buildings along the street.
+Failure cases. Finally, we provide visualizations of typical failure cases in Fig. 11. We observed that retrieval failures can result in multiple sub-reconstructions which are aligned within themselves but globally inconsistent. Further, small errors in the pairwise estimations result in misalignment in the global reconstruction.
+Figure 8: Qualitative examples of reconstruction of Tanks & Temples scenes.
+Figure 9: Qualitative examples of reconstruction of ETH3D scenes.
+Figure 10: More comparisons on Waymo. Comparing from left-to-right: MASt3R-SfM, Spann3R, Light3R-SfM.
+Figure 11: Failure cases on the Tanks & Temples dataset.
+|
+#images
+|
+Group
+| Scene
+|
+ACE0 [7]
+|
+MASt3R-SfM [12]
+|
+VGGSfM [50]
+|
+GLOMAP [30]
+|
+Spann3r [48]
+|
+Light3R-SfM
+|
+25
+|
+Advanced
+| Auditorium
+| 1113.5
+| 288.1
+| 90.7
+| 10.4
+| 10.3
+| 5.8
+| Ballroom
+| 1141.6
+| 294.3
+| 167.3
+| 25.4
+| 7.6
+| 4.3
+| Courtroom
+| 1534.4
+| 290.3
+| 125.2
+| 10.9
+| 7.1
+| 4.3
+| Museum
+| 917.4
+| 287.0
+| 155.2
+| 15.5
+| 8.7
+| 4.4
+| Palace
+| -
+| 286.3
+| 219.7
+| 7.3
+| 7.3
+| 3.9
+| Temple
+| -
+| 285.0
+| 241.2
+| 9.4
+| 7.7
+| 4.1
+|
+Intermediate
+| Family
+| 1334.7
+| 285.4
+| 83.5
+| 20.1
+| 10.9
+| 5.6
+| Francis
+| 970.6
+| 277.8
+| 80.1
+| 13.0
+| 7.5
+| 3.9
+| Horse
+| 980.2
+| 287.1
+| 66.9
+| 29.3
+| 11.8
+| 5.5
+| Lighthouse
+| 881.5
+| 282.0
+| 110.7
+| 7.6
+| 7.3
+| 3.7
+| M60
+| 826.8
+| 268.0
+| 191.7
+| 22.3
+| 7.0
+| 3.8
+| Panther
+| 831.1
+| 268.5
+| 140.5
+| 14.4
+| 7.0
+| 4.0
+| Playground
+| 866.5
+| 291.1
+| 97.6
+| 8.0
+| 8.3
+| 4.4
+| Train
+| -
+| 290.5
+| 114.2
+| 19.8
+| 7.8
+| 4.4
+|
+Train
+| Barn
+| 986.6
+| 273.6
+| 140.9
+| 10.4
+| 8.8
+| 4.4
+| Caterpillar
+| 1229.5
+| 285.4
+| 79.3
+| 15.1
+| 7.2
+| 4.4
+| Church
+| 1088.3
+| 268.4
+| 111.4
+| 24.0
+| 9.9
+| 4.4
+| Courthouse
+| -
+| 293.0
+| 328.4
+| 18.0
+| 8.8
+| 3.7
+| Ignatius
+| 931.6
+| 262.5
+| 75.7
+| 16.9
+| 6.9
+| 4.3
+| Meetingroom
+| 1165.0
+| 280.7
+| 127.7
+| 12.2
+| 9.1
+| 4.1
+| Truck
+| 926.3
+| 301.8
+| 102.3
+| 27.8
+| 8.0
+| 4.6
+|
+50
+|
+Advanced
+| Auditorium
+| 1497.2
+| 532.4
+| 282.0
+| 32.5
+| 20.5
+| 10.5
+| Ballroom
+| 1848.6
+| 529.1
+| 272.5
+| 110.9
+| 14.7
+| 9.0
+| Courtroom
+| 1480.7
+| 505.6
+| 415.5
+| 32.6
+| 16.3
+| 8.8
+| Museum
+| 992.5
+| 468.8
+| 670.5
+| 48.4
+| 17.8
+| 8.1
+| Palace
+| -
+| 486.1
+| 601.1
+| 21.7
+| 16.3
+| 7.6
+| Temple
+| -
+| 481.7
+| 499.9
+| 25.0
+| 16.3
+| 8.5
+|
+Intermediate
+| Family
+| 2140.4
+| 491.7
+| 143.8
+| 81.2
+| 21.8
+| 11.4
+| Francis
+| 1226.7
+| 498.8
+| 120.0
+| 47.2
+| 14.5
+| 7.3
+| Horse
+| 2604.0
+| 497.3
+| 184.6
+| 68.5
+| 22.6
+| 10.8
+| Lighthouse
+| 1324.7
+| 476.6
+| 270.6
+| 40.8
+| 14.7
+| 7.2
+| M60
+| 1304.3
+| 457.4
+| 267.9
+| 34.6
+| 14.3
+| 7.2
+| Panther
+| 2072.7
+| 456.4
+| 178.4
+| 52.0
+| 13.9
+| 7.2
+| Playground
+| 1105.8
+| 499.8
+| 202.3
+| 25.6
+| 17.8
+| 8.4
+| Train
+| 1097.9
+| 526.7
+| 217.0
+| 41.3
+| 14.7
+| 8.4
+|
+Train
+| Barn
+| 973.3
+| 522.5
+| 340.2
+| 30.8
+| 16.5
+| 8.0
+| Caterpillar
+| 1110.3
+| 530.9
+| 151.7
+| 37.4
+| 14.4
+| 8.2
+| Church
+| 1551.0
+| 505.0
+| 413.9
+| 38.5
+| 19.1
+| 8.4
+| Courthouse
+| 1014.6
+| 508.3
+| 305.9
+| 41.3
+| 17.2
+| 8.0
+| Ignatius
+| 2724.5
+| 485.2
+| 144.7
+| 47.2
+| 14.4
+| 8.3
+| Meetingroom
+| 1451.1
+| 566.7
+| 252.2
+| 72.8
+| 19.2
+| 8.1
+| Truck
+| 1549.9
+| 535.1
+| 183.0
+| 67.8
+| 13.4
+| 8.7
+|
+100
+|
+Advanced
+| Auditorium
+| 4885.4
+| 931.7
+| 740.7
+| 85.2
+| 37.9
+| 19.2
+| Ballroom
+| 1987.4
+| 909.4
+| 732.2
+| 448.7
+| 26.5
+| 17.5
+| Courtroom
+| 4942.5
+| 931.9
+| 850.2
+| 127.7
+| 28.9
+| 17.0
+| Museum
+| 5031.7
+| 848.5
+| 768.0
+| 172.2
+| 34.6
+| 16.5
+| Palace
+| 1670.7
+| 885.1
+| 1934.4
+| 87.4
+| 32.2
+| 15.7
+| Temple
+| 1126.2
+| 831.4
+| 1169.3
+| 97.8
+| 31.9
+| 16.5
+|
+Intermediate
+| Family
+| 2275.3
+| 890.7
+| 391.7
+| 236.3
+| 42.8
+| 22.3
+| Francis
+| 4689.7
+| 909.8
+| 365.1
+| 147.3
+| 26.5
+| 14.8
+| Horse
+| 3882.0
+| 909.5
+| 351.9
+| 189.2
+| 43.5
+| 21.1
+| Lighthouse
+| 2590.9
+| 845.2
+| 512.1
+| 128.9
+| 28.5
+| 14.0
+| M60
+| 1800.5
+| 813.5
+| 522.6
+| 127.2
+| 25.9
+| 14.5
+| Panther
+| 1659.3
+| 798.0
+| 488.4
+| 173.9
+| 26.3
+| 14.5
+| Playground
+| 1303.4
+| 888.5
+| 456.9
+| 100.8
+| 33.0
+| 17.0
+| Train
+| 4441.7
+| 930.8
+| 789.5
+| 144.3
+| 29.5
+| 16.4
+|
+Train
+| Barn
+| 7502.6
+| 811.7
+| 605.9
+| 98.0
+| 30.7
+| 16.6
+| Caterpillar
+| 5145.0
+| 857.4
+| 373.1
+| 120.9
+| 25.8
+| 16.8
+| Church
+| 3242.8
+| 821.2
+| 782.0
+| 201.9
+| 34.5
+| 16.6
+| Courthouse
+| 990.9
+| 838.3
+| 1043.8
+| 127.5
+| 32.0
+| 15.2
+| Ignatius
+| 2378.6
+| 758.4
+| 379.3
+| 156.1
+| 25.4
+| 16.3
+| Meetingroom
+| 6338.4
+| 874.5
+| 526.6
+| 203.5
+| 31.8
+| 16.2
+| Truck
+| 3367.2
+| 805.5
+| 495.9
+| 234.2
+| 25.3
+| 17.2
+|
+200
+|
+Advanced
+| Auditorium
+| 5388.1
+| 1748.6
+| 2185.9
+| 349.0
+| 71.1
+| 37.1
+| Ballroom
+| 3782.7
+| 1680.6
+| 1779.0
+| 1466.7
+| 53.1
+| 35.3
+| Courtroom
+| 3245.0
+| 1758.6
+| 1886.8
+| 453.8
+| 58.1
+| 34.6
+| Museum
+| 3952.1
+| 1661.4
+| 2162.8
+| 634.0
+| 68.7
+| 33.2
+| Palace
+| 3267.1
+| 1747.5
+| 3910.8
+| 324.6
+| 64.0
+| 31.3
+| Temple
+| 1480.1
+| 1659.4
+| 2221.5
+| 309.2
+| 59.0
+| 33.3
+|
+Intermediate
+| Family
+| 2349.0
+| 1598.7
+| 679.2
+| 667.0
+| 83.7
+| 44.3
+| Francis
+| 3522.3
+| 1654.0
+| 846.6
+| 462.9
+| 55.8
+| 29.6
+| Horse
+| 4176.3
+| 1610.1
+| 624.4
+| 558.8
+| 88.9
+| 41.9
+| Lighthouse
+| 9072.2
+| 1573.2
+| 1411.4
+| 455.9
+| 54.5
+| 28.0
+| M60
+| 5080.5
+| 1481.3
+| 1198.5
+| 453.5
+| 49.9
+| 28.8
+| Panther
+| 3837.3
+| 1461.8
+| 1134.0
+| 560.2
+| 49.8
+| 28.7
+| Playground
+| 8317.4
+| 1578.9
+| 1010.1
+| 360.0
+| 61.4
+| 33.1
+| Train
+| 4022.3
+| 1585.0
+| 1638.5
+| 503.0
+| 54.3
+| 32.9
+|
+Train
+| Barn
+| 6885.8
+| 1504.8
+| -
+| 349.2
+| 56.6
+| 33.5
+| Caterpillar
+| 5360.8
+| 1610.9
+| 1066.4
+| 386.8
+| 49.0
+| 33.9
+| Church
+| 4418.7
+| 1577.1
+| -
+| 522.5
+| 69.7
+| 34.3
+| Courthouse
+| 8604.2
+| 1598.8
+| -
+| 358.5
+| 59.4
+| 30.8
+| Ignatius
+| 2565.2
+| 1521.1
+| 873.9
+| 533.0
+| 51.9
+| 31.5
+| Meetingroom
+| 4025.3
+| 1645.4
+| -
+| 697.6
+| 59.6
+| 32.0
+| Truck
+| 3340.0
+| 1531.7
+| 1067.0
+| 865.3
+| 50.2
+| 34.5
+|
+full
+|
+Advanced
+| Auditorium
+| 4713.9
+| 2349.4
+| 2739.6
+| 544.8
+| 76.8
+| 46.5
+| Ballroom
+| 4462.5
+| 2639.0
+| -
+| 3407.7
+| 83.6
+| 55.7
+| Courtroom
+| 3907.0
+| 2556.5
+| -
+| 975.6
+| 80.5
+| 50.4
+| Museum
+| 5030.7
+| 2422.9
+| -
+| 1168.9
+| 95.2
+| 49.5
+| Palace
+| 3856.3
+| 3519.4
+| -
+| 1537.4
+| 132.5
+| 66.6
+| Temple
+| 6103.9
+| 2187.3
+| -
+| 758.2
+| 85.9
+| 47.6
+|
+Intermediate
+| Family
+| 3655.3
+| 3696.1
+| -
+| 3396.7
+| 207.5
+| 110.1
+| Francis
+| 4380.5
+| 2369.8
+| -
+| 961.9
+| 80.0
+| 45.2
+| Horse
+| 4589.4
+| 3641.7
+| -
+| 2507.3
+| 223.4
+| 100.4
+| Lighthouse
+| 8594.3
+| 2244.1
+| -
+| 940.7
+| 84.8
+| 41.4
+| M60
+| 5796.9
+| 2174.1
+| -
+| 1094.1
+| 80.2
+| 44.4
+| Panther
+| 4102.6
+| 2174.4
+| -
+| 1317.5
+| 77.8
+| 44.4
+| Playground
+| 7335.7
+| 2316.1
+| -
+| 894.1
+| 104.0
+| 49.3
+| Train
+| 7334.8
+| 2487.8
+| -
+| 1099.4
+| 84.3
+| 48.2
+|
+Train
+| Barn
+| 8072.1
+| 2933.4
+| -
+| 1558.5
+| 123.1
+| 66.1
+| Caterpillar
+| 5909.6
+| 2989.8
+| -
+| 1182.6
+| 93.8
+| 62.9
+| Church
+| 5491.6
+| 3590.2
+| -
+| 2988.4
+| 175.1
+| 84.4
+| Courthouse
+| 11817.4
+| -
+| -
+| 10656.7
+| 318.5
+| 177.4
+| Ignatius
+| 2407.4
+| -
+| -
+| 844.2
+| 67.1
+| 40.6
+| Meetingroom
+| 4440.0
+| -
+| -
+| 2422.2
+| 103.9
+| 58.7
+| Truck
+| 3488.5
+| -
+| 1528.8
+| 1274.3
+| 63.3
+| 41.5
+Table 12: Per-scene reconstruction runtimes on Tanks&Temples. All runtimes are reported in seconds.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

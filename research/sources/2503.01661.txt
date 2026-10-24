@@ -1,0 +1,2692 @@
+MUSt3R: Multi-view Network for Stereo 3D Reconstruction
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related work
+3 Method
+3.1 DUSt3R: a binocular architecture
+3.2 MUSt3R: a Multi-view Architecture
+3.3 Introducing Causality in MUSt3R
+3.4 Memory Management
+4 Training
+5 Experimental validation
+5.1 Uncalibrated Visual Odometry
+5.2 Relative pose estimation
+5.3 3D Reconstruction
+5.4 Multi-view depth evaluation
+5.5 Limitations
+6 Conclusion
+A Ablation studies
+A.1 Simplifying DUSt3R
+A.2 MUSt3R architecture and loss
+A.3 More views at inference
+B Qualitative examples
+C Memory Management
+D Full Visual Odometry results
+D.1 Full TUM RGB-D dataset
+D.2 ETH3D dataset
+References
+License: arXiv.org perpetual non-exclusive license
+arXiv:2503.01661v1 [cs.CV] 03 Mar 2025
+\affiliations
+NAVER LABS Europe
+\contributions
+\websitehttps://europe.naverlabs.com
+\websiteref
+MUSt3R: Multi-view Network for Stereo 3D Reconstruction
+Yohann Cabon \authsepLucas Stoffl \authsepLeonid Antsfeld \authsepGabriela Csurka \authsepBoris Chidlovskii \authsepJerome Revaud \authsepVincent Leroy
+Abstract
+DUSt3R introduced a novel paradigm in geometric computer vision by proposing a model that can provide dense and unconstrained Stereo 3D Reconstruction of arbitrary image collections with no prior information about camera calibration nor viewpoint poses.
+Under the hood, however, DUSt3R processes image pairs, regressing local 3D reconstructions that need to be aligned in a global coordinate system. The number of pairs, growing quadratically, is an inherent limitation that becomes especially concerning for robust and fast optimization in the case of large image collections.
+In this paper, we propose an extension of DUSt3R from pairs to multiple views, that addresses all aforementioned concerns.
+Indeed, we propose a Multi-view Network for Stereo 3D Reconstruction, or MUSt3R, that modifies the DUSt3R architecture by making it symmetric and extending it to directly predict 3D structure for all views in a common coordinate frame. Second, we entail the model with a multi-layer memory mechanism which allows to reduce the computational complexity and to scale the reconstruction to large collections, inferring thousands of 3D pointmaps at high frame-rates with limited added complexity. The framework is designed to perform 3D reconstruction both offline and online, and hence can be seamlessly applied to SfM and visual SLAM scenarios showing state-of-the-art performance on various 3D downstream tasks, including uncalibrated Visual Odometry, relative camera pose, scale and focal estimation, 3D reconstruction and multi-view depth estimation. Code will be available at https://github.com/naver/must3r.
+1 Introduction
+Recently, DUSt3R [71] introduced a novel paradigm in geometric computer vision.
+In a nutshell, it can provide dense and unconstrained Stereo 3D Reconstruction of arbitrary image collections, i.e.without any prior information about camera calibration nor viewpoint poses.
+By casting the pairwise reconstruction problem as a regression of pairs of pointmaps, where a pointmap is defined as a dense mapping between pixels and 3D points, it effectively relaxes the hard constraints of usual projective camera models.
+The pointmap representation, now used in subsequent works [32, 19], encompasses both 3D geometry and the camera parameters, and allows to unify and jointly solve various 3D vision tasks such as depth, camera pose and focal length estimation, dense 3D reconstruction and pixel correspondences.
+Trained from millions of image pairs with ground-truth annotations for depth and camera parameters, DUSt3R shows unprecedented performance and generalization across various real-world scenarios with different camera sensors in zero-shot settings.
+Figure 1:
+Qualitative example of MUSt3R reconstructions of Aachen Day-Night [83] nexus4 sequence 5 (offline, top) and TUM-RGBD [58] Freiburg1-room sequence (online, bottom). More qualitative examples can be found in Sec. B.
+Figure 2:
+(Left) Overview of our uncalibrated reconstruction framework: an input RGB, MUSt3R architecture and the memory state. The network predicts both local {\bf X}_{i,i} and global {\bf X}_{i,1} pointmaps, from which camera focal, depth map, pose and dense 3D can efficiently be recovered, as seen in the global reconstruction. The memory is optionally updated according to simple heuristics depending on the scenario. (Right) Qualitative example of uncalibrated Visual Odometry on the ETH3D “boxes” sequence in the online setting.
+Such architecture works seamlessly in monocular and binocular cases, yet when feeding many images, the pairwise nature of the approach becomes a drawback rather than a strength.
+Since the predicted pointmaps are expressed in a local coordinate system defined by the first image of each pair, all predictions live in different coordinate systems.
+This design hence requires a global post-processing step to align all predictions into one global coordinate frame, which quickly becomes intractable for large collections when done naively.
+This raises the following questions: How to tackle the quadratic complexity of a pairwise approach? How can we robustly and quickly optimize such problem? What if we need real-time predictions?
+While these legitimate concerns are partially addressed in Mast3R-SfM [19], we take here a different stance and design a new architecture that is scalable to large image collections of arbitrary scale, and that can infer the corresponding pointmaps
+in the same coordinate system at high frame-rates.
+To achieve these, our Multi-view network for Stereo 3D Reconstruction (MUSt3R), extends the DUSt3R architecture through several crucial modifications – i.e.making it symmetric and adding a working memory mechanism – with limited added complexity.
+The model, beyond handling offline reconstruction of unordered image collections in a Structure-from-Motion (SfM) scenario, can also tackle the task of dense Visual Odometry (VO) and SLAM, which aims to predict online the camera pose and 3D structure of a video stream recorded by a moving camera. We present the first approach, to the best of our knowledge, that can seamlessly leverage the memory mechanism to cover both scenarios such that no architecture change is required and the same network can operate either task in an agnostic manner.
+Our contributions are threefold:
+•
+we revisit the DUSt3R architecture by making it symmetric
+and enabling N-view predictions in metric space,
+•
+we entail it with a memory mechanism that allows to decrease the computational complexity
+for both offline and online reconstructions, and
+•
+we achieve state-of-the-art performance in both
+unconstrained reconstruction scenarios in terms of estimating field-of-view, camera pose, 3D reconstruction and absolute scale without sacrificing any inference speed.
+2 Related work
+Direct RGB-to-3D.
+In contrast to traditional handcrafted approaches for Structure-from-Motion (SfM) [24, 26, 11, 12, 50],
+recent learning approaches aim at directly predicting 3D and cameras from one or several RGB images. These methods leverage neural networks to learn strong 3D priors from large datasets such as object-centric priors [43, 42, 41, 37] or
+arbitrary scenes [66, 60, 84, 70, 56] via differentiable SfM trained end-to-end. DUSt3R [71] takes a different stance by casting the pairwise reconstruction task as a regression of a pair of pointmaps. This model was extended in [32] to improve its pairwise matching capabilities and by [80] adapting it to dynamic scenes. In both cases however, the network only handles pairs, meaning that a Global Alignment (GA) needs to be introduced when more images are available. This comes with an additional complexity, a computational burden and technical challenges.
+To avoid global alignment and increase inference speed, Spann3R [67], a concurrent work in the DUSt3R framework proposes to use a spatial memory to keep track of previous observations. This allows to directly predict per-image pointmaps expressed in a global coordinate system, alleviating the need for GA.
+Spann3R retains the pairwise architecture of DUSt3R processing pairs sequentially. Apart from the first and last one, all images go through the model twice successively.
+For each image, position-augmented features are obtained in the first pass, then enhanced by querying the spatial memory through an attention operation that involves an additional encoder. The second pass updates the memory and predicts the pointmap.
+In this work, we divert from the pairwise paradigm and evolve DUSt3R from pairwise to N -view by integrating the memory as an essential element of the architecture.
+Interestingly, other works like ACE-0 [7] also explored incremental pointmaps prediction in the form of scene coordinate reconstruction.
+The idea is to track image-to-scene correspondences and represents the scene implicitly as a neural network. Instead, our method represents scenes explicitly as pointmaps and deploys attention operations on memory for image-to-images correspondences.
+Calibrated Visual Odometry (VO).
+SLAM methods using only RGB cameras are less explored than their RGB-D counterparts, since the lack of geometric priors can cause scale and depth ambiguities. We refer the interested reader to a recent survey on SLAM in general [65] and we restrict ourselves to the VO framework in the following. The common denominator of all VO methods [61, 40, 79] is a heavy reliance on handcrafted heuristics and projective camera geometry for joint camera pose and scene optimization, even when leveraging the most recent neural advancements [48, 10, 33, 88].
+Most interesting to us are the works in the direction of prior-driven VO by including priors in the form of monocular depth [88, 85], monocular regularization [16] or learned optical flow [62]. Likewise, our method leverages fully data-driven priors to operate online or offline indifferently. However, and in contrast to all existing VO methods, it can handle uncalibrated VO and can also seamlessly estimate a dense 3D scene, the camera parameters and scene scale at high inference speed.
+Uncalibrated Regime.
+Dense VO without camera calibration is appealing for its scalability, versatility and ease of deployment. The problem has often been tackled in combination with other sensors, e.g.multi-camera setups with IMU sensors [25], or camera with LiDARs [45] and provably allows for efficient self-calibration.
+RGB-only calibration [35, 22], however, typically relies on CNNs trained with large amounts of synthetic data [89] and they are not often used in practice. An exciting option has been proposed with a fully uncalibrated solution to the navigation problem [29] but require a tedious preliminary exploration of a static environment. MUSt3R, akin to DUSt3R operates regardless of the camera parameters as long as it respects the camera models used for training. Interestingly, our dual pointmap prediction head enables efficient recovery of focal length to achieve high frame rates.
+3 Method
+We first briefly recall the main components of the DUSt3R framework
+in Sec. 3.1. Then, we describe the proposed MUSt3R in Sec. 3.2
+and how it simplifies DUSt3R to make it applicable to the N-view scenario. Our formulation enables the introduction of a memory mechanism, described in Sec. 3.3, that can be iteratively updated to handle an unlimited number of views. A major novelty of this approach lies in its ability to seamlessly tackle both offline reconstruction and sequential causal applications, such as dense Visual Odometry, at a high framerate. We describe how a single network can solve both scenarios in Sec. 3.4.
+3.1 DUSt3R: a binocular architecture
+DUSt3R [71] is designed to jointly infer dense 3D reconstruction and camera parameters from pairs of images, by mapping a pair of images to 3D pointmaps that live in a common coordinate system. A transformer-based network predicts a 3D reconstruction given two input images, in the form of two dense 3D pointmaps \{{\bf X}_{i,1}\}\in\mathbb{R}^{H\times W\times 3},i\in\{1,2\} i.e.a 2D-to-3D mapping between each pixel p of the images \{I_{i}\} and the 3D point it observes {\bf X}_{i,1}[p]\in\mathbb{R}^{3} expressed in the coordinate system of the first camera.
+Formally, given a pair of images \{I_{i}\} , they are first split into regular patches, or tokens, that are encoded by a Siamese ViT [18] encoder,
+yielding two latent representations {\bf E}_{i} .
+These are projected linearly to {\bf D}^{0}_{i}=\textsc{Lin}({\bf E}_{i}) which is
+the input to a set of L intertwined layers of decoders blocks \{\textsc{Dec}^{l}_{1},\textsc{Dec}^{l}_{2}\}_{l=1}^{L} similar to the [73] architecture. These blocks process the two images jointly, exchanging information via cross-attention at each layer to ‘understand’ the spatial relationship between viewpoints and the global 3D geometry of the scene. Finally, two prediction heads \{\textsc{Head}^{\text{3D}}_{i}\} regress the final pointmaps {\bf X}_{i,1} and their associated confidences {\bf C}_{i} from the output of the last layers {\bf D}^{L}_{i} , and optionally {\bf E}_{i} , typically leveraged in combination with DPT prediction heads [46]:
+|
+| \displaystyle{\bf X}_{i,1},{\bf C}_{i}=\textsc{Head}^{\text{3D}}_{i}({\bf E}_{i},{\bf D}^{L}_{i})
+|
+| (1)
+DUSt3R is trained in a fully-supervised manner using a simple pixel-wise regression loss
+|
+| \ell_{\text{regr}}(i,j)=\sum_{p\in I_{i}}\left\|\frac{1}{z}{\bf X}_{i,j}[p]-\frac{1}{\hat{z}}\widehat{{\bf X}}_{i,j}[p]\right\|,
+|
+| (2)
+where j{=}1 represent the reference view and p is a pixel for which the ground-truth 3D point \widehat{{\bf X}}_{i,j}[p]\in\mathbb{R}^{3} is defined. In the original formulation [71], normalizing factors z,\hat{z} are introduced to make the reconstruction scale-invariant.
+They are defined as the mean distance of all valid 3D points to the origin.
+In this work we instead follow MASt3R [32] and regress metric predictions when possible i.e.we set z:=\hat{z} whenever ground-truth is metric. Following DUSt3R [71], we also wrap this loss with a confidence aware loss \mathcal{L}_{conf} .
+3.2 MUSt3R: a Multi-view Architecture
+Our first contribution is to extend DUSt3R to an arbitrary number N of views. As detailed before, its binocular architecture features 2 distinct decoders.
+Naively extending to N views would not scale, as it would practically require a set of N distinct decoders. We propose instead to reformulate and simplify the previous framework by making the architecture symmetric with a single Siamese decoder that shares weights between views. This architecture naturally scales to N views while halving the number of trainable parameters in the decoder compared to that of DUSt3R.
+Finally, we extend DUSt3R to predict an additional pointmap that will be leveraged for efficient camera parameters estimation. We now detail each modification below.
+Simplifying the DUSt3R architecture.
+First, we make the DUSt3R architecture symmetric.
+Our hypothesis is that the duplicated decoders and heads are highly redundant.
+We thus replace them by a Siamese decoder and a Siamese head with shared weights, denoted as
+Dec and \textsc{Head}^{\text{3D}} respectively, dropping the subscript notation. To identify the reference image I_{1} , which defines the common coordinate system, we add a learnable embedding {\bf B} to {\bf D}^{0}_{2} at the beginning of the shared decoder,
+|
+| \displaystyle{\bf D}^{0}_{2}=\textsc{Lin}({\bf E}_{2})+{\bf B}.
+|
+| (3)
+We also note that using Rotary Position Embedding (RoPE) [59] in the cross attention is not necessary and can be safely removed. Please refer to Sec. A.2 for detailed ablations on these changes.
+Figure 3:
+Overview of the proposed architecture for a decoder of depth L=3 , a Linear \textsc{Head}^{\text{3D}} and without the \textsc{Inj}^{\text{3D}} module.
+The left side shows initialization with two images. The right side shows how the memory is used and updated given a new image/frame.
+Figure 4:
+The 3D feedback module for a decoder of depth L=3 .
+Scaling-up to multi-view.
+Our framework naturally extends to handle three or more images. This can be simply done by changing the behavior of the cross-attention in each decoder block \textsc{Dec}^{l} . They are all residual and include self-attention (intra-view), followed by cross-attention (inter-view), and a final MLP. Therefore, we can trivially let the cross-attention operate between tokens of image I_{i} and tokens of all other j{\neq}i images. In more details, let \textsc{Cat}_{\text{N}} denote the concatenation of image tokens in the sequence dimension and {\bf M}^{l}_{n}=\textsc{Cat}_{\text{N}}({\bf D}^{l}_{1},\ldots,{\bf D}^{l}_{n})
+the concatenation of tokens from n images at each layer l . Similarly, {\bf M}^{l}_{n,-i}=\textsc{Cat}_{\text{N}}({\bf D}^{l}_{1},\ldots,{\bf D}^{l}_{i-1},{\bf D}^{l}_{i+1},\ldots,{\bf D}^{l}_{n}) denotes the concatenation of tokens for all but the i^{\textrm{th}} image. In this notation, our model applies, at each layer l , cross-attention between tokens of image I_{i} and tokens of all other images:
+|
+| \displaystyle{\bf D}^{l}_{i}=\textsc{Dec}^{l}({\bf D}^{l-1}_{i},{\bf M}^{l-1}_{n,-i}).
+|
+| (4)
+Fast relative pose regression.
+In DUSt3R, {\bf X}_{1,1} is used to estimate the intrinsics of I_{1} , and a second forward with the symmetric pair (I_{2},I_{1}) allows to predict {\bf X}_{2,2} in order to estimate the intrinsics of I_{2} . We want to build a multi-view model that preserves this ability with a low computational cost. For this purpose we change the prediction head to output an additional {\bf X}_{i,i} pointmap:
+|
+| \displaystyle({\bf X}_{i,1},{\bf X}_{i,i},{\bf C}_{i})=\textsc{Head}^{\text{3D}}({\bf D}^{L}_{i}),i\in\{1...n\}.
+|
+| (5)
+With such a change, we can easily recover the relative pose between I_{1} and I_{i} by estimating the transformation between {\bf X}_{i,i} and {\bf X}_{i,1} via Procrustes analysis, which is simpler and faster than PnP, as demonstrated empirically. Interestingly, we do so regardless of the focal length, in contrast to a more traditional PnP [24] approach.
+3.3 Introducing Causality in MUSt3R
+Our second contribution is to make MUSt3R iterative. Based on the architecture described in Sec. 3.2, we i) endow the model with an iteratively updated memory which allows to efficiently process any number of images, offline or online, ii) inject 3D feedback to earlier layers through an extra MLP. The overall decoder architecture is shown in Fig. 3, the injection schema is shown in Fig. 4.
+Iterative memory update.
+In Sec. 3.2, we described how to extend
+DUSt3R to process multiple images. Yet in practice N may be very large, making cross-attention on very large token sequences computationally intractable. Furthermore, in some scenarios the images might arrive sequentially, for instance in visual odometry. In order to handle a large number of images we propose to leverage our model in an iterative manner, with the usage of a memory, reminiscent of Spann3R [67].
+Contrary to Spann3R, however, this memory simply contains in our case the previously computed {\bf M}^{l}_{n} of every layer. As shown in Fig. 3, when a new image I_{n+1} comes, it cross-attends with these saved tokens, i.e.for each layer we have:
+|
+| \displaystyle{\bf D}^{l}_{n+1}=\textsc{Dec}^{l}({\bf D}^{l-1}_{n+1},{\bf M}^{l-1}_{n}).
+|
+| (6)
+Features {\bf D}^{l}_{n+1} of the new image can simply be added to the memory by concatenating them to the current memory {\bf M}^{l}_{n} , thus expanding the memory to {\bf M}^{l}_{n+1} . Interestingly, we can draw a parallel with KV cache in causal transformer inference [44]. By caching the previously computed {\bf D}^{l}_{i} at every layer, we make MUSt3R causal: every new image attends to previously seen images, but these are not updated.
+With this architecture, it is possible to process an image without appending new tokens to the memory. We call this process rendering. It can be used to break the causality of the model, i.e.by re-computing pointmaps given tokens of future frames.
+We typically perform rendering at the end of a video sequence, when all images are in the memory.
+We can process frames one by one (denoted as sequentially) or n by n ( n>1 ), although sequential predictions usually perform better as shown in Sec. A.3.
+Global 3D Feedback.
+So far, the proposed method lacks any feedback mechanism between the memory tokens {\bf M}^{l}_{n} of terminal layers towards those of earlier layers {\bf M}^{k}_{n} , k<l .
+In particular, {\bf M}^{0}_{i} is just the concatenation of projected encoder features {\bf D}^{0}_{i} and naturally lacks any knowledge of the other frames.
+One reasonable assumption is that the token representations at the terminal layer contain more global 3D information than those at earlier layers.
+We thus propose to simply augment all memory tokens with information from the last layer l=L-1 in order to propagate global 3D knowledge to every layer. This is feasible in the iterative framework described above since the last layers of the past frames already contain this information. Formally, let us denote the set of previous and new images by {\mathcal{P}} and {\mathcal{N}} , respectively. To inject such information from the terminal layer into the earlier layers, we augment {\bf M}^{l}_{n} with {\bf M}^{l}_{n}=\textsc{Cat}_{\text{N}}({\bf\bar{D}}^{l}_{0},\ldots,{\bf\bar{D}}^{l}_{n})
+where
+|
+| \displaystyle{\bf\bar{D}}^{l}_{i}=\begin{cases}{\bf D}^{l}_{i}+\textsc{Inj}^{\text{3D}}({\bf D}^{L-1}_{i}),&\forall l<L-1\,\text{and}\,i\in{\mathcal{P}}\\
+{\bf D}^{l}_{i},&l=L-1\,\text{or}\,i\in{\mathcal{N}},\\
+\end{cases}
+|
+| (7)
+where \textsc{Inj}^{\text{3D}} consists of a Layer Norm followed by a two-layer MLP (see Fig. 4).
+We refer to empirical evidence in Sec. A.2 that show the significant impact of this feedback mechanism.
+3.4 Memory Management
+As the memory grows linearly with the number of images, this can become an computational issue for large image collections. To mitigate this, we resort to a heuristic selection of memory tokens.
+In fact, carefully selecting which images are added to the memory is crucial.
+We distinguish between two scenarios: online, where frames of a video stream come one by one, and offline, where we want to reconstruct an unordered collection of images.
+In all cases, we use the same network at test time without bells-and-whistles.
+|
+|
+| fr1
+| fr2
+| fr3
+|
+| Speed
+|
+|
+| 360
+| desk
+| desk2
+| plant
+| room
+| rpy
+| teddy
+| xyz
+| xyz
+| desk
+| long
+| Avgerage
+| (FPS)
+| S
+| ORB-SLAM3 [9]
+| X
+| 2.0
+| X
+| 11.8
+| X
+| 5.6
+| X
+| 1.0
+| 0.5
+| 1.3
+| 1.7
+| X
+| -
+| DSO [21]
+| X
+| 27.2
+| 66.0
+| 6.0
+| 58.6
+| X
+| X
+| 3.8
+| 0.3
+| 2.2
+| 9.9
+| X
+| -
+| DPVO [62]
+| 13.1
+| 9.4
+| 6.5
+| 3.0
+| 39.8
+| 3.5
+| 6.2
+| 1.3
+| 0.5
+| 3.5
+| 5.5
+| 8.4
+| -
+| D
+| TANDEM [30]
+| X
+| 4.3
+| 33.7
+| X
+| X
+| 4.9
+| 43.1
+| 2.4
+| 0.3
+| 2.0
+| 8.3
+| X
+| -
+| MonoGS [38]
+| 14.2
+| 6.3
+| 74.0
+| 9.3
+| 64.9
+| 3.4
+| 35.6
+| 1.6
+| 4.5
+| 133.1
+| 3.3
+| 31.8
+| -
+| DeepFactors [13]
+| 17.9
+| 15.9
+| 20.2
+| 31.9
+| 38.3
+| 3.8
+| 56.0
+| 5.9
+| 8.4
+| 26.3
+| 49.0
+| 24.9
+| -
+| DepthCov [17]
+| 12.8
+| 5.6
+| 4.8
+| 26.1
+| 25.7
+| 5.2
+| 47.5
+| 5.6
+| 1.2
+| 15.9
+| 68.8
+| 19.9
+| -
+| DROID-VO [61]
+| 15.7
+| 5.2
+| 11.1
+| 6.0
+| 33.4
+| 3.2
+| 19.1
+| 5.6
+| 10.7
+| 7.9
+| 7.3
+| 11.4
+| -
+| COMO-NC [16]
+| 16.1
+| 4.2
+| 10.9
+| 19.3
+| 28.6
+| 5.2
+| 68.7
+| 4.1
+| 0.7
+| 8.8
+| 46.8
+| 19.4
+| -
+| COMO [16]
+| 12.9
+| 4.9
+| 9.5
+| 13.8
+| 27.0
+| 4.8
+| 24.5
+| 4.0
+| 0.7
+| 6.3
+| 10.5
+| 10.8
+| -
+|
+| GlORIE-VO* [79]
+| 13.1
+| 4.0
+| 8.6
+| 4.1
+| 32.7
+| 2.9
+| 14.5
+| 1.2
+| 0.2
+| 16.1
+| 4.8
+| 9.3
+| -
+|
+| Spann3R [67]
+| 20.7
+| 16.1
+| 28.3
+| 57.4
+| 84.8
+| 6.1
+| 92.4
+| 2.1
+| 4.4
+| 20.7
+| 193.9
+| 47.9
+| 4.8
+| U
+| MUSt3R-C
+| 8.9
+| 5.1
+| 7.1
+| 5.4
+| 13.4
+| 5.2
+| 6.9
+| 2.7
+| 1.7
+| 15.6
+| 5.9
+| 7.1
+| 11.1
+|
+| MUSt3R
+| 7.8
+| 4.0
+| 4.6
+| 4.0
+| 9.9
+| 4.3
+| 4.2
+| 1.3
+| 1.2
+| 15.3
+| 4.3
+| 5.5
+| 8.4
+Table 1: VO: ATE RMSE [cm] on TUM RGB. Sparse (S) versus dense (D) versus dense unconstrained (U) methods on TUM-RGB SLAM benchmark. (*) model re-run without Loop Closure and global bundle adjustment.
+Online.
+In the video case, we leverage a running memory and 3D scene of current observations which are updated on-the-fly. The memory and the scene are initialized from the predictions of the first image. Then, we forward every incoming frame through MUSt3R, attending to the current memory.
+This leads to a prediction of both dense visible geometry and camera parameters.
+We decide whether to keep the current prediction based on the spatial discovery rate between the predicted pointmap X_{i,1} and the current scene, keeping only a frame when it observes a significantly new part of the scene, or from a different enough viewpoint.
+To this aim, we store the scene as a set of KDTrees [6].
+When building or querying the trees, each 3D point is associated to a tree by index based on the viewing direction of the observation. This is done by splitting the sphere of viewing directions into regular octants. We discretize the view direction of each pixel in spherical coordinates, to map it to the index of the relevant octant.
+Each pixel is thus mapped to a specific tree, then used to recover the nearest distance to the current scene. This distance is normalized by the depth at this pixel.
+The discovery rate of a frame is simply the p -th percentile of the normalized distances. We decide to add the frame to the memory and the 3D points and view directions to the current 3D scene if the discovery rate is above a given threshold \tau_{d} , i.e.the incoming frame observes enough new regions of the scene.
+An example of kept memory frames are shown in green in Fig. 2 (right).
+We refer to Fig. 9 for the detailed algorithm.
+Note that this approach is purely causal since each view only sees the past frames, still we can break the causality by rendering again all images, as described in Sec. 3.3.
+Offline.
+Inspired by MASt3R-SfM [19], we use the ASMK (Aggregated Selective Match Kernels) image retrieval method [63] using the encoder features {\bf E}_{i} of all images {\bf I}_{i} .
+Our key insight is to leverage the encoded images with minimal computational overhead. We follow their farthest point sampling [20] method to select a fixed number of keyframes.
+The problem is then to find a good ordering of the images such as to observe the ones that maximize the overlap first, for more stability in the predictions.
+Therefore, we reorder them with the following strategy: we start with the keyframe which is the most connected to the others, then a greedy loop iteratively adds the other images by order of highest similarity to the current view set.
+These keyframes are sequentially passed through the network to build a latent representation of the whole scene. We then render all the images from this memory. Note that it is
+possible to forward all images in an iterative manner like in ACE-0
+[7], but this would dramatically increase the number of decoder passes needed, thus adding computational burden.
+4 Training
+Pre-training MUSt3R with pairs.
+Similar to DUSt3R, we train MUSt3R in multiple steps. First, we start by training the simplified architecture described in Sec. 3.2 for metric predictions. In our scenario, we aim to predict points that could be far apart in a large scene.
+For a better convergence and performance on distant points, we compute it in log space (see the ablation study of the loss choices in Sec. A.2) :
+|
+|
+| \displaystyle f:x\xrightarrow{}\frac{x}{\left\|x\right\|}log(1+\left\|x\right\|),
+|
+| (8)
+|
+|
+| \displaystyle{\bf X}^{\prime}_{i,j}[p]=f(\frac{1}{z}{\bf X}_{i,j}[p]),\,\,\widehat{{\bf X}}^{\prime}_{i,j}[p]=f(\frac{1}{\hat{z}}\widehat{{\bf X}}_{i,j}[p]),
+|
+| (9)
+|
+|
+| \displaystyle\ell_{\text{regr}}(i,j)=\sum_{p\in I_{i}}\left\|{\bf X}^{\prime}_{i,j}[p]-\widehat{{\bf X}}^{\prime}_{i,j}[p]\right\|.
+|
+| (10)
+We start training the model with a linear head initialized from CroCo v2 [74] (decoder depth L=12 ) on 224 resolution images. Then, we finetune for 512 resolution
+(with varying aspect ratios). The model is trained on a mixture of 14 datasets:
+Habitat [49],
+ARKitScenes [15],
+Blended MVS [77],
+MegaDepth [34],
+Static Scenes 3D [39],
+ScanNet++ [78],
+CO3D-v2 [47],
+Map-free [3],
+WildRGB-D [75],
+Virtual KITTI [8],
+Unreal4K [64],
+DL3DV [36],
+TartanAir [72] and
+an internal dataset.
+|
+| Test
+| Handheld
+| Robot
+| Structure
+| Dynamic
+| 3D Objects
+| Avg
+| Spann3R [67]
+| 4.1(4.0)
+| 60.1(28.3)
+| 122.8(115.6)
+| 32.7(6.8)
+| 88.3(76.6)
+| 80.9(61.2)
+| 64.8(48.7)
+| MUSt3R-C
+| 3.9(3.8)
+| 7.2(7.1)
+| 37.4(32.6)
+| 5.2(5.0)
+| 39.1(12.7)
+| 32.0(7.1)
+| 20.8(11.4)
+| MUSt3R
+| 3.8(3.8)
+| 6.2(5.8)
+| 20.6(14.6)
+| 3.9(3.6)
+| 29.1(10.8)
+| 22.7(5.6)
+| 14.4(7.4)
+Table 2: TUM RGBD [58] Tracking Accuracy ATE RMSE [cm].
+Dense unconstrained methods on the whole TUM RGBD dataset split into six categories: mean (median) RMSE values are reported per category.
+Training MUSt3R. Then, we train MUSt3R with
+multiple views, starting from the above trained symmetric DUSt3R
+as initialization. In our experiments we use a total number of N=10 images per scene11
+1
+For object centric datasets, the N views are randomly selected, while for the others, we start from an overlapping image pair and add images one by one, ensuring that it overlaps with at least one already selected image.. To be able to handle such sequences of images, we freeze the encoder and use xformers [31] to compute attention efficiently. We train this model on 12 datasets, that are mentioned above, but removing Virtual KITTI and Static Scenes 3D as they are unsuitable to our setup. During training, the memory is initialized from two images, then updated from individual images, as shown in Fig. 3. We split the training loss in two steps: 1) we predict the pointmaps of a randomly chosen number n,2\leq n\leq N of views, and use the latent embeddings to populate the memory, and 2) we render all views, including the n memory frames from this memory, meaning we obtain in the end n+N predictions that correspond to the concatenation of the n and N views. The loss to minimize is thus :
+|
+| \mathcal{L}=\sum_{i\in 1}^{n+N}\ell_{\text{regr}}(i,1)+\ell_{\text{regr}}(i,i).
+|
+| (11)
+To increase robustness and favor redundancy, we augment the training with a token dropout. The memory tokens from the first image I_{1} are protected as it plays a particular role for the 3D points are represented in the coordinates of the first camera, similar to DUSt3R. Token dropping is made for each incoming frame on the current memory and is consistent across layers, such that if a token is removed, it should not appear in any layer.
+We use a dropout probability of 0.05 (0.15) for 224 (512) resolutions respectively.
+5 Experimental validation
+We demonstrate the usability and performance of the presented system in many unconstrained scenarios, namely uncalibrated Visual Odometry (VO), relative pose estimation, 3D reconstruction and multi-view depth estimation. In all scenarios we achieve state-of-the-art performance without access to the camera calibration, yet with a pipeline of a striking versatility and simplicity. Our evaluations are comparing MUSt3R to the existing state of the art on many downstream tasks (Sec. 5.2, 5.3, 5.4), but we put a particular focus on DUSt3R and Spann3R, which are the closest to our work. We ablate the components and design choices of the MUSt3R architecture in the Sec. A.2.
+|
+| freiburg1
+| freiburg2
+| freiburg3
+|
+|
+|
+| 360
+| desk
+| desk2
+| plant
+| room
+| rpy
+| teddy
+| xyz
+| xyz
+| desk
+| long_office
+| Mean
+| Median
+| Spann3R
+| 12.13
+| 12.77
+| 12.16
+| 12.68
+| 12.12
+| 11.64
+| 12.81
+| 12.36
+| 11.79
+| 12.74
+| 9.49
+| 12.06
+| 12.16
+| MUSt3R
+| 6.42
+| 2.64
+| 3.36
+| 6.56
+| 4.32
+| 4.04
+| 5.65
+| 0.11
+| 5.06
+| 6.28
+| 3.04
+| 4.32
+| 4.32
+Table 3: Comparison of vertical FoV errors in degrees for Spann3R and MUSt3R across TUM RGBD scenes.
+|
+| freiburg1
+| freiburg2
+| freiburg3
+|
+|
+|
+| 360
+| desk
+| desk2
+| plant
+| room
+| rpy
+| teddy
+| xyz
+| xyz
+| desk
+| long_office
+| Mean
+| Median
+| MUSt3R-C
+| 26.9
+| 3.3
+| 9.8
+| 1.0
+| 7.9
+| 85.9
+| 14.1
+| 3.7
+| 1.2
+| 2.4
+| 5.5
+| 14.7
+| 5.5
+| MUSt3R
+| 21.1
+| 2.1
+| 9.3
+| 2.9
+| 7.7
+| 86.3
+| 15.2
+| 0.2
+| 1.7
+| 1.7
+| 4.6
+| 13.9
+| 4.6
+Table 4: Scale estimation error (in % of the ground-truth scale) across TUM-RGBD scenes.
+|
+| cables1
+| camshake1
+| einstein1
+| plant1
+| plant2
+| sofa1
+| table3
+| table7
+| Avg
+| FPS
+| Spann3R [67]
+| 33.2
+| 5.1
+| 30.9
+| 4.1
+| 5.7
+| 17.1
+| 19.3
+| 18.9
+| 16.8
+| 6.1
+| MUSt3R-C
+| 20.7
+| 5.6
+| 15.4
+| 2.3
+| 2.7
+| 15.8
+| 17.6
+| 9.5
+| 11.2
+| 11.8
+| MUSt3R
+| 20.7
+| 5.3
+| 11.2
+| 1.8
+| 2.7
+| 15.5
+| 17.3
+| 5.5
+| 10.0
+| 8.7
+Table 5: ETH3D SLAM [53] Tracking Accuracy ATE RMSE [cm] on ETH3D benchmark.
+Dense unconstrained methods for 8 selected trajectories.
+| Methods
+| 7 Scenes
+|
+| NRGBD
+|
+| DTU
+|
+|
+|
+| Acc \downarrow
+| Comp \downarrow
+| NC \uparrow
+|
+| Acc \downarrow
+| Comp \downarrow
+| NC \uparrow
+|
+| Acc \downarrow
+| Comp \downarrow
+| NC \uparrow
+|
+| FPS
+| Mem
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+|
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+|
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+|
+|
+|
+| F-Recon [76]
+| 0.124
+| 0.076
+| 0.055
+| 0.023
+| 0.619
+| 0.688
+|
+| 0.285
+| 0.206
+| 0.151
+| 0.063
+| 0.655
+| 0.758
+|
+| -
+| -
+| -
+| -
+| -
+| -
+|
+| ( \leq 1 )
+|
+| DUSt3R-224 [71]
+| 0.029
+| 0.012
+| 0.028
+| 0.009
+| 0.668
+| 0.768
+|
+| 0.054
+| 0.025
+| 0.032
+| 0.010
+| 0.802
+| 0.953
+|
+| 2.296
+| 1.297
+| 2.158
+| 1.002
+| 0.747
+| 0.848
+|
+| 0.74 (0.78)
+| 38.1G
+| Spann3R [67]
+| 0.034
+| 0.015
+| 0.024
+| 0.009
+| 0.664
+| 0.763
+|
+| 0.069
+| 0.032
+| 0.029
+| 0.011
+| 0.778
+| 0.937
+|
+| 4.785
+| 2.268
+| 2.743
+| 1.295
+| 0.721
+| 0.823
+|
+| 27.38 (65.49)
+| 5.0G
+| MUSt3R-224
+| 0.028
+| 0.012
+| 0.027
+| 0.010
+| 0.665
+| 0.758
+|
+| 0.062
+| 0.025
+| 0.031
+| 0.012
+| 0.788
+| 0.930
+|
+| 3.256
+| 1.863
+| 2.193
+| 0.995
+| 0.715
+| 0.815
+|
+| 40.41
+| 4.1G
+| MUSt3R-512
+| 0.026
+| 0.009
+| 0.027
+| 0.009
+| 0.617
+| 0.682
+|
+| 0.048
+| 0.022
+| 0.020
+| 0.008
+| 0.768
+| 0.911
+|
+| 3.261
+| 1.681
+| 1.965
+| 0.765
+| 0.661
+| 0.741
+|
+| 12.10
+| 8.1G
+Table 6:
+Comparison with Spann3R. FPS numbers in parenthesis are from [67]. Ours were obtained on a A100 GPU. We limit the maximum batch size when rendering to 10 for MUSt3R-224 and 5 for MUSt3R-512. For DUSt3R-224, our FPS and GPU memory numbers were obtained with a complete graph.
+5.1 Uncalibrated Visual Odometry
+We evaluate our online MUSt3R model on the real images datasets TUM RGBD [58] and ETH3D SLAM [52, 53]. We cannot compare on Replica [57] since it is contained in our training set. Note that contrary to the entirety of the compared methods, MUSt3R and Spann3R operate in the unconstrained scenario, meaning the calibration of the camera system is considered unknown.
+Our results are obtained with the same hyperparameters for all datasets \tau_{d}=5\% and p_{d}=85\% (see Tab. 3.4). We denote MUSt3R-C the causal variant, without rendering, while MUSt3R with rendering is followed by a minimal Laplacian smoothing. We compare to Spann3R by running their code on the SLAM benchmarks, with minimal modification to recover camera poses via PnP on the predictions, leveraging the focal length estimated by the first view.
+We are interested in the RMSE Average Trajectory Error (ATE) after alignment to the ground-truth (GT) as a measurement of camera trajectory quality. For unconstrained methods, we also look at the frame-rate, absolute vertical Field-of-View (FoV) error in degrees, as well as metric scale estimation quality in % of the ground-truth scale. Following prior art [16, 62], for fair comparison, all SLAM methods run in visual odometry (VO) mode, i.e.without global bundle adjustment. Qualitative results of the trajectory and reconstructions for both datasets are showed in Fig. 1, 2 and 7.
+TUM RGBD [58] is a well established benchmark that presents challenges for monocular VO and SLAM due to significant motion blur, exposure changes, large rotations and trajectories, dynamic scenes and rolling shutter artifacts. We compare our method against state-of-the-art methods on 11 RGB-only sequences (Tab. 1) and we report all sequences in the appendix in Tab. 11.
+MUSt3R and Spann3R [67] form a new group of dense unconstrained methods (U). As the table shows, Spann3R is penalized by high error on four long sequences. Instead, MUSt3R-C performs well on both short and long sequences. Adding rendering further reduces the error and achieves the best performance on average at the cost of a slightly decreased frame rate ( 8.4 FPS). For these three methods, table reports the average speed (FPS) on NVIDIA V100 GPU.
+For the (U) category, we can evaluate the accuracy of the focal estimates in terms of absolute FoV error. Tab. 3 compares these values for MUSt3R and Spann3R on the same subset of 8 trajectories, with a clear advantage of the former, achieving an average error of 4^{\circ} only. Tab. 4 shows that MUSt3R-C and MUSt3R estimate scale with a comparable accuracy, with a median scale error of 5.5\% and 4.6\% respectively.
+Tab. 1 contains the 11 sequences commonly used for evaluating in the VO setting [61, 16, 79]. We complete the evaluation by running both Spann3R and MUSt3R on the full set of 46 test scenes.
+We point out that many of these scenes represent a real challenge for current state-of-the-art methods. We find that MUSt3R compares favorably (Tab. 2) on all six categories as defined by the challenge: Testing, Handheld, Robotic, Structure vs Texture, Dynamic Objects and 3D Objects Recognition.
+ETH3D SLAM [52] includes a large number of
+trajectories recorded in a motion capturing system. MUSt3R is 50\% more accurate on average than Spann3R (Tab. 5; see Tab. 12 in the appendix for the full set of results) with again an average RMSE of 10.0 cm, obtained at around 10 FPS.
+5.2 Relative pose estimation
+We tested MUSt3R and Spann3R on the CO3D [47] and RealEstate10k [86] datasets, which are indoor/outdoor datasets where camera poses were obtained via COLMAP or SLAM with bundle adjustment on the full image sequences.
+As [69], we evaluate the methods on the 1.8K video clips from the test set. Each sequence is 10 frames long and we evaluate relative camera poses between all possible 45 pairs. As defined in [2, 82, 81], reported metrics are Relative Rotation Accuracy below 15^{\circ} (RRA@15), Relative Translation direction Accuracy below 15^{\circ} (RTA@15) and mean Average Accuracy below 30^{\circ} (mAA@30) defined as the area under the curve min (RRA@ \tau , RTA@ \tau ) at a threshold \tau , integrated over [1,30] .
+| Method
+| Co3Dv2 \uparrow
+|
+| RealEstate10K \uparrow
+| Speed
+| RRA@15
+| RTA@15
+| mAA(30)
+|
+| mAA(30)
+| (FPS)
+| DUSt3R-512 [71]
+| 94.3
+| 88.4
+| 77.2
+|
+| 61.2
+| 3.2
+| DUSt3R-512-GA [71]
+| 96.2
+| 86.8
+| 76.7
+|
+| 67.7
+| 0.1
+| Spann3R [67]
+| 89.1
+| 83.6
+| 70.4
+|
+| 60.8
+| 7.4
+| MUSt3R-224
+| 95.1
+| 90.8
+| 80.7
+|
+| 74.7
+| 11.7
+| MUSt3R-512
+| 97.0
+| 92.7
+| 84.1
+|
+| 75.1
+| 4.1
+| MUSt3R-512 (Pro)
+| 95.5
+| 88.9
+| 78.3
+|
+| 65.5
+| 32.9
+Table 7: Multi-view pose regression on CO3Dv2 [47] and
+RealEstate10K [86] with 10 random frames. All methods resort to PnP to estimate camera pose except for (Pro) that uses Procrustes alignment. FPS include both inference and pose estimation, on a A100 GPU.
+We compare MUSt3R to previous works based on pointmap regression. If not specified otherwise, the focal length is estimated from the predictions, and later used with PnP [24] to recover the camera poses. In the case of DUSt3R, all pairs have to be processed twice through the decoder. The Global Alignment (GA) adds another layer of computational complexity to align all pairwise predictions in the same reference frame. In contrast, Spann3R leverages a memory mechanism similar in spirit to ours, decreasing the computational complexity and increasing the FPS at the cost of accuracy.
+MUSt3R, which also leverages a working memory expressing all views in the same coordinate system, yields better performance than all baselines. For fairness, Spann3R needs to be compared to the 224 resolution where DUSt3R is competing against the 512 one.
+The (Pro) variant is the one that leverages Procrustes alignment for pose estimation. It provides almost the same accuracy than PnP but is almost an order of magnitude faster, which is of critical importance for real-time applications, like Sec. 5.1.
+5.3 3D Reconstruction
+We evaluate pointmaps on 7Scenes [55], Neural RGBD [4] and DTU [1] using the same protocol as Spann3R [67]. In more details, Following prior works [68, 87, 67], we report in Tab. 6 accuracy (Acc), completeness (Comp) and normal consistency (NC) such that the predicted dense pointmap is directly compared with the back-projected per point depth, excluding invalid and background points if applicable. For MUSt3R, we update the memory with all images, and then render the final pointmaps.
+Quantitatively, MUSt3R almost always outperforms Spann3R with better FPS.
+It also achieves a performance similar to DUSt3R, while being 5 times lighter and an order of magnitude faster. We note that the GPU memory usage between Spann3R and MUSt3R is in the same range, the small improvement of MUSt3R could be attributed to the difference in implementations, esp. in the attention.
+MUSt3R-224 uses 4.1G with xformers and 5.2G with the naive implementation, close to the 5.0G of Spann3R. Detailed studies on the impact of the memory size and the number of images passed at once are available in Sec. A.3.
+| Methods
+| KITTI
+| ScanNet
+| ETH3D
+| DTU
+| T&T
+| Avg
+| rel \downarrow
+| \tau\uparrow
+| rel \downarrow
+| \tau\uparrow
+| rel \downarrow
+| \tau\uparrow
+| rel \downarrow
+| \tau\uparrow
+| rel \downarrow
+| \tau\uparrow
+| rel \downarrow
+| \tau\uparrow
+| time (s) \downarrow
+| DUSt3R-512 [71]
+| 5.4
+| 49.5
+| (3.1)
+| (71.8)
+| 3.0
+| 76.0
+| 3.9
+| 68.6
+| 3.3
+| 75.1
+| 3.7
+| 68.2
+| 0.19
+| MUSt3R-512
+| 4.5
+| 55.0
+| (4.0)
+| (59.8)
+| 2.5
+| 80.3
+| 4.6
+| 55.4
+| (2.6)
+| (80.4)
+| 3.7
+| 66.2
+| 0.29
+| DUSt3R-224 [71]
+| 9.2
+| 32.9
+| (4.2)
+| (58.2)
+| 4.7
+| 61.9
+| 2.8
+| 77.3
+| 5.5
+| 56.5
+| 5.3
+| 57.4
+| 0.10
+| Spann3R [67]
+| 7.9
+| 36.2
+| (3.3)
+| (67.1)
+| 5.7
+| 58.6
+| 3.5
+| 65.2
+| (4.7)
+| (58.5)
+| 5.0
+| 57.1
+| 0.32
+| MUSt3R-224
+| 6.1
+| 46.8
+| (4.5)
+| (56.7)
+| 3.6
+| 68.0
+| 4.6
+| 63.1
+| (4.7)
+| (64.5)
+| 4.7
+| 59.8
+| 0.19
+Table 8:
+Multi-view depth evaluation with no poses nor intrinsics. Results are for the quasi-optimal number of compared views n\in[1,10] for each method.
+(Parentheses) denote training on data from the same domain. Best results
+(per resolution) in bold.
+5.4 Multi-view depth evaluation
+Finally, we compare MUSt3R to pointmap regression methods on multi-view stereo depth estimation. In our case, depthmaps are simply the z -coordinate of the local pointmaps X_{i,i} .
+As [54], we evaluate it on the KITTI [23], ScanNet [14], ETH3D [51], DTU [1] and Tanks and Temples (T&T) [28] datasets, reporting Absolute Relative Error (rel) and Inlier Ratio (\tau) with a threshold of 1.03 on each test set, and the averages across all test sets. Because none of the methods leverage ground-truth camera parameters and poses, the predictions have to be aligned to ground-truth via median normalization as advocated in [54].
+On average MUSt3R- 224 performs better than other baselines and the 512 version performs similarly to DUSt3R.
+5.5 Limitations
+Despite very strong results on multiple downstream tasks, MUSt3R shows signs of limitations for sequences where the views drift too far from the 1st view.
+6 Conclusion
+We proposed MUSt3R, a new multi-view network for 3D reconstruction of large image collections which operates in offline and online scenarios at high speed.
+Our evaluations shows the state-of-the-art performance of MUSt3R on multiple 3D downstream tasks, such as depth and relative pose estimation, 3D reconstruction and uncalibrated VO.
+Appendix
+This appendix first includes in Appendix A all ablation studies that justify the design choices of the MUSt3R architecture. We then provide the promised qualitative examples of MUSt3R on real scenes from various datasets in Appendix B and the snippet of code for the online reconstruction in Appendix C. Finally, we detail in Appendix D the complete quantitative evaluations of our method on the full sets of sequences from TUM-RGBD22
+2
+https://cvg.cit.tum.de/data/datasets/rgbd-dataset/ and ETH3D33
+3
+https://www.eth3d.net/slam_datasets datasets [58, 53].
+Figure 5:
+Qualitative example of MUSt3R reconstructions of Cambridge Landmarks [27].
+Appendix A Ablation studies
+The aim of this section is to provide empirical analysis of our design choices, starting with our simplification of the DUSt3R architecture in Appendix A.1, and our memory management and loss choices in Appendix A.2. Then in Appendix A.3 we study the scalability of the network to more views than seen during training.
+Figure 6:
+Qualitative example of MUSt3R reconstructions of MIP-360 [5].
+A.1 Simplifying DUSt3R
+As explained in the main paper, the architecture of DUSt3R cannot easily scale to more views for its asymmetric design would require to train N different decoders for N views, which is not trivial and computationally impractical. For this reason, we propose to leverage a Siamese decoder, i.e.one decoder for all views, in a symmetric manner. The symmetric decoder is the core of our model as it enables to seamlessly scale to more views without the need to retrain the model. We evaluate here how this choice impacts the performance compared to the original DUSt3R architecture.
+In more details, leveraging a symmetric decoder for N views predictions requires to disable the Rotary positional encoding (RoPE) in the Cross-Attention (CA) and to add a learnable encoding to distinguish between the reference view, that defines the origin of the coordinate system, and all the other views. We ablate these in the following.
+Setup and metric. To diminish compute and increase speed, we perform ablations in the pairwise setting ( N{=}2 ) on a small subset of datasets namely the union of subsets of Habitat and Megadepth, for a total of 2M pairs of 224\times 224 resolution images.
+We evaluate performance on the validation sets of these two datasets. We believe this setup to be representative enough for us to reasonably extend the conclusions to the full training set.
+We report in Tab. 9 the average regression error that directly measures the quality of predicted pointmaps. We observe this metric generally represents well the performance on downstream tasks. In the table, Baseline refers to the asymmetric DUSt3R architecture. In No RoPE in CA, we remove RoPE in the cross attentions. In Symmetric, we switch to the symmetric decoder setup where we remove the second decoder and \textsc{Head}^{\text{3D}} and we use instead the same shared decoder and head for both images.
+In Symmetric(embed), we add the learned embedding B , while it is absent in Symmetric(none).
+Figure 7:
+Qualitative example of MUSt3R reconstructions of ScanNet++ [78] 0d2ee665b and a24f64f7fb scenes (left column) with varying focal lengths. RealEstate10K [86] 000c3ab189999a83 and 00ca5123d8ff6f83
+scenes (center column). TUM RGB-D [58] freiburg1 desk and xyz scenes (right column).
+Figure 8: Median absolute regression error for ScanNet scenes for 100 views rendered with a varying number of views in memory.
+(left) Different injection \textsc{Inj}^{\text{3D}} architecture choices.
+(right) Comparison between a log and the default MASt3R loss for metric pointmap regression.
+Results. We report the results of these ablations in Tab. 9. First, we show that RoPE in the CA block does not matter for performance. We can thus remove it without loss in prediction quality.
+Then, when using a symmetric decoder without learnable B encoding collapses in red. It is rather natural as the network needs to distinguish between the views, justifying the need for the learnable embedding B that achieves a performance similar to that of DUSt3R.
+Overall, it is clear that a symmetric architecture does not impact the performance despite halving the amount of trainable parameters in the decoder.
+|
+| Regression Loss \downarrow
+| Baseline
+| 0.193
+| No RoPE in CA
+| 0.191
+| Symmetric(none)
+| 0.560
+| Symmetric(embed)
+| 0.192
+Table 9: Analysis of the effects of our proposed simplifications on DUSt3R in the pairwise setting.
+A.2 MUSt3R architecture and loss
+We verified in Appendix A.1 that a symmetric architecture does not impact the performance in the binocular case. How to handle N views predictions still remains a challenge however, as directly processing all the views would involve an intractable number of tokens for both training and testing. For this reason, we favor a memory-based approach where only a subset of image tokens is used in memory. Images are thus processed sequentially and we keep the computational complexity low. The following contains the ablations that lead our choices in the design of MUSt3R training in the multi-view setting. In more details, we demonstrate the importance of the global 3D feedback from the terminal layer to earlier layers. We also analyze the effect of computing the loss in log space, that becomes crucial for larger scenes.
+Setup and metric.
+For the N views case, we choose to train all variants on 10 -tuples and validate on 100 -tuples from the ScanNet++ [78] dataset, split into a training set of 2 M 10 -tuples and a validation set of 300 100 -tuples, totaling for the latter 30 K images from 50 different scenes. We report the metric 3D regression loss with pointmaps expressed in the coordinate frame of the first view, meaning no alignment between the prediction and the ground-truth is required. All results are renderings N{=}100 images with a varying number of images stored in memory ( 5{\leq}n{\leq}N ). We plot in Fig.8
+the median scene regression error over the
+validation subset.
+| Methods
+|
+|
+| 7-Scenes
+|
+| NRGBD
+|
+| DTU
+|
+|
+|
+|
+|
+| Acc \downarrow
+| Comp \downarrow
+| NC \uparrow
+|
+| Acc \downarrow
+| Comp \downarrow
+| NC \uparrow
+|
+| Acc \downarrow
+| Comp \downarrow
+| NC \uparrow
+|
+| FPS
+| Mem
+| n
+| s
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+|
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+|
+| Mean
+| Med.
+| Mean
+| Med.
+| Mean
+| Med.
+|
+|
+|
+| F-Recon [76]
+|
+|
+| 0.124
+| 0.076
+| 0.055
+| 0.023
+| 0.619
+| 0.688
+|
+| 0.285
+| 0.206
+| 0.151
+| 0.063
+| 0.655
+| 0.758
+|
+| -
+| -
+| -
+| -
+| -
+| -
+|
+| ( \leq 1 )
+|
+| DUSt3R-224 [71]
+|
+|
+| 0.029
+| 0.012
+| 0.028
+| 0.009
+| 0.668
+| 0.768
+|
+| 0.054
+| 0.025
+| 0.032
+| 0.010
+| 0.802
+| 0.953
+|
+| 2.296
+| 1.297
+| 2.158
+| 1.002
+| 0.747
+| 0.848
+|
+| 0.74 (0.78)
+| 38.1G
+| Spann3R [67]
+|
+|
+| 0.034
+| 0.015
+| 0.024
+| 0.009
+| 0.664
+| 0.763
+|
+| 0.069
+| 0.032
+| 0.029
+| 0.011
+| 0.778
+| 0.937
+|
+| 4.785
+| 2.268
+| 2.743
+| 1.295
+| 0.721
+| 0.823
+|
+| 27.38 (65.49)
+| 5.0G
+| MUSt3R-224
+| 10
+| 1
+| 0.037
+| 0.017
+| 0.026
+| 0.010
+| 0.654
+| 0.741
+|
+| 0.064
+| 0.028
+| 0.032
+| 0.011
+| 0.778
+| 0.922
+|
+| 3.256
+| 1.863
+| 2.193
+| 0.995
+| 0.715
+| 0.815
+|
+| 86.31
+| 2.5G
+| MUSt3R-224
+| 20
+| 1
+| 0.030
+| 0.013
+| 0.026
+| 0.010
+| 0.662
+| 0.753
+|
+| 0.061
+| 0.026
+| 0.029
+| 0.011
+| 0.786
+| 0.928
+|
+| 3.256
+| 1.863
+| 2.193
+| 0.995
+| 0.715
+| 0.815
+|
+| 59.51
+| 2.9G
+| MUSt3R-224
+| all
+| 1
+| 0.028
+| 0.012
+| 0.027
+| 0.010
+| 0.665
+| 0.758
+|
+| 0.062
+| 0.025
+| 0.031
+| 0.012
+| 0.788
+| 0.930
+|
+| 3.256
+| 1.863
+| 2.193
+| 0.995
+| 0.715
+| 0.815
+|
+| 40.41
+| 4.1G
+| MUSt3R-224
+| all
+| 5
+| 0.035
+| 0.015
+| 0.027
+| 0.011
+| 0.662
+| 0.752
+|
+| 0.059
+| 0.025
+| 0.029
+| 0.011
+| 0.792
+| 0.934
+|
+| 3.261
+| 1.855
+| 2.157
+| 1.016
+| 0.715
+| 0.815
+|
+| 68.83
+| 4.1G
+| MUSt3R-224
+| all
+| 10
+| 0.037
+| 0.016
+| 0.028
+| 0.011
+| 0.661
+| 0.751
+|
+| 0.057
+| 0.025
+| 0.028
+| 0.011
+| 0.792
+| 0.934
+|
+| 3.269
+| 1.805
+| 2.147
+| 0.978
+| 0.715
+| 0.816
+|
+| 72.59
+| 4.8G
+| MUSt3R-512
+| 10
+| 1
+| 0.028
+| 0.009
+| 0.025
+| 0.007
+| 0.617
+| 0.682
+|
+| 0.052
+| 0.023
+| 0.019
+| 0.008
+| 0.764
+| 0.907
+|
+| 3.261
+| 1.681
+| 1.965
+| 0.765
+| 0.661
+| 0.741
+|
+| 25.01
+| 4.3G
+| MUSt3R-512
+| 20
+| 1
+| 0.025
+| 0.009
+| 0.026
+| 0.008
+| 0.617
+| 0.683
+|
+| 0.048
+| 0.022
+| 0.019
+| 0.008
+| 0.769
+| 0.911
+|
+| 3.261
+| 1.681
+| 1.965
+| 0.765
+| 0.661
+| 0.741
+|
+| 17.37
+| 5.3G
+| MUSt3R-512
+| all
+| 1
+| 0.026
+| 0.009
+| 0.027
+| 0.009
+| 0.617
+| 0.682
+|
+| 0.048
+| 0.022
+| 0.020
+| 0.008
+| 0.768
+| 0.911
+|
+| 3.261
+| 1.681
+| 1.965
+| 0.765
+| 0.661
+| 0.741
+|
+| 12.10
+| 8.1G
+| MUSt3R-512
+| all
+| 5
+| 0.036
+| 0.014
+| 0.025
+| 0.008
+| 0.616
+| 0.680
+|
+| 0.048
+| 0.021
+| 0.019
+| 0.008
+| 0.770
+| 0.912
+|
+| 3.353
+| 1.741
+| 1.982
+| 0.772
+| 0.663
+| 0.742
+|
+| 13.52
+| 9.9G
+| MUSt3R-512
+| all
+| 10
+| 0.042
+| 0.016
+| 0.024
+| 0.008
+| 0.615
+| 0.679
+|
+| 0.047
+| 0.021
+| 0.019
+| 0.007
+| 0.769
+| 0.910
+|
+| 3.493
+| 1.888
+| 2.046
+| 0.809
+| 0.664
+| 0.745
+|
+| 12.79
+| 10.5G
+Table 10:
+Comparison with Spann3R. We evaluate MUSt3R for different maximum size of memory ( n ) and different number of images at once when updating the memory ( s ). For s{=}1 , we initialize with two images to match the training configuration. FPS numbers in parenthesis are from [67]. For DUSt3R, our FPS and GPU memory numbers were obtained with the 224 linear model and a complete graph.
+3D feedback.
+We ablate in Fig. 8 (left) different variants of Global 3D Feedback from section 3.3. In particular, we demonstrate that the Baseline architecture without feedback is far inferior to the MLP injection from the tokens of the last memory block presented in the main paper (Sec. 3.3 and Fig. 4). As a reminder, this approach injects the terminal memory state L{-}1 to all others with a LayerNorm followed by a 2 layer MLP, with a fourfold increase in the hidden dimensions. Interestingly, Lin injection with a simple linear layer instead of an MLP performs almost as well except when scaling the memory size. Since we expect training on all datasets to be a harder task, we favor a slightly more elaborate injection mechanism. We also verify that a simple learnable parameter Constant is not sufficient and actually degrades the performance, demonstrating that our feedback layer is effectively fetching information from the terminal memory layer and not simply adding a constant bias to the memory tokens.
+Importantly, a natural choice would be to inject global information from the final layer L of the network, i.e.the one right before the prediction head. We find that this method leads to a significantly degraded performance. We hypothesize that using L might be too constrained by \textsc{Head}^{\text{3D}}{} , and therefore it is better to add feedback from layer L{-}1 , the terminal memory layer.
+Computing the loss in log space.
+To analyze the choice of log space loss in section 4, we compare two MUSt3R models trained following the recipe of section 4.
+The Log model is trained with the log space loss (Eq. 10) while Baseline is trained with the default metric regression loss from MASt3R. Again, we show the results for varying number of images used in the memory
+in Fig. 8 (Right). We can notice a clear gap between the two losses when going above 10 views in memory, the model being trained with the loss in log space providing a significantly better scaling to more views. For instance with n{\,{=}\,}50 views in memory the baseline achieves 13.4 cm accuracy vs. 12.6 for the log space loss. An interpretation is that the log space loss allows the network to regress larger values which is crucial for more input views as they will most often observe larger parts of the scenes.
+A.3 More views at inference
+Beyond architectural choices, an important result of the previous section is the scalability of MUSt3R to more views than ever seen during training, as explained in section 3.2.
+In particular, we can use our architecture to robustly predict from n{\gg}10 views in memory despite being trained only with n{\leq}10 as seen in Fig. 8. Interestingly, it can also process s{\gg}1 views at the same time while having been trained to predict s{=}1 views at the same time.
+In this section, we study the impact of the number of views in the memory ( n ) and the number of views used at once ( s ) when updating the memory
+in MUSt3R.
+These comparisons can be seen on the one hand in
+Tab. 10 where we complement
+Tab. 6 with experiments on MUSt3R
+varying n and s during inference
+(see columns 2 and 3).
+|
+|
+| fr1
+| fr2
+| fr3
+|
+|
+|
+| floor
+| 360_hsph
+| 360_kid
+| coke
+| desk_p
+| dishes
+| flow_bqt
+| flow_br
+| met_sph
+| met_sph2
+| pion_360
+| pion_slm
+| pion_slm2
+| pion_slm3
+| rpy
+| cab
+| lcab
+| ns_nt_far
+| ns_nt_loop
+| ns_tex_far
+| ns_tex_loop
+| sit_hsph
+| sit_rpy
+| sit_stat
+| sit_xyz
+| str_nt_far
+| str_nt_near
+| str_tex_far
+| str_tex_near
+| teddy
+| walk_hsph
+| walk_rpy
+| walk_stat
+| walk_xyz
+| Avg
+| RMSE ATE Tracking Error [cm] \downarrow
+| D
+| GlORIE-VO * [79]
+| 15.5
+| 84.2
+| 108.6
+| 5.4
+| 1.9
+| 3.0
+| 2.7
+| 3.5
+| 5.6
+| 6.0
+| 31.5
+| 87.1
+| 130.1
+| 170.8
+| 0.4
+| 2.0
+| 5.8
+| 2.5
+| 73.6
+| 2.2
+| 4.0
+| 3.4
+| 1.8
+| -
+| 0.9
+| 1.6
+| 1.9
+| 1.0
+| 1.9
+| 3.7
+| 1.9
+| 5.5
+| 2.3
+| 1.5
+| 23.4
+|
+| Spann3R [67]
+| 75.6
+| 116.9
+| 144.5
+| 64.7
+| 12.7
+| 9.8
+| 19.5
+| 28.9
+| 66.2
+| 76.6
+| 154.7
+| 193.9
+| 200.5
+| 206.5
+| 3.9
+| 3.3
+| 154.6
+| 56.4
+| 138.3
+| 23.4
+| 191.9
+| 26.0
+| 6.6
+| 2.8
+| 7.0
+| 27.3
+| 76.7
+| 52.1
+| 76.6
+| 65.5
+| 33.3
+| 15.0
+| 2.2
+| 9.2
+| 68.9
+| U
+| MUSt3R-224-C
+| 8.8
+| 88.4
+| 130.8
+| 11.5
+| 5.0
+| 7.2
+| 7.9
+| 3.2
+| 13.2
+| 19.0
+| 71.1
+| 47.7
+| 140.3
+| 45.4
+| 2.0
+| 2.2
+| 5.7
+| 12.0
+| 142.2
+| 12.7
+| 11.8
+| 32.9
+| 6.5
+| 2.7
+| 5.6
+| 4.4
+| 15.7
+| 5.3
+| 7.0
+| 5.8
+| 37.2
+| 18.0
+| 1.7
+| 4.7
+| 27.5
+|
+| MUSt3R-224
+| 5.0
+| 79.6
+| 74.1
+| 8.6
+| 3.0
+| 5.5
+| 5.0
+| 2.2
+| 11.4
+| 10.9
+| 40.5
+| 18.1
+| 69.1
+| 41.8
+| 1.4
+| 1.6
+| 4.6
+| 8.6
+| 117.2
+| 10.8
+| 10.6
+| 30.9
+| 6.5
+| 2.0
+| 4.2
+| 3.2
+| 10.2
+| 4.1
+| 6.4
+| 3.2
+| 28.3
+| 17.8
+| 1.4
+| 3.1
+| 19.1
+| Vertical FoV Error (in degrees) \downarrow
+|
+| Spann3R [67]
+| 31.46
+| 8.85
+| 2.98
+| 11.94
+| 11.78
+| 11.97
+| 13.96
+| 16.54
+| 9.15
+| 10.65
+| 10.86
+| 11.8
+| 11.64
+| 0.86
+| 12.41
+| 9.53
+| 9.53
+| 7.55
+| 8.7
+| 10.54
+| 17.37
+| 9.6
+| 9.78
+| 9.77
+| 8.83
+| 12.16
+| 17.86
+| 10.57
+| 9.87
+| 10.78
+| 9.41
+| 9.16
+| 9.54
+| 9.46
+| 11.08
+| U
+| MUSt3R-224-C
+| 0.15
+| 0.30
+| 0.95
+| 0.90
+| 0.44
+| 0.99
+| 0.04
+| 1.23
+| 0.52
+| 0.40
+| 0.69
+| 0.66
+| 1.26
+| 0.60
+| 0.45
+| 0.61
+| 0.75
+| 2.25
+| 3.4
+| 5.47
+| 5.09
+| 0.43
+| 0.49
+| 2.86
+| 3.16
+| 0.70
+| 0.42
+| 0.64
+| 0.74
+| 0.09
+| 0.07
+| 0.80
+| 2.08
+| 1.72
+| 1.22
+|
+| MUSt3R-224
+| 0.14
+| 0.30
+| 0.95
+| 0.90
+| 0.44
+| 0.99
+| 0.04
+| 1.23
+| 0.52
+| 0.40
+| 0.68
+| 0.70
+| 1.26
+| 0.61
+| 0.45
+| 0.61
+| 0.75
+| 2.25
+| 3.4
+| 5.47
+| 5.09
+| 0.43
+| 0.47
+| 2.86
+| 3.16
+| 0.70
+| 0.42
+| 0.64
+| 0.74
+| 0.09
+| 0.07
+| 0.80
+| 2.08
+| 1.72
+| 1.22
+| Scale Error \downarrow
+| D
+| GlORIE-VO * [79]
+| 0.85
+| 19.14
+| 3.27
+| 0.62
+| 1.27
+| 0.88
+| 0.72
+| 1.61
+| 0.8
+| 1.82
+| 3.94
+| 1.11
+| 0.28
+| 0.86
+| 1.62
+| 1.51
+| 3.19
+| 1.96
+| 0.4
+| 2.56
+| 1.4
+| 2.39
+| 2.25
+| 0.63
+| 2.38
+| 2.25
+| 1.04
+| 2.53
+| 1.34
+| 1.08
+| 2.79
+| 3.41
+| 0.15
+| 12.8
+| 2.50
+|
+| Spann3R [67]
+| 0.9
+| 3.2
+| 4.31
+| 2.8
+| 5.25
+| 3.54
+| 3.57
+| 2.91
+| 3.36
+| 1.81
+| 3.96
+| 5.92
+| 2.84
+| 4.24
+| 2.66
+| 4.36
+| 10.25
+| 9.0
+| 7.41
+| 9.59
+| 2.3
+| 3.28
+| 0.2
+| 4.33
+| 7.43
+| 5.59
+| 5.12
+| 6.83
+| 7.04
+| 1.82
+| 3.54
+| 0.81
+| 1.59
+| 6.82
+| 4.37
+| U
+| MUSt3R-224-C
+| 0.19
+| 0.19
+| 0.36
+| 0.07
+| 0.09
+| 0.04
+| 0.02
+| 0.19
+| 0.01
+| 0.63
+| 0.46
+| 0.12
+| 0.2
+| 0.14
+| 0.11
+| 0.05
+| 0.36
+| 0.04
+| 0.52
+| 1.21
+| 0.52
+| 0.68
+| 0.89
+| 0.28
+| 0.01
+| 0.03
+| 0.54
+| 0.49
+| 0.13
+| 0.28
+| 0.49
+| 0.94
+| 0.62
+| 0.02
+| 0.32
+|
+| MUSt3R-224
+| 0.22
+| 0.1
+| 0.07
+| 0.00
+| 0.07
+| 0.02
+| 0.00
+| 0.18
+| 0.02
+| 0.26
+| 0.36
+| 0.07
+| 0.09
+| 0.09
+| 0.00
+| 0.06
+| 0.38
+| 0.04
+| 0.42
+| 1.18
+| 0.51
+| 0.59
+| 0.88
+| 0.04
+| 0.02
+| 0.04
+| 0.54
+| 0.46
+| 0.15
+| 0.28
+| 0.24
+| 0.89
+| 0.47
+| 0.02
+| 0.26
+Table 11: Detailed results on TUM RGBD [58] (34 sequences not included in Tab. 1, and summarized in Tab. 2 of the main text). One Dense (D) versus dense unconstrained (U) methods on TUM-RGBD SLAM benchmark. (*) GlORIE-SLAM [79] was re-run without Loop Closure and global Bundle Adjustment.
+|
+| cash1
+| cash2
+| cei1
+| de3
+| dech1
+| eiflli
+| eillc1
+| eillc2
+| eiglc3
+| mq1
+| mq4
+| mqfa1
+| mqfa2
+| mqhe
+| mo1
+| plr2
+| plt3
+| plt4
+| plt5
+| pltsc1
+| ref1
+| rep
+| sfmbe
+| sfmgr
+| sfmhl
+| sfmlr1
+| sf2
+| sf3
+| sfsh
+| vili1
+| vili2
+| Avg
+| RMSE ATE Tracking Error [m] \downarrow
+| Spann3R[67]
+| 0.05
+| 0.08
+| 2.3
+| 0.96
+| 1.25
+| 1.41
+| 0.68
+| 0.12
+| 0.76
+| 0.73
+| 1.09
+| 0.5
+| 0.03
+| 0.25
+| 0.65
+| 0.38
+| 0.18
+| 0.05
+| 0.25
+| 0.95
+| 0.39
+| 0.91
+| 0.5
+| 5.93
+| 7.72
+| 1.36
+| 0.1
+| 0.14
+| 0.1
+| 0.84
+| 0.18
+| 0.99
+| MUSt3R-224-C
+| 0.06
+| 0.05
+| 2.01
+| 0.89
+| 0.81
+| 1.32
+| 0.73
+| 0.09
+| 0.93
+| 0.79
+| 0.6
+| 0.36
+| 0.07
+| 0.19
+| 0.18
+| 0.07
+| 0.28
+| 0.03
+| 0.24
+| 0.08
+| 0.39
+| 0.76
+| 0.14
+| 4.32
+| 6.12
+| 0.72
+| 0.36
+| 0.35
+| 0.1
+| 0.63
+| 0.26
+| 0.77
+| MUSt3R-224
+| 0.04
+| 0.03
+| 1.98
+| 1.02
+| 0.85
+| 1.29
+| 0.59
+| 0.08
+| 0.64
+| 0.32
+| 0.33
+| 0.42
+| 0.04
+| 0.16
+| 0.26
+| 0.07
+| 0.12
+| 0.06
+| 0.2
+| 0.1
+| 0.39
+| 0.31
+| 0.11
+| 5.96
+| 5.0
+| 0.72
+| 0.05
+| 0.08
+| 0.09
+| 0.28
+| 0.14
+| 0.70
+| Vertical FoV Error (in degrees) \downarrow
+| Spann3R [67]
+| 21.26
+| 17.24
+| 27.83
+| 26.53
+| 26.16
+| 28.28
+| 25.55
+| 26.28
+| 25.78
+| 28.63
+| 30.33
+| 67.47
+| 26.86
+| 27.41
+| 25.92
+| 28.64
+| 26.01
+| 27.0
+| 25.96
+| 26.5
+| 25.51
+| 25.61
+| 16.62
+| 26.09
+| 26.94
+| 26.61
+| 25.51
+| 25.37
+| 25.62
+| 67.27
+| 26.95
+| 28.50
+| MUSt3R-224-C
+| 3.68
+| 1.04
+| 5.89
+| 2.01
+| 1.35
+| 13.67
+| 2.56
+| 1.82
+| 1.93
+| 5.18
+| 6.28
+| 9.25
+| 5.51
+| 7.79
+| 1.75
+| 10.39
+| 14.07
+| 11.47
+| 12.37
+| 1.12
+| 3.56
+| 0.03
+| 2.04
+| 4.84
+| 4.28
+| 1.42
+| 1.65
+| 2.8
+| 2.43
+| 11.52
+| 13.92
+| 5.40
+| MUSt3R-224
+| 0.63
+| 1.01
+| 1.4
+| 1.0
+| 1.39
+| 10.97
+| 1.17
+| 1.16
+| 1.07
+| 3.27
+| 2.12
+| 12.15
+| 6.84
+| 3.76
+| 0.81
+| 7.46
+| 4.28
+| 8.04
+| 6.56
+| 1.0
+| 3.1
+| 1.6
+| 0.33
+| 0.72
+| 2.63
+| 1.25
+| 0.94
+| 0.11
+| 2.66
+| 4.21
+| 4.58
+| 3.17
+| Scale Error (ratio of GT scale) \downarrow
+| Spann3R [67]
+| 1.03
+| 0.79
+| 1.17
+| 0.4
+| 1.51
+| 2.33
+| 4.87
+| 5.44
+| 4.02
+| 1.8
+| 2.9
+| 0.64
+| 1.67
+| 0.86
+| 4.22
+| 0.25
+| 1.14
+| 0.16
+| 0.05
+| 3.31
+| 0.63
+| 0.3
+| 3.42
+| 8.06
+| 13.27
+| 7.2
+| 3.62
+| 4.66
+| 1.85
+| 3.05
+| 2.11
+| 2.79
+| MUSt3R-224-C
+| 0.49
+| 0.32
+| 0.28
+| 0.59
+| 0.32
+| 0.67
+| 0.25
+| 0.19
+| 0.27
+| 0.48
+| 0.26
+| 0.63
+| 0.53
+| 0.59
+| 0.13
+| 0.65
+| 0.01
+| 0.62
+| 0.54
+| 0.29
+| 0.57
+| 0.4
+| 0.19
+| 0.49
+| 0.04
+| 0.02
+| 0.13
+| 0.06
+| 0.3
+| 0.21
+| 0.65
+| 0.36
+| MUSt3R-224
+| 0.32
+| 0.4
+| 0.49
+| 0.77
+| 0.41
+| 0.61
+| 0.05
+| 0.12
+| 0.04
+| 0.67
+| 0.41
+| 0.01
+| 0.74
+| 0.72
+| 0.05
+| 0.48
+| 0.43
+| 0.82
+| 0.62
+| 0.11
+| 0.67
+| 0.05
+| 0.19
+| 0.09
+| 0.37
+| 0.01
+| 0.11
+| 0.06
+| 0.21
+| 0.34
+| 0.61
+| 0.35
+Table 12: Detailed results on ETH3D SLAM [53] (32 sequences not included in Table 5 of the main paper). RMSE ATE, Vertical FoV and Scale errors for three dense unconstrained (U) methods.
+Number of views in memory.
+The plots in Fig. 8 suggest that the model can successfully leverage up to n{\,{=}\,}50 views in the memory, despite being only trained with at most 10 views. Beyond 50 views, the results do not improve further.
+The results in Tab. 10 reinforce this observation. MUSt3R-224 n{\,{=}\,}10,s{\,{=}\,}1 is worse than n{\,{=}\,}all,s{\,{=}\,}1 .
+We note that in the Spann3R evaluation protocol, there are only 10 images used for DTU sequences, from 10 to 42 images for NRGBD and from 25 to 50 for 7-Scenes explaining the limited difference between n{\,{=}\,}20,s{\,{=}\,}1 and n{\,{=}\,}all,s{\,{=}\,}1 .
+Number of views at once.
+We also study how MUSt3R behaves when using multiple views to update the memory at the same time. Note that in most experiments we only use one image at a time, except for initialization where we start with s{=}2 images. We run experiments with s{\,{=}\,}5 and s{\,{=}\,}10 views to update the memory. Results on DTU, NRGBD and 7-Scenes are shown in Tab. 10 for both MUSt3R-224 and MUSt3R-512.
+We observe that predicting multiple images at the same time does not significantly degrade the performance. Interestingly, it
+yields a decent increase in FPS for MUSt3R-224: (72.59 for s{{\,{=}\,}}10 vs. 40.41 for s{{\,{=}\,}}1 ), at the cost of a slightly increased memory usage (4.8G for s{{\,{=}\,}}10 vs. 4.1G for s{{\,{=}\,}}1 ).
+For MUSt3R-512, the FPS difference is not significant and does not really justify the increased memory cost.
+Appendix B Qualitative examples
+As promised in Sections 1 and 5.1, we provide here additional qualitative results on various datasets. Image poses are predicted via Procrustes analysis, and for visualization purposes, we only show highly confident points.
+We wish to demonstrate the ease of use and plug-and-play nature of MUSt3R in varied scenarios, and its robustness indoors Fig. 7, outdoors Fig. 5 or object-centric Fig. 6.
+We emphasize that our approach does not assume a single set of intrinsics for an image collection and seamlessly works with heterogeneous sensors, as shown in the ScanNet++ scenes in Fig. 7 (left).
+Appendix C Memory Management
+We provide in Fig. 9 the pseudo-code for the online algorithm described in Sec. 3.4.
+We believe MUSt3R to be an important step towards a simplified VO and even RGB-SLAM pipeline. In fact, the network is internally managing all the traditionally heavily engineered steps such as keypoint selection and matching, pose estimation and 3D triangulation. Our results show that a simplistic memory frame selection mechanism is enough to outperform traditional VO methods.
+⬇
+perc=85
+thresh=0.05
+def online_update(frame,munst3r,memory,scene3d):
+# forward view with current memory
+Xi1, Xii, new_tokens=munst3r(frame,memory)
+# depth and focal from local prediction
+depth = Xii[...,-1] # [H,W]
+focal = get_focal(depth)
+# pose via procrustes between local and global
+pose = procrustes_align(Xii,Xi1)
+# viewing direction for each pixel
+rays = normalize(Xi1-pose.t)
+# viewing-direction aware 3D discovery rate
+dists = scene3d.query(Xi1,rays)
+if percentile(dists/depth,perc) > thresh:
+# Append frame tokens to memory
+memory.append(new_tokens)
+# Add predicted points and directions
+scene3d.add(Xi1, rays)
+return Xi1,focal,pose,depth
+Figure 9: Python code for Uncalibrated Visual Odometry.
+Appendix D Full Visual Odometry results
+In this section we provide the detailed tables of evaluating online MUSt3R model
+on TUM RGB-D [58] and ETH3D [53].
+D.1 Full TUM RGB-D dataset
+Tables 1, 3, 4, shown in Sec. 5.1, reported RMSE APE, vertical FoV and scale errors for 11 sequences of TUM-RGBD dataset [58]; these sequences were selected for being most frequently evaluated by the recent state-of-the-art methods.
+Here, Tab. 11 completes our evaluation and presents detailed results of MUSt3R-224 on all for 34 remaining TUM-RGBD sequences (see the main paper and Table 2 for the results aggregated over 5 categories of sequences). The table also includes comparison to GlORIE-SLAM [79] run in VO mode. The full dataset contains extremely hard sequences and, to the best of our knowledge, it has never been fully tested previously by other VO works. Despite its simplicity, MUSt3R performs overall on par with GlORIE-VO while being substantially faster. Furthermore, MUSt3R outperforms Spann3R on all sequences.
+D.2 ETH3D dataset
+Finally, Tab. 12 presents detailed results of MUSt3R-224 on 32 ETH3D sequences which complete the evaluation of the 8 sequences included in the main paper (Tab. 5). The table reports RMSE APE, vertical FoV and scale errors for all 32 sequences and compares MUSt3R and MUSt3R-C to Spann3R, both in 224 resolution. As the table clearly shows, both versions of MUSt3R again outperform Spann3R on the vast majority of sequences, although we note that there is still room for improvements on some sequences, usually when the scene size becomes too large. We hope these systematic results, along with code, will help foster research in this direction.
+References
+[1]
+Henrik Aanæs, Rasmus Ramsbøl Jensen, George Vogiatzis, Engin Tola, and Anders Bjorholm Dahl.
+Large-Scale Data for Multiple-View Stereopsis.
+International Journal of Computer Vision (IJCV), 120(2):153–168, 2016.
+[2]
+Howard Addison, Trulls Eduard, etru1927, Yi Kwang Moo, old ufo, Dane Sohier, and Jin Yuhe.
+Image matching challenge, 2022.
+[3]
+Eduardo Arnold, Jamie Wynn, Sara Vicente, Guillermo Garcia-Hernando, Áron Monszpart, Victor Adrian Prisacariu, Daniyar Turmukhambetov, and Eric Brachmann.
+Map-free Visual Relocalization: Metric Pose Relative to a Single Image.
+In ECCV, 2022.
+[4]
+Dejan Azinovic, Ricardo Martin-Brualla, Dan B Goldman, Matthias Niessner, and Justus Thies.
+Neural RGB-D Surface Reconstruction.
+In CVPR, 2022.
+[5]
+Jonathan T. Barron, Ben Mildenhall, Dor Verbin, Pratul P. Srinivasan, and Peter Hedman.
+Mip-NeRF 360: Unbounded Anti-Aliased Neural Radiance Fields.
+In CVPR, 2022.
+[6]
+Jon Louis Bentley.
+Multidimensional Binary Search Trees Used for Associative Searching.
+Communications of the ACM, 18(9):509–517, 1975.
+[7]
+Eric Brachmann, Jamie Wynn, Shuai Chen, Tommaso Cavallari, Áron Monszpart, Daniyar Turmukhambetov, and Victor Adrian Prisacariu.
+Scene coordinate reconstruction: Posing of image collections via incremental learning of a relocalizer.
+In ECCV, 2024.
+[8]
+Yohann Cabon, Naila Murray, and Martin Humenberger.
+Virtual KITTI 2.
+arXiv:2001.10773, 2020.
+[9]
+Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, José M. M. Montiel, and Juan D. Tardós.
+ORB-SLAM3: An accurate open-source library for visual, visual-inertial, and multimap SLAM.
+IEEE Transactions on Robotics (T-RO), 2021.
+[10]
+Chi-Ming Chung, Yang-Che Tseng, Ya-Ching Hsu, Xiang-Qian Shi, Yun-Hung Hua, Jia-Fong Yeh, Wen-Chin Chen, Yi-Ting Chen, and Winston H Hsu.
+Orbeez-SLAM: A Real-time Monocular Visual SLAM with ORB Features and NeRF-realized Mapping.
+arXiv:2209.13274, 2022.
+[11]
+David Crandall, Andrew Owens, Noah Snavely, and Daniel Huttenlocher.
+SfM with MRFs: Discrete-continuous optimization for large-scale structure from motion.
+PAMI, 2013.
+[12]
+Hainan Cui, Xiang Gao, Shuhan Shen, and Zhanyi Hu.
+HSfM: Hybrid structure-from-motion.
+In CVPR, 2017.
+[13]
+Jan Czarnowski, Tristan Laidlow, Ronald Clark, and Andrew J. Davison.
+DeepFactors: Real-time probabilistic dense monocular SLAM.
+IEEE Robotics and Automation Letters (RA-L), 2020.
+[14]
+Angela Dai, Angel X. Chang, Manolis Savva, Maciej Halber, Thomas Funkhouser, and Matthias Nießner.
+ScanNet: Richly-annotated 3D Reconstructions of Indoor Scenes.
+In CVPR, 2017.
+[15]
+Afshin Dehghan, Gilad Baruch, Zhuoyuan Chen, Yuri Feigin, Peter Fu, Thomas Gebauer, Daniel Kurz, Tal Dimry, Brandon Joffe, Arik Schwartz, and Elad Shulman.
+ARKitScenes: A diverse real-world dataset for 3d indoor scene understanding using mobile RGB-D data.
+In NeurIPS Datasets and Benchmarks, 2021.
+[16]
+Eric Dexheimer and Andrew J. Davison.
+COMO: Compact Mapping and Odometry.
+In CVPR, 2023a.
+[17]
+Eric Dexheimer and Andrew J. Davison.
+Learning a Depth Covariance Function.
+In CVPR, 2023b.
+[18]
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby.
+An image is worth 16x16 words: Transformers for image recognition at scale.
+ICLR, 2021.
+[19]
+Bardenius Duisterhof, Lojze Zust, Philippe Weinzaepfel, Vincent Leroy, Yohann Cabon, and Jerome Revaud.
+MASt3R-SfM: a Fully-Integrated Solution for Unconstrained Structure-from-Motion.
+arXiv:2409.19152, 2024.
+[20]
+Yuval Eldar, Michael Lindenbaum, Moshe Porat, and Yehoshua Y Zeevi.
+The farthest point strategy for progressive image sampling.
+In ICPR, 1994.
+[21]
+Jakob Engel, Vladlen Koltun, and Daniel Cremers.
+Direct sparse odometry.
+IEEE Transactions on Pattern Analysis and Machine Intelligence (PAMI), 2018.
+[22]
+Jiading Fang, Igor Vasiljevic, Vitor Guizilini, Rares Ambrus, Greg Shakhnarovich, Adrien Gaidon, and Matthew R. Walter.
+Self-Supervised Camera Self-Calibration from Video.
+In ICRA, 2022.
+[23]
+Andreas Geiger, Philip Lenz, and Raquel Urtasun.
+Are we ready for Autonomous Driving? The KITTI Vision Benchmark Suite.
+In CVPR, 2012.
+[24]
+Richard Hartley and Andrew Zisserman.
+Multiple View Geometry in Computer Vision.
+Cambridge University Press, 2004.
+[25]
+Lionel Heng, Gim Hee Lee, and Marc Pollefeys.
+Self-calibration and visual SLAM with a multi-camera system on a micro aerial vehicle.
+Auton. Robots, 39(3):259–277, 2015.
+[26]
+Nianjuan Jiang, Zhaopeng Cui, and Ping Tan.
+A Global Linear Method for Camera Pose Registration.
+In ICCV, 2013.
+[27]
+Alex Kendall, Matthew Grimes, and Roberto Cipolla.
+PoseNet: a Convolutional Network for Real-Time 6-DOF Camera Relocalization.
+In ICCV, 2015.
+[28]
+Arno Knapitsch, Jaesik Park, Qian-Yi Zhou, and Vladlen Koltun.
+Tanks and temples: Benchmarking large-scale scene reconstruction.
+ACM Transactions on Graphics, 36(4), 2017.
+[29]
+Olivier Koch, Matthew R. Walter, Albert S. Huang, and Seth Teller.
+Ground robot navigation using uncalibrated cameras.
+In IROS, 2010.
+[30]
+Lukas Koestler, Nan Yang, Niclas Zeller, and Daniel Cremers.
+TANDEM: Tracking and dense mapping in real-time using deep multi-view stereo.
+In CORL, 2022.
+[31]
+Benjamin Lefaudeux, Francisco Massa, Diana Liskovich, Wenhan Xiong, Vittorio Caggiano, Sean Naren, Min Xu, Jieru Hu, Marta Tintore, Susan Zhang, Patrick Labatut, Daniel Haziza, Luca Wehrstedt, Jeremy Reizenstein, and Grigory Sizov.
+xformers: A modular and hackable transformer modelling library.
+https://github.com/facebookresearch/xformers, 2022.
+[32]
+Vincent Leroy, Yohann Cabon, and Jérôme Revaud.
+Grounding Image Matching in 3D with MASt3R.
+In ECCV, 2024.
+[33]
+Heng Li, Xiaodong Gu, Weihao Yuan, Luwei Yang, Zilong Dong, and Ping Tan.
+Dense RGB SLAM With Neural Implicit Maps.
+In ICLR, 2023.
+[34]
+Zhengqi Li and Noah Snavely.
+Megadepth: Learning single-view depth prediction from internet photos.
+In CVPR, 2018.
+[35]
+Kang Liao, Lang Nie, Shujuan Huang, Chunyu Lin, Jing Zhang, Yao Zhao, Moncef Gabbouj, and Dacheng Tao.
+Deep Learning for Camera Calibration and Beyond: A Survey.
+arXiv:2303.10559, 2023.
+[36]
+Lu Ling, Yichen Sheng, Zhi Tu, Wentian Zhao, Cheng Xin, Kun Wan, Lantao Yu, Qianyu Guo, Zixun Yu, Yawen Lu, Xuanmao Li, Xingpeng Sun, Rohan Ashok, Aniruddha Mukherjee, Hao Kang, Xiangrui Kong, Gang Hua, Tianyi Zhang, Bedrich Benes, and Aniket Bera.
+DL3DV-10K: A Large-Scale Scene Dataset for Deep Learning-based 3D Vision.
+In CVPR, 2024.
+[37]
+Ruoshi Liu, Rundi Wu, Basile Van Hoorick, Pavel Tokmakov, Sergey Zakharov, and Carl Vondrick.
+Zero-1-to-3: Zero-shot One Image to 3D Object.
+In CVPR, 2023.
+[38]
+Hidenobu Matsuki, Riku Murai, Paul H. J. Kelly, and Andrew J. Davison.
+Gaussian Splatting SLAM.
+In CVPR, 2024.
+[39]
+N. Mayer, E. Ilg, P. Häusser, P. Fischer, D. Cremers, A. Dosovitskiy, and T. Brox.
+A Large Dataset to Train Convolutional Networks for Disparity, Optical Flow, and Scene Flow Estimation.
+In CVPR, 2016.
+[40]
+Raul Mur-Artal and Juan D Tardós.
+ORB-SLAM2: An open-source SLAM system for monocular, stereo, and RGB-D cameras.
+IEEE Transactions on Robotics, 33(5):1255–1262, 2017.
+[41]
+Dario Pavllo, Graham Spinks, Thomas Hofmann, Marie-Francine Moens, and Aurélien Lucchi.
+Convolutional Generation of Textured 3D Meshes.
+In NeurIPS, 2020.
+[42]
+Dario Pavllo, Jonas Kohler, Thomas Hofmann, and Aurélien Lucchi.
+Learning Generative Models of Textured 3D Meshes from Real-World Images.
+In ICCV, 2021.
+[43]
+Dario Pavllo, David Joseph Tan, Marie-Julie Rakotosaona, and Federico Tombari.
+Shape, Pose, and Appearance from a Single Image via Bootstrapped Radiance Field Inversion.
+In CVPR, 2023.
+[44]
+Reiner Pope, Sholto Douglas, Aakanksha Chowdhery, Jacob Devlin, James Bradbury, Anselm Levskaya, Jonathan Heek, Kefan Xiao, Shivani Agrawal, and Jeff Dean.
+Efficiently Scaling Transformer Inference.
+In MLSys, 2023.
+[45]
+Arya Rachman, Jürgen Seiler, and André Kaup.
+End-to-End Lidar-Camera Self-Calibration for Autonomous Vehicles.
+In IEEE Intelligent Vehicles Symposium, 2023.
+[46]
+René Ranftl, Alexey Bochkovskiy, and Vladlen Koltun.
+Vision transformers for dense prediction.
+In ICCV, 2021.
+[47]
+Jeremy Reizenstein, Roman Shapovalov, Philipp Henzler, Luca Sbordone, Patrick Labatut, and David Novotný.
+Common Objects in 3D: Large-Scale Learning and Evaluation of Real-life 3D Category Reconstruction.
+In ICCV, 2021.
+[48]
+Antoni Rosinol, John J. Leonard, and Luca Carlone.
+NeRF-SLAM: Real-Time Dense Monocular SLAM with Neural Radiance Fields .
+In IROS, 2023.
+[49]
+Manolis Savva, Abhishek Kadian, Oleksandr Maksymets, Yili Zhao, Erik Wijmans, Bhavana Jain, Julian Straub, Jia Liu, Vladlen Koltun, Jitendra Malik, Devi Parikh, and Dhruv Batra.
+Habitat: A Platform for Embodied AI Research.
+In ICCV, 2019.
+[50]
+Johannes Lutz Schönberger and Jan-Michael Frahm.
+Structure-from-motion revisited.
+In CVPR, 2016.
+[51]
+Thomas Schöps, Johannes L. Schönberger, Silvano Galliani, Torsten Sattler, Konrad Schindler, Marc Pollefeys, and Andreas Geiger.
+A Multi-View Stereo Benchmark with High-Resolution Images and Multi-Camera Videos.
+In CVPR, 2017a.
+[52]
+Thomas Schöps, Johannes L. Schönberger, Silvano Galliani, Torsten Sattler, Konrad Schindler, Marc Pollefeys, and Andreas Geiger.
+ETH3D Online Benchmark.
+https://www.eth3d.net/slam_benchmark, 2017b.
+[53]
+Thomas Schöps, Torsten Sattler, and Marc Pollefeys.
+BAD SLAM: bundle adjusted direct RGB-D SLAM.
+In CVPR, 2019.
+[54]
+Philipp Schröppel, Jan Bechtold, Artemij Amiranashvili, and Thomas Brox.
+A Benchmark and a Baseline for Robust Multi-view Depth Estimation.
+In 3DV, 2022.
+[55]
+Jamie Shotton, Ben Glocker, Christopher Zach, Shahram Izadi, Antonio Criminisi, and Andrew W. Fitzgibbon.
+Scene coordinate regression forests for camera relocalization in RGB-D images.
+In CVPR, 2013.
+[56]
+Cameron Smith, David Charatan, Ayush Tewari, and Vincent Sitzmann.
+FlowMap: High-Quality Camera Poses, Intrinsics, and Depth via Gradient Descent.
+In NeurIPS, 2023.
+[57]
+Julian Straub, Thomas Whelan, Lingni Ma, Yufan Chen, Erik Wijmans, Simon Green, Jakob J. Engel, Raul Mur-Artal, Carl Ren, Shobhit Verma, Anton Clarkson, Mingfei Yan, Brian Budge, Yajie Yan, Xiaqing Pan, June Yon, Yuyang Zou, Kimberly Leon, Nigel Carter, Jesus Briales, Tyler Gillingham, Elias Mueggler, Luis Pesqueira, Manolis Savva, Dhruv Batra, Hauke M. Strasdat, Renzo De Nardi, Michael Goesele, Steven Lovegrove, and Richard Newcombe.
+The Replica Dataset: A Digital Replica of Indoor Spaces.
+arXiv:1906.05797, 2019.
+[58]
+Jürgen Sturm, Nikolas Engelhard, Felix Endres, Wolfram Burgard, and Daniel Cremers.
+A benchmark for the evaluation of RGB-D SLAM systems.
+In IROS, 2012.
+[59]
+Jianlin Su, Yu Lu, Shengfeng Pan, Bo Wen, and Yunfeng Liu.
+RoFormer: Enhanced Transformer with Rotary Position Embeddin.
+arXiv:2104.09864, 2021.
+[60]
+Zachary Teed and Jia Deng.
+Deepv2d: Video to depth with differentiable structure from motion.
+In ICLR, 2020.
+[61]
+Zachary Teed and Jia Deng.
+DROID-SLAM: deep visual SLAM for monocular, stereo, and RGB-D cameras.
+In NeurIPS, 2021.
+[62]
+Zachary Teed, Lahav Lipson, and Jia Deng.
+Deep Patch Visual Odometry.
+In NeurIPS, 2023.
+[63]
+Giorgos Tolias, Yannis Avrithis, and Hervé Jégou.
+Image Search with Selective Match Kernels: Aggregation Across Single and Multiple Images.
+International Journal of Computer Vision (IJCV), 116:247–261, 2016.
+[64]
+Fabio Tosi, Yiyi Liao, Carolin Schmitt, and Andreas Geiger.
+SMD-Nets: Stereo Mixture Density Networks.
+In CVPR, 2021.
+[65]
+Fabio Tosi, Youmin Zhang, Ziren Gong, Erik Sandström, Stefano Mattoccia, Martin R. Oswald, and Matteo Poggi.
+How NeRFs and 3D Gaussian Splatting are Reshaping SLAM: a Survey.
+arXiv:2402.1325, 2024.
+[66]
+Benjamin Ummenhofer, Huizhong Zhou, Jonas Uhrig, Nikolaus Mayer, Eddy Ilg, Alexey Dosovitskiy, and Thomas Brox.
+DeMoN: Depth and motion network for learning monocular stereo.
+In CVPR, pages 5622–5631, 2017.
+[67]
+Hengyi Wang and Lourdes Agapito.
+3D Reconstruction with Spatial Memory.
+arXiv:2408.16061, 2024.
+[68]
+Hengyi Wang, Jingwen Wang, and Lourdes Agapito.
+Co-SLAM: Joint Coordinate and Sparse Parametric Encodings for Neural Real-Time SLAM.
+In CVPR, 2023a.
+[69]
+Jianyuan Wang, Christian Rupprecht, and David Novotný.
+Posediffusion: Solving pose estimation via diffusion-aided bundle adjustment.
+In ICCV, 2023b.
+[70]
+Jianyuan Wang, Nikita Karaev, Christian Rupprecht, and David Novotny.
+Visual Geometry Grounded Deep Structure From Motion.
+In CVPR, 2024a.
+[71]
+Shuzhe Wang, Vincent Leroy, Yohann Cabon, Boris Chidlovskii, and Jérôme Revaud.
+DUSt3R: Geometric 3D Vision Made Easy.
+In CVPR, 2024b.
+[72]
+Wenshan Wang, Delong Zhu, Xiangwei Wang, Yaoyu Hu, Yuheng Qiu, Chen Wang, Yafei Hu, Ashish Kapoor, and Sebastian Scherer.
+TartanAir: A Dataset to Push the Limits of Visual SLAM.
+In IROS, 2020.
+[73]
+Philippe Weinzaepfel, Vincent Leroy, Thomas Lucas, Romain Brégier, Yohann Cabon, Vaibhav Arora, Leonid Antsfeld, Boris Chidlovskii, Gabriela Csurka, and Revaud Jérôme.
+CroCo: Self-Supervised Pre-training for 3D Vision Tasks by Cross-View Completion.
+In NeurIPS, 2022.
+[74]
+Philippe Weinzaepfel, Thomas Lucas, Vincent Leroy, Yohann Cabon, Vaibhav Arora, Romain Brégier, Gabriela Csurka, Leonid Antsfeld, Boris Chidlovskii, and Jérôme Revaud.
+CroCo v2: Improved Cross-view Completion Pre-training for Stereo Matching and Optical Flow.
+In ICCV, 2023.
+[75]
+Hongchi Xia, Yang Fu, Sifei Liu, and Xiaolong Wang.
+RGBD Objects in the Wild: Scaling Real-World 3D Object Learning from RGB-D Videos.
+In CVPR, 2024.
+[76]
+Guangkai Xu, Wei Yin, Hao Chen, Chunhua Shen, Kai Cheng, and Feng Zhao.
+FrozenRecon: Pose-free 3D Scene Reconstruction with Frozen Depth Models.
+In ICCV, 2023.
+[77]
+Yao Yao, Zixin Luo, Shiwei Li, Jingyang Zhang, Yufan Ren, Lei Zhou, Tian Fang, and Long Quan.
+BlendedMVS: A Large-Scale Dataset for Generalized Multi-View Stereo Networks.
+In CVPR, 2020.
+[78]
+Chandan Yeshwanth, Yueh-Cheng Liu, Matthias Nießner, and Angela Dai.
+ScanNet++: A High-Fidelity Dataset of 3D Indoor Scenes.
+In ICCV, 2023.
+[79]
+Ganlin Zhang, Erik Sandström, Youmin Zhang, Manthan Patel, Luc Van Gool, and Martin R. Oswald.
+GlORIE-SLAM: Globally Optimized RGB-only Implicit Encoding Point Cloud SLAM.
+arXiv:2403.19549, 2024a.
+[80]
+Junyi Zhang, Charles Herrmann, Junhwa Hur, Varun Jampani, Trevor Darrell, Forrester Cole, Deqing Sun, and Ming-Hsuan Yang.
+MonST3R: A Simple Approach for Estimating Geometry in the Presence of Motion.
+arXiv:2410.03825, 2024b.
+[81]
+Jason Y. Zhang, Deva Ramanan, and Shubham Tulsiani.
+RelPose: Predicting Probabilistic Relative Rotation for Single Objects in the Wild.
+In ECCV, 2022.
+[82]
+Jason Y. Zhang, Amy Lin, Moneish Kumar, Tzu-Hsuan Yang, Deva Ramanan, and Shubham Tulsiani.
+Cameras as Rays: Pose Estimation via Ray Diffusion.
+In ICLR, 2024c.
+[83]
+Zichao Zhang, Torsten Sattler, and Davide Scaramuzza.
+Reference Pose Generation for Long-term Visual Localization via Learned Features and View Synthesis.
+International Journal of Computer Vision (IJCV), 129:821–844, 2021.
+[84]
+Huizhong Zhou, Benjamin Ummenhofer, and Thomas Brox.
+DeepTAM: Deep tracking and mapping with convolutional neural networks.
+International Journal of Computer Vision (IJCV), 128(3):756–769, 2020.
+[85]
+Heng Zhou, Zhetao Guo, Shuhong Liu, Lechen Zhang, Qihao Wang, Yuxiang Ren, and Mingrui Li.
+MoD-SLAM: Monocular Dense Mapping for Unbounded 3D Scene Reconstruction.
+arXiv:2402.03762, 2024.
+[86]
+Tinghui Zhou, Richard Tucker, John Flynn, Graham Fyffe, and Noah Snavel.
+Stereo Magnification: Learning View Synthesis using Multiplane Images.
+ACM Transactions on Graphics , 37(4):1–12, 2018.
+[87]
+Zihan Zhu, Songyou Peng, Viktor Larsson, Weiwei Xu, Hujun Bao, Zhaopeng Cui, Martin R. Oswald, and Marc Pollefeys.
+NICE-SLAM: Neural Implicit Scalable Encoding for SLAM.
+In CVPR, 2022.
+[88]
+Zihan Zhu, Songyou Peng, Viktor Larsson, Zhaopeng Cui, Martin R. Oswald, Andreas Geiger, and Marc Pollefeys.
+NICER-SLAM: Neural Implicit Scene Encoding for RGB SLAM.
+In 3DV, 2024.
+[89]
+Bingbing Zhuang, Quoc-Huy Tran, Pan Ji, Gim Hee Lee, Loong Fah Cheong, and Manmohan Chandraker.
+Degeneracy in self-calibration revisited and a deep learning solution for uncalibrated slam.
+In IROS, 2019.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

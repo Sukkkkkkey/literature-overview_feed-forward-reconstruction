@@ -1,0 +1,1425 @@
+LongStream: Long-Sequence Streaming Autoregressive Visual Geometry
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Work
+3 Methodology
+3.1 Overall
+3.2 Gauge-Decoupled Formulation
+3.3 Network Architecture
+3.4 Probabilistic Framework and Loss Functions
+3.5 KV Cache and Train–Inference Consistency
+4 Experiments
+4.1 Implementation Details
+4.2 Quantitative Results
+4.3 Qualitative Results
+4.4 Ablation Study
+5 Conclusion
+6 Acknowledgments
+References
+7 Gauge Invariance of Relative Pose and Scale
+7.1 SE(3) Gauge Invariance of Keyframe Relative Pose
+Gauge transformation.
+Transformation of absolute pose.
+Invariance of keyframe–relative pose.
+7.2 Sim(3) Orthogonal Decoupling of Scale
+8 Additional Attention Visualization Analysis
+9 Long-Sequence Stability Analysis
+10 Additional Hyperparameter Analysis
+10.1 Impact of Keyframe Interval
+10.2 Impact of Cache Window Size
+11 Additional Limitation
+License: CC BY 4.0
+arXiv:2602.13172v2 [cs.CV] 13 Mar 2026
+LongStream: Long-Sequence Streaming Autoregressive Visual Geometry
+Chong Cheng
+Affiliation: Horizon Robotics
+Xianda Chen
+Affiliation: CSU‡Project Lead†Corresponding Author
+Tao Xie
+Affiliation: Horizon Robotics
+Affiliation: ZJU
+Wei Yin
+Affiliation: Horizon Robotics
+Weiqiang Ren
+Affiliation: Horizon Robotics
+Qian Zhang
+Affiliation: Horizon Robotics
+Xiaoyang Guo
+Affiliation: Horizon Robotics
+Hao Wang
+HKUST (GZ)
+Abstract
+Long-sequence streaming 3D reconstruction remains a significant open challenge.
+Existing autoregressive models often fail when processing long sequences because they anchor poses to the first frame, leading to attention decay, scale drift, and extrapolation errors.
+We introduce LongStream, a novel gauge-decoupled streaming visual geometry model for metric-scale scene reconstruction across thousands of frames under a strictly online, future-invisible setting.
+Our approach is threefold. First, we discard the first-frame anchor and predict keyframe-relative poses. This reformulates long-range extrapolation into a constant-difficulty local task. Second, we introduce orthogonal scale learning. This method fully disentangles geometry from scale estimation to suppress drift.
+Finally, we identify attention bias issues in Transformers, including attention-sink reliance and long-term KV-cache saturation.
+We propose cache-consistent training combined with periodic cache refresh. This approach suppresses attention biases and contamination over ultra-long sequences and reduces the gap between training and inference.
+Experiments show that LongStream achieves state-of-the-art performance, enabling stable, metric-scale reconstruction over kilometer-scale sequences at 18 FPS. Project Page: https://3dagentworld.github.io/longstream/
+Figure 1:
+Streaming Autoregressive Model Comparison for Metric-Scale Scene Reconstruction. Existing streaming models (e.g., Stream3R [1], StreamVGGT [2]) collapse within tens of meters, suffering from extrapolation errors. In contrast, our proposed LongStream delivers stable, kilometer-scale reconstruction. Its gauge-decoupled formulation and cache-consistent training preserve metric accuracy and geometric stability, sustaining 18 FPS performance across multi-kilometer sequences.
+1 Introduction
+Geometry reconstruction, the joint estimation of camera poses and dense 3D structure from image sequences [3, 4, 5, 6, 7, 8], is a cornerstone technology for applications like autonomous driving, AR/VR, and embodied robotics [9, 10]. These domains demand systems that can robustly process long-sequence video streams in real time.
+Conventional pipelines [3, 4, 6, 11, 12] and recent Transformer-based approaches [13, 14, 15, 16, 17, 18] achieve state-of-the-art accuracy, but are inherently offline. They require reprocessing the entire sequence to integrate a new frame [1, 2], leading to massive computational redundancy and precluding real-time use.
+To address this, streaming models have been proposed. Recent works such as STream3R [1] and StreamVGGT [2] employ causal Transformers and KV-caching to build reconstructions incrementally. However, these models suffer from catastrophic extrapolation failure when processing long sequences. As shown in Figures 1 and 2, existing streaming methods incrementally reconstruct scenes in linear time, but their trajectories collapse within tens of meters, leading to complete tracking failure.
+We argue that this failure stems from the “gauge-coupled” design inherent in current models. They are anchored to the first-frame coordinate system and trained to regress absolute poses.
+This forces the model to learn a position-fixed mapping, making long-sequence prediction increasingly difficult. Due to hardware constraints, the model only sees small indices in a training batch, making it difficult to extrapolate reliably to large indices at inference. As a result, a domain gap emerges under the “train-short, test-long” bias [19, 20].
+To this end, we propose LongStream, a “gauge-decoupled” streaming autoregressive geometry framework. The framework theoretically decouples the gauge freedoms of global SE(3) coordinates and metric scale.
+First, to handle coordinate gauge over long sequences, we remove the fixed first-frame anchor. Instead, we regress keyframe-relative poses. This reformulates the ill-posed long-range extrapolation problem into a constant-difficulty local estimation task. As a result, the predictions become invariant to the global coordinate choice.
+Second, to tackle Sim(3) scale drift, we introduce an orthogonal scale learning mechanism [21]. We decouple geometry learning from metric scale estimation at the objective level. The geometry branch optimizes shape in a scale-invariant space, while a dedicated scale head independently predicts the global scale factor. This effectively reduces scale entanglement and ensures stable metric outputs.
+Figure 2: Memory and runtime comparison. Our method keeps memory and latency stable, whereas VGGT and FastVGGT grow rapidly and hit OOM on long sequences.
+Beyond this gauge-decoupled formulation, the streaming Transformer architecture itself presents challenges. We identify that attention sink [22], i.e., its biased dependence on the first-frame token, and long-term KV-cache contamination are primary causes of temporal degradation and drift.
+To address this, we propose a cache-consistent training scheme. It aligns training and inference contexts by explicitly passing and trimming the cache during training. We further introduce a periodic cache refresh approach, which marginalizes stale context, mitigates long-term memory saturation, and stabilizes geometry.
+Experiments on both outdoor (KITTI, vKITTI, Waymo) and indoor (TUM-RGBD, ETH3D, 7Scenes) datasets show that LongStream achieves state-of-the-art streaming reconstruction. It enables real-time (18 FPS), metric-scale AR reconstruction over kilometer-scale sequences. Our contributions are summarized as follows:
+•
+We propose LongStream, a streaming geometry foundation model centered on a “gauge-decoupled” design. It predicts keyframe-relative poses and employs orthogonal scale decoupling. This design systematically eliminates first-frame anchor dependence and effectively mitigates failures in long-sequence extrapolation.
+•
+We identify attention-sink reliance and KV-cache contamination as the primary causes of long-horizon degradation. Our cache-consistent training scheme and periodic cache refresh stabilize temporal attention and reduce geometric drift.
+•
+Experiments across indoor and outdoor benchmarks show that LongStream achieves state-of-the-art performance under a strictly online, future-invisible setting, while maintaining real-time throughput and stable metric scale on long sequences.
+2 Related Work
+Figure 3: Overview of our proposed LongStream. Given streaming inputs, patch tokens are extracted by a ViT encoder and augmented with keyframe, normal-frame, and scale tokens. Tokens are fused via causal attention with a shared KV cache, which is consistently used in both training and inference for cache-consistent streaming modeling. The network predicts keyframe-relative poses \mathbf{T}_{i\leftarrow k} , depth, pointmap, and global scale,
+enabling stable metric-scale reconstruction over long sequences.
+Classical SfM and MVS.
+Structure-from-Motion (SfM) and Multi-View Stereo (MVS) pipelines [3, 4, 6, 11, 23, 24, 5]
+reconstruct 3D scenes by modeling geometric relations between image correspondences.
+SfM estimates camera poses and sparse structure via feature matching and bundle adjustment [3, 4], while MVS densifies them with pixel-wise depth from plane sweeping or cost volumes [6, 11, 23, 24, 5].
+Despite high accuracy and interpretability, these optimization-heavy pipelines with handcrafted features scale poorly to large or dynamic scenes and are difficult to deploy in real time.
+Offline 3D reconstruction.
+Early end-to-end methods are mainly trained on image pairs [25, 26, 27, 28].
+Pointmaps offer efficient computation and real-time usage compared to voxel, mesh, or implicit fields [29, 30, 31, 32, 33], enabling SLAM and neural rendering [34, 35, 36, 37, 38].
+DUSt3R [13] regresses pointmaps and relative pose from two images without intrinsics, but remains pairwise and requires global alignment.
+MASt3R [14] adds dense features and reciprocal matching to improve calibration and matching robustness, yet operates on pairs and needs costly fusion for multi-view scenes.
+VGGT [15] predicts poses, depth, pointmaps, and tracks from multi-view inputs in a single feed-forward pass, but relies on a fixed reference frame and absolute pose supervision, causing reference and scale biases.
+\pi^{3} [16] removes reference-view bias via permutation-equivariant design and predicts local pointmaps, but outputs remain ambiguous up to a global similarity transform and lack metric scale.
+Streaming 3D reconstruction.
+Streaming methods update geometry frame by frame.
+Classical monocular SLAM and learning-based variants [39, 40, 41, 42, 43, 44] incrementally recover structure and motion.
+CUT3R [45] maintains a recurrent state to output metric pointmaps online, but its RNN backbone struggles with long-term dependencies and degrades on long sequences.
+Stream3R [1] adopts a causal Transformer with a KV cache, scaling to long streams but suffering attention collapse as cached tokens dominate.
+StreamVGGT [2] adds temporal causal attention and cache updates, with distillation improving consistency, yet long-horizon stability remains difficult due to cache contamination.
+Overall, existing streaming methods degrade noticeably as sequences grow and fail to generalize to much longer streams.
+3 Methodology
+3.1 Overall
+We propose LongStream, a gauge-decoupled streaming geometry framework that jointly predicts pose, depth, and scale within a unified spatiotemporal Transformer, as shown in Figure 3.
+A ViT encoder produces patch tokens augmented with Camera, Register, and Scale tokens to distinguish keyframe roles.
+These tokens are fused by a causal aggregator with a shared KV cache, enabling long-sequence streaming inference.
+For each frame, the model predicts a keyframe-relative pose \mathbf{T}_{i\leftarrow k} , depth, a pointmap, and a global scale s .
+Training and inference use the same layout, ensuring gauge-decoupled and stable metric-scale reconstruction. We next detail the components of the design.
+3.2 Gauge-Decoupled Formulation
+We aim to overcome the limitations of existing streaming models that rely on gauge-coupled designs.
+We argue that a robust geometric learning system must remain theoretically invariant to the gauge freedoms, namely arbitrary global coordinates and metric scale.
+To this end, we propose a framework that systematically separates the SE(3) and Sim(3) degrees of freedom.
+In the SE(3) gauge, we discard absolute pose regression and redefine pose learning as
+gauge-invariant [46, 47] relative pose estimation.
+The learning objective becomes:
+|
+| \mathbf{T}_{i\leftarrow k}=\mathbf{T}_{i}\circ\mathbf{T}_{k}^{-1},
+|
+| (1)
+where \mathbf{T}_{i} and \mathbf{T}_{k} denote world-to-camera absolute poses and the k -th frame is the preceding keyframe.
+This formulation is mathematically gauge-invariant under any world-frame reparameterization
+S\in SE(3) .
+The decoupling design achieves two goals simultaneously:
+it transforms an out-of-distribution long-range extrapolation problem, caused by large indices [1, 2],
+into a constant-difficulty in-distribution local task with bounded index gap (i-k) ;
+and it mitigates the fixed-anchor bias that contributes to instability in first-frame–anchored causal models.
+In the Sim(3) gauge, we address chaotic scale entanglement with the scale-invariant (SI-Log) philosophy [21].
+We use an orthogonal scale learning mechanism, where we separate geometry learning and metric scale estimation at both the architectural and objective levels.
+The geometry branch is normalized and supervised with scale-invariant principles [21]. A dedicated scale head then predicts the global scale factor s .
+3.3 Network Architecture
+Given input images I_{i} , the model predicts, for each frame i ,
+its relative pose with respect to the reference keyframe k ,
+\mathbf{p}_{i\leftarrow k}=[\mathbf{t}_{i\leftarrow k},\,\mathbf{q}_{i\leftarrow k},\,f_{i\leftarrow k}] ,
+where \mathbf{t} is translation, \mathbf{q} a unit quaternion, and f a focal-length offset.
+The model also outputs the depth map D_{i} , the corresponding world-coordinate point cloud X_{i} ,
+a global scale factor s , and the frame representation h_{i} :
+|
+| \{h_{i},\mathbf{p}_{i\leftarrow k},D_{i},X_{i},s\}=F_{\theta}(I_{i}),\qquad i=1,\dots,S.
+|
+| (2)
+where h_{i} denotes the frame-level feature representation.
+Following the architecture of VGGT-style streaming models [15, 1, 2], the architecture consists of a DINOv2-based [48] tokenizer, a causal Transformer aggregator, and task-specific heads for relative pose, depth, pointmap, and scale.
+Geometry is modeled in a keyframe-relative manner: each frame predicts its pose and pointmap with respect to the current keyframe k ,
+enabling streaming reconstruction without reliance on a fixed first-frame coordinate frame.
+For each frame I_{i} , the tokenizer extracts patch features
+x_{i}^{p}\in\mathbb{R}^{P\times C} and augments them with camera token and register tokens,
+with distinct tokens for keyframes and non-keyframes.
+A shared Scale Token is added for Sim(3) decoupling.
+All tokens are concatenated into H^{(0)}\in\mathbb{R}^{B\times S\times(P+T)\times C}
+and processed by a stack of Transformer blocks with alternating intra-frame and global attention under a strictly causal mask:
+|
+| H^{(l+1)}=\mathrm{Block}^{(l)}(H^{(l)},\mathrm{AttnMask}),
+|
+| (3)
+with outputs fed into the pose, depth, and pointmap heads for iterative refinement.
+Relative pose head. It takes both frame and keyframe features from the aggregator and explicitly predicts the relative transformation
+\mathbf{T}_{i\leftarrow k} of the current frame i with respect to its reference keyframe k :
+|
+| \mathbf{p}_{i\leftarrow k}=[\mathbf{t}_{i\leftarrow k},\mathbf{q}_{i\leftarrow k},f_{i\leftarrow k}],
+|
+| (4)
+where the translation \mathbf{t}_{i\leftarrow k}\in\mathbb{R}^{3} , rotation \mathbf{q}_{i\leftarrow k}\in\mathbb{H} (unit quaternion),
+and focal offset f_{i\leftarrow k}\in\mathbb{R}^{2} jointly form the relative camera pose:
+|
+| \mathbf{T}_{i\leftarrow k}=\mathbf{T}_{i}\mathbf{T}_{k}^{-1}.
+|
+| (5)
+This definition remains invariant under any right-multiplicative transformation of the world coordinate frame,
+thereby removing the dependency on a fixed world anchor.
+To ensure that the model learns only the relative relationship between (i,k) , we adopt a reference-aware attention scheme.
+For a non-keyframe i assigned to keyframe k , its tokens attend only to tokens from k and from frames between k and i under the causal or window mask.
+Keyframe tokens, in turn, attend only to tokens from the previous keyframe k\!-\!1 and from frames between k\!-\!1 and k , rather than to the entire history.
+After aggregation, we fuse the pose tokens of the current frame and its reference keyframe via concatenation and a linear projection:
+|
+| \mathbf{h}_{\text{fused}}=\text{Proj}([\mathbf{h}_{i},\mathbf{h}^{\prime}_{k}]).
+|
+| (6)
+Finally, following the design of RAFT [49], the head employs an AdaLN-modulated Transformer to iteratively predict the relative pose
+\mathbf{p}_{\text{rel}}=[\mathbf{t},\mathbf{q},f] through incremental updates
+\mathbf{p}^{(t+1)}=\mathbf{p}^{(t)}+\Delta\mathbf{p}^{(t)} .
+Scale head. To achieve Sim(3) gauge invariance, we design an explicit scale head that receives a dedicated Scale Token, which is similar to the scale token idea in concurrent work MapAnything [50].
+It predicts an unconstrained log-scale variable x_{s}\in\mathbb{R} , which is then exponentiated to obtain a strictly positive scale factor:
+|
+| s=\exp(\mathbf{w}^{\top}\mathbf{h}_{\text{scale}}),
+|
+| (7)
+where \mathbf{h}_{\text{scale}} is the feature of the scale token at the last aggregator layer.
+The scale s affects only translation, depth, and pointmap outputs,
+while rotation and field of view remain unchanged.
+The scale head is trained only on datasets with available ground-truth metric scale.
+Depth and pointmap heads. The depth head and pointmap head take the aggregated frame-level and patch-level features to predict, for each frame,
+a depth map D_{i}\in\mathbb{R}^{H\times W} and the corresponding world-coordinate points X_{i}\in\mathbb{R}^{H\times W\times 3} ,
+along with per-pixel confidence scores.
+These branches operate jointly with the scale head: geometry is optimized in a scale-invariant space,
+while the ScaleToken independently learns the global scaling factor,
+ensuring full Sim(3) gauge decoupling.
+Figure 4:
+Cache-consistent training (CCT).
+We show attention maps (top) and Relative Pose Error (RPE) heatmaps (bottom) under different training–inference settings.
+Without CCT (left), causal inference develops a strong attention sink; windowed inference either amplifies this sink when it is kept or collapses when it is removed.
+With CCT (right), the sink is strongly suppressed in causal mode and likewise suppressed in both windowed modes, yielding stable and best accuracy.
+Light blue denotes attention to the keyframe.
+3.4 Probabilistic Framework and Loss Functions
+To implement the gauge-decoupled design within a unified probabilistic framework,
+we formulate the overall objective as maximizing the joint likelihood of geometry, motion, and scale given the input sequence.
+Let I denote the image frames, X the 3D pointmap, D the depth, p the relative pose, and s the global scale.
+We minimize the Negative Log Posterior:
+|
+| \mathcal{L}=\underbrace{\mathcal{L}_{\text{geom}}+\mathcal{L}_{\text{depth}}}_{\text{Geometry \& Depth Likelihood}}+\underbrace{\mathcal{L}_{\text{pose}}}_{\text{Pose Likelihood}}+\underbrace{\mathcal{L}_{\text{scale}}}_{\text{Scale Prior}},
+|
+| (8)
+where each term corresponds to a conditional factor in the posterior decomposition
+|
+| \displaystyle p(D,X,p,s\mid I)\propto\;
+| \displaystyle p(D\mid X,I)\cdot p(X\mid p,s,I)\cdot
+|
+|
+|
+| \displaystyle p(p\mid I)\cdot p(s).
+|
+| (9)
+This factorization aligns the learning process with the gauge-invariant formulation of SE(3) and Sim(3) introduced in Sec. 3.2.
+Figure 5:
+Qualitative comparison on long-sequence pose estimation.
+We compare LongStream against streaming and SLAM baselines on KITTI and vKITTI sequences spanning several hundred meters. Stream3R and StreamVGGT accumulate drift over long trajectories, and VGGT-SLAM runs out of memory on the second vKITTI sequence. LongStream preserves stable and coherent poses across all scenes, maintaining trajectory continuity even under large loop motions.
+| Methods
+| KITTI [51] (ATE \downarrow )
+| Avg.
+|
+00
+4542x, 3.7km
+|
+01
+1101x, 2.5km
+|
+02
+4661x, 5.1km
+|
+03
+801x, 0.6km
+|
+04
+271x, 0.4km
+|
+05
+2761x, 2.2km
+|
+06
+1101x, 1.2km
+|
+07
+1101x, 0.7km
+|
+08
+4071x, 3.2km
+|
+09
+1591x, 1.7km
+|
+10
+1201x, 0.9km
+| FastVGGT
+| *
+| 705.39
+| *
+| 62.38
+| 10.27
+| 157.74
+| 124.43
+| 69.27
+| *
+| 190.10
+| 194.75
+| 189.29
+| MASt3R-SLAM
+| *
+| 530.37
+| *
+| 18.87
+| 88.98
+| 159.430
+| 92.00
+| *
+| *
+| *
+| *
+| 177.93
+| VGGT-SLAM
+| *
+| 607.16
+| *
+| 169.83
+| 13.12
+| *
+| *
+| *
+| *
+| *
+| *
+| 263.37
+| CUT3R
+| 185.89
+| 651.52
+| 296.98
+| 148.06
+| 22.17
+| 155.61
+| 132.54
+| 77.03
+| 238.39
+| 205.94
+| 193.39
+| 209.78
+| TTT3R
+| 190.93
+| 546.84
+| 218.77
+| 105.28
+| 11.62
+| 153.12
+| 132.94
+| 70.95
+| 180.57
+| 211.01
+| 133.00
+| 177.73
+| STream3R
+| 190.98
+| 681.95
+| 301.40
+| 158.25
+| 102.73
+| 159.85
+| 135.03
+| 90.37
+| 261.15
+| 216.31
+| 207.49
+| 227.77
+| StreamVGGT
+| 191.93
+| 653.06
+| 303.35
+| 157.50
+| 108.24
+| 160.46
+| 133.71
+| 89.00
+| 263.95
+| 216.69
+| 209.80
+| 226.15
+| Ours
+| 92.55
+| 46.01
+| 134.70
+| 3.81
+| 1.95
+| 84.69
+| 23.12
+| 14.93
+| 62.07
+| 85.61
+| 21.48
+| 51.90
+Table 1: Quantitative comparison on the KITTI dataset in terms of ATE. The upper block lists optimization-based baselines, and the lower block reports streaming methods. Our approach achieves the best accuracy across all sequences.
+Relative pose loss.
+The relative pose loss \mathcal{L}_{\text{pose}} corresponds to p(p\mid I) and supervises the RelPoseHead output
+\mathbf{p}_{\text{rel}}=[\mathbf{t},\mathbf{q},f] across iterative updates:
+|
+| \displaystyle\mathcal{L}_{\text{pose}}=\sum_{t=1}^{T}\gamma^{t-1}\Big(
+| \displaystyle\ell(\hat{q}^{(t)},q_{i\leftarrow k})+\ell_{t}(\hat{t}^{(t)},t_{i\leftarrow k})
+|
+|
+|
+| \displaystyle+\ell(\hat{f}^{(t)},f_{i\leftarrow k})\Big),
+|
+| (10)
+where \ell denotes a L1 loss and f_{i\leftarrow k} is the focal offset.
+To maintain gauge decoupling, the translation term \ell_{t} is computed in a normalized coordinate space,
+ensuring that translation supervision does not implicitly encode global scale.
+Geometry loss.
+Inspired by SI [21], the geometric loss \mathcal{L}_{\text{geom}} (shape optimization) corresponds to p(X\mid p,s,I)
+and operates in the normalized space:
+|
+| \displaystyle\tilde{X}_{\text{pred}}
+| \displaystyle=\frac{\hat{X}_{\text{raw}}}{\text{Norm}(\hat{X}_{\text{raw}})},\quad\tilde{X}_{\text{gt}}=\frac{X}{\text{Norm}(X)},
+|
+| (11)
+|
+| \displaystyle\mathcal{L}_{\text{geom}}
+| \displaystyle=\|\tilde{X}_{\text{pred}}-\tilde{X}_{\text{gt}}\|_{1}.
+|
+Normalization removes explicit scale dependency, ensuring \partial\mathcal{L}/\partial s=0 .
+Hence, \mathcal{L}_{\text{geom}} supervises only the backbone to learn correct 3D structure.
+Scale loss.
+The scale loss \mathcal{L}_{\text{scale}} regularizes the global scale s .
+Since scale is multiplicative, we compare predicted and ground-truth scale in log space to measure relative error and stabilize gradients:
+|
+| \mathcal{L}_{\text{scale}}=\|\log\hat{s}-\log s_{\text{gt}}\|_{1}.
+|
+| (12)
+where s_{\text{gt}} is the metric scale computed from calibrated ground-truth depth.
+This loss is applied only to metric-calibrated samples; non-metric data are trained using geometry and depth losses alone.
+Algorithm 1 Cache-Consistent Training
+1:
+Input: chunks \{c_{1},\dots,c_{N}\} , initial cache \mathrm{KV}^{(0)}=\emptyset
+2:
+for i=1 to N do
+3:
+(\text{out}_{i},\,\mathrm{KV}^{\text{new}})=\text{model}(c_{i},\,\mathrm{KV}^{(i-1)})
+4:
+\mathrm{KV}^{(i)}=\text{trim}(\mathrm{KV}^{\text{new}},\,\text{window\_size})
+5:
+end for
+3.5 KV Cache and Train–Inference Consistency
+Prior work on streaming Transformers shows that models often rely on an attention sink [22, 52, 53, 54] to stabilize attention; without it, sliding past the first frame can trigger model collapse.
+However, this anchoring creates a fragile reliance on the first frame. Over long sequences, it leads to geometric saturation [53], manifested as unstable attention, keyframe jumps, and growing pose errors.
+These issues persist even with relative-pose supervision, indicating that sink anchoring itself imposes an asymmetric positional bias.
+We argue that “short-horizon collapse” is not caused directly by removing the sink, but is a symptom of train–inference mismatch.
+We therefore introduce Cache-Consistent Training (CCT), introduced in Algorithm 1, which explicitly passes and trims the KV cache between chunks to align training and inference visibility.
+During training, we remove the constant sink token and use purely causal masking with a sliding window, while explicitly passing and trimming the KV cache between chunks so that cache visibility mirrors inference.
+As shown in Figure 4, CCT makes the attention pattern mathematically equivalent between chunked training and frame-by-frame inference, forcing the model to operate in a pure sliding window without a persistent anchor and thereby removing sink dependence.
+For ultra-long sequences, accumulated KV still yields long-term memory saturation and geometric drift.
+We thus adopt a periodic cache refresh that hard-marginalizes stale context by resetting the sink frame and KV cache every N keyframes, akin to state marginalization in SLAM.
+This retains geometric continuity while clearing degraded features, allowing periodic memory resets with no extra compute; because the entire model operates in a keyframe-relative coordinate system, the cache can be refreshed at any keyframe without breaking consistency or degrading accuracy.
+Combining CCT with periodic cache refresh yields stable, generalizable streaming over thousands of frames, maintaining consistent geometric accuracy and well-behaved attention distributions.
+4 Experiments
+Figure 6: Qualitative comparison on indoor sequences. We evaluate challenging scenes with strong viewpoint changes, occlusions, and repeated back-tracking. While Stream3R, StreamVGGT, and VGGT-SLAM drift on these highly folded trajectories, LongStream maintains stable poses and consistent 3D structure throughout the sequence. The symbol * denotes runs with out-of-memory errors or more than three tracking failures.
+| Methods
+| TUM [55]
+| Oxford Spires [56]
+| Waymo [57]
+| ATE \downarrow
+| ATE \downarrow
+| ATE \downarrow
+| FastVGGT
+| 0.418
+| 36.577
+| 1.281
+| MASt3R-SLAM
+| 0.082
+| 37.728
+| 7.625
+| VGGT-SLAM
+| 0.123 (0.053†)
+| 31.003
+| 7.431
+| CUT3R
+| 0.542
+| 32.440
+| 9.396
+| TTT3R
+| 0.308
+| 36.214
+| 3.486
+| STream3R
+| 0.633
+| 37.569
+| 42.203
+| StreamVGGT
+| 0.627
+| 37.255
+| 45.101
+| Ours
+| 0.076
+| 19.815
+| 0.737
+Table 2: Quantitative comparison on TUM [55], Oxford Spires [56], and Waymo [57]. Top: optimization-based methods; Bottom: streaming methods. Our method demonstrates robustness on these small-scale trajectories, achieving the best performance across all online benchmarks. † Reported in [58].
+| Methods
+| vKITTI [59] (ATE \downarrow )
+|
+Scene 01
+447\times,332m
+|
+Scene 02
+223\times,113m
+|
+Scene 06
+270\times,51m
+|
+Scene 18
+339\times,254m
+|
+Scene 20
+837\times,711m
+|
+Avg.
+| FastVGGT
+| 3.435
+| 0.311
+| 0.120
+| 2.050
+| 101.667
+| 31.427
+| MASt3R-SLAM
+| 83.771
+| 20.206
+| 3.840
+| 68.875
+| 231.064
+| 98.714
+| VGGT-SLAM
+| 25.128
+| 0.237
+| 0.281
+| 1.641
+| 68.840
+| 23.667
+| CUT3R
+| 50.968
+| 29.913
+| 0.820
+| 29.012
+| 127.583
+| 55.276
+| TTT3R
+| 29.877
+| 11.785
+| 0.598
+| 7.445
+| 71.208
+| 28.099
+| STream3R
+| 68.280
+| 26.450
+| 8.185
+| 43.597
+| 198.279
+| 82.815
+| StreamVGGT
+| 71.616
+| 15.349
+| 10.274
+| 23.900
+| 221.407
+| 83.916
+| Ours
+| 1.422
+| 0.185
+| 0.303
+| 0.683
+| 4.030
+| 1.610
+Table 3: Quantitative comparison on vKITTI. Top: optimization-based methods; Bottom: streaming methods. Our method achieves the best accuracy across all sequences.
+4.1 Implementation Details
+Model configurations. We initialize LongStream from VGGT and retain its 24 -layer backbone with alternating global and frame-level attention, containing roughly 1.3B parameters.
+During training, we use a fixed visibility layout, a consistent sliding window, and a keyframe interval of ten so that each batch contains multiple keyframe transitions.
+We optimize with AdamW and cosine decay, using a peak learning rate of 4\times 10^{-6} , and a warmup of 1k steps. All images, depths, and pointmaps are resized to a maximum long side of 518 pixels, with aspect-ratio jittering, interval sampling, and cross-block shuffling.
+Training method.
+We train LongStream with a two-stage schedule: the first stage performs batch-independent training with batch size 22 for 50k iterations over three days on 32 A100 GPUs. The second stage applies KV-cache–consistent training that matches streaming inference by sampling sequence lengths between 10 and 80 with a cache window of 10 .
+Metric scale supervision is used only when calibrated ground truth is available.
+At inference time, LongStream reaches 18 FPS on a single GPU. Further implementation details are available in the Appendix.
+Training data. LongStream is trained on a multi-domain dataset collection, including
+Kubric [60],
+WildRGB [61],
+ScanNet [62],
+HyperSim [63],
+Mapillary [64],
+Replica [65],
+MVS-Synth [66],
+PointOdyssey [67],
+Virtual KITTI [59],
+Aria Synthetic Environments [68],
+Aria Digital Twin [68]
+Objaverse [69], Spring [70], and Waymo Open [57].
+BlendedMVS [71], Co3Dv2 [72], MegaDepth [73], and DL3DV [74] do not provide metric ground truth and are therefore excluded from scale training, while all other datasets used in training provide metric supervision.
+Baselines.
+We compare LongStream with offline transformers, streaming models, and SLAM-style systems. Because both VGGT [15] and \pi^{3} [16]exceed memory limits on long clips, we report FastVGGT [75] as a practical replacement. Streaming baselines include CUT3R [45], TTT3R, STream3R [1], and StreamVGGT [2]. MASt3R-SLAM [34] and VGGT-SLAM [58] represent optimization-based SLAM baselines. VGGT-SLAM performs chunk-wise inference over 16/32 frames and thus accesses future frames within each chunk. All methods are evaluated with official default settings under a unified protocol.
+| Methods
+| 7Scenes
+| TUM
+| CD \downarrow
+| F1@0.25 \uparrow
+| CD \downarrow
+| F1@0.25 \uparrow
+| FastVGGT
+| 6.373
+| 0.710
+| 0.104
+| 0.926
+| MASt3R-SLAM
+| 5.987
+| 0.691
+| 0.057
+| 0.954
+| VGGT-SLAM
+| 6.306
+| 0.696
+| 1.993
+| 0.633
+| CUT3R
+| 6.281
+| 0.274
+| 0.474
+| 0.533
+| TTT3R
+| 6.231
+| 0.260
+| 0.249
+| 0.792
+| STream3R
+| 6.353
+| 0.479
+| 1.126
+| 0.444
+| StreamVGGT
+| 6.630
+| 0.483
+| 0.680
+| 0.402
+| Ours
+| 2.260
+| 0.641
+| 0.225
+| 0.673
+Table 4: Quantitative comparison on 7Scenes and TUM. CD (lower) and F1@0.25 (higher) are adopted for evaluation.
+Best numbers are in bold; second best are underlined.
+4.2 Quantitative Results
+Camera pose estimation.
+We evaluate ATE on vKITTI [59] (training), Waymo [57] (held-out), and the unseen KITTI [35], TUM-RGBD [55], and Oxford Spires [56] datasets.
+As shown in Tables 1–3, streaming baselines exhibit nonlinear error growth as sequence length increases, likely due to long-horizon history saturation and contamination, whereas LongStream remains stable. Offline models frequently encounter out-of-memory (OOM) and tracking loss on long clips. Despite operating fully streaming, LongStream achieves state-of-the-art accuracy at 18 FPS and generalizes robustly across environments.
+3D reconstruction.
+We evaluate full-sequence reconstruction on 7Scenes and TUM on test sequences without subsampling, reporting Chamfer Distance and F1@0.25.
+As shown in Table 4 and Figure 6, LongStream performs competitively with both offline approaches on both benchmarks.
+The small spatial extent and dense frame coverage of these datasets lead to largely saturated metrics.
+For 7Scenes, failure cases of some methods under all-frame evaluation produce CD values several orders of magnitude larger on certain scenes, leading to an inflated mean CD.
+Scale estimation. We evaluate the accuracy of the recovered metric scale on vKITTI.
+LongStream produces a stable scale estimate across the entire sequence, achieving a scale ratio of 0.9905 with respect to ground truth.
+| RelPose
+| Scale Head
+| CCT
+| Cache Refresh
+| ATE \downarrow
+| RPE \downarrow
+| Scale Err. \downarrow
+| ✗
+| ✗
+| ✗
+| ✗
+| 8.043
+| 2.207
+| -
+| ✓
+| ✗
+| ✗
+| ✗
+| 2.819
+| 0.750
+| -
+| ✓
+| ✓
+| ✗
+| ✗
+| 2.645
+| 0.484
+| 0.010
+| ✓
+| ✓
+| ✓
+| ✗
+| 0.984
+| 0.454
+| 0.032
+| ✓
+| ✓
+| ✓
+| ✓
+| 0.115
+| 0.126
+| 0.035
+Table 5: Ablation study on RelPose, Scale head, CCT, and cache refresh. Green indicates enabled, red indicates disabled. Rows 2 and 3 ATE gap is caused by a few large trajectory outliers. Scale Error reports absolute scale deviation; lower is better.
+4.3 Qualitative Results
+Figures 5 and 6 visualize trajectories on kilometer-level and room-scale sequences, confirming stable pose prediction under both large and small spatial extents.
+In outdoor settings (Figure 5), existing streaming methods such as STream3R and StreamVGGT suffer from accumulated drift over long trajectories, while the optimization-based VGGT-SLAM encounters memory limitations and tracking loss on longer sequences.
+In contrast, LongStream preserves trajectory continuity and metric accuracy across several hundred meters, successfully closing large loops without explicit loop closure modules.
+Similarly, in indoor environments (Figure 6), the model demonstrates robustness against highly folded camera trajectories characterized by strong viewpoint changes, occlusions, and repeated back-tracking.
+Where baselines tend to produce unstable or drift-prone poses under these erratic motion patterns, LongStream maintains a coherent global trajectory.
+4.4 Ablation Study
+We conduct ablations on a single vKITTI sequence to validate LongStream’s four core components:
+the keyframe-relative pose head, the scale branch, cache-consistent training (CCT), and periodic cache
+refresh. As shown in Table 5, combining all modules reduces ATE from
+8.043 to 0.115 , nearly two orders of magnitude.
+Gauge-decoupled pose and scale.
+Switching from absolute pose regression to our gauge-decoupled formulation provides the largest gain
+(Row 1 → Row 2), confirming that separating local geometry from global coordinates is essential for
+generalizing beyond the training window. The scale branch is required for metric consistency; removing
+it prevents the model from producing a stable global scale across the sequence.
+Temporal cache consistency.
+The periodic cache refresh prevents long-term memory saturation in infinite streams, while the dedicated scale branch is essential for maintaining metric consistency.
+Combining all components reduces the final ATE by nearly two orders of magnitude relative to the baseline. More detailed analyses are provided
+in the Appendix.
+5 Conclusion
+LongStream delivers stable, metric-scale reconstruction over ultra-long sequences, overcoming the drift and extrapolation failures of existing methods. Its gauge-decoupled pose design and cache-consistent training preserve consistent geometry and scale across thousands of frames, achieving strong accuracy and real-time performance on diverse indoor and outdoor datasets.
+Limitations. The model still assumes a largely static world, relies on a heuristic keyframe schedule, and shows mild degradation in pointmap consistency over very long windows. These limitations suggest clear directions for improving robustness and generality in future work.
+6 Acknowledgments
+This work is supported by the National Natural Science Foundation of China (No. 62406267), Guangdong Provincial Project (No. 2024QN11X072), Guangzhou-HKUST(GZ) Joint Funding Program (No. 2025A03J3956) and Guangzhou Municipal Education Project (No. 2024312122).
+References
+[1]
+Y. Lan, Y. Luo, F. Hong, S. Zhou, H. Chen, Z. Lyu, S. Yang, B. Dai, C. C. Loy, and X. Pan (2025)
+STream3R: scalable sequential 3d reconstruction with causal transformer.
+arXiv preprint arXiv:2508.10893.
+Cited by: Figure 1,
+Figure 1,
+§1,
+§2,
+§3.2,
+§3.3,
+§4.1.
+[2]
+D. Zhuo, W. Zheng, J. Guo, Y. Wu, J. Zhou, and J. Lu (2025)
+Streaming 4d visual geometry transformer.
+arXiv preprint arXiv:2507.11539.
+Cited by: Figure 1,
+Figure 1,
+§1,
+§2,
+§3.2,
+§3.3,
+§4.1.
+[3]
+J. L. Schonberger and J. Frahm (2016)
+Structure-from-motion revisited.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §1,
+§1,
+§2.
+[4]
+J. L. Schönberger, E. Zheng, M. Pollefeys, and J. Frahm (2016)
+Pixelwise view selection for unstructured multi-view stereo.
+In European Conference on Computer Vision (ECCV),
+Cited by: §1,
+§1,
+§2.
+[5]
+C. Cheng, G. Song, Y. Yao, Q. Zhou, G. Zhang, and H. Wang (2025)
+Graph-guided scene reconstruction from images with 3d gaussian splatting.
+External Links: 2502.17377,
+Link
+Cited by: §1,
+§2.
+[6]
+Y. Yao, Z. Luo, S. Li, T. Fang, and L. Quan (2018)
+MVSNet: depth inference for unstructured multi-view stereo.
+In Computer Vision – ECCV 2018, V. Ferrari, M. Hebert, C. Sminchisescu, and Y. Weiss (Eds.),
+Cham, pp. 785–801.
+External Links: ISBN 978-3-030-01237-3
+Cited by: §1,
+§1,
+§2.
+[7]
+G. Song, C. Cheng, and H. Wang (2024)
+GVKF: gaussian voxel kernel functions for highly efficient surface reconstruction in open scenes.
+External Links: 2411.01853,
+Link
+Cited by: §1.
+[8]
+J. Wang, C. Lin, L. Nie, K. Liao, S. Shao, and Y. Zhao (2024)
+Digging into contrastive learning for robust depth estimation with diffusion models.
+In Proceedings of the 32nd ACM International Conference on Multimedia,
+MM ’24, New York, NY, USA, pp. 4129–4137.
+External Links: ISBN 9798400706868,
+Link,
+Document
+Cited by: §1.
+[9]
+W. Shen, W. Yin, H. Wang, C. Wei, Z. Cai, L. Yang, and G. Lin (2024)
+HMR-adapter: a lightweight adapter with dual-path cross augmentation for expressive human mesh recovery.
+In Proceedings of the 32nd ACM International Conference on Multimedia,
+MM ’24, New York, NY, USA, pp. 6093–6102.
+External Links: ISBN 9798400706868,
+Link,
+Document
+Cited by: §1.
+[10]
+W. Shen, W. Yin, X. Yang, C. Chen, C. Song, Z. Cai, L. Yang, H. Wang, and G. Lin (2025)
+ADHMR: aligning diffusion-based human mesh recovery via direct preference optimization.
+External Links: 2505.10250,
+Link
+Cited by: §1.
+[11]
+Y. Yao, Z. Luo, S. Li, T. Shen, T. Fang, and L. Quan (2019)
+Recurrent mvsnet for high-resolution multi-view stereo depth inference.
+Computer Vision and Pattern Recognition (CVPR).
+Cited by: §1,
+§2.
+[12]
+J. Wang, C. Lin, L. Nie, S. Huang, Y. Zhao, X. Pan, and R. Ai (2024)
+WeatherDepth: curriculum contrastive learning for self-supervised depth estimation under adverse weather conditions.
+In 2024 IEEE International Conference on Robotics and Automation (ICRA),
+pp. 4976–4982.
+External Links: Link,
+Document
+Cited by: §1.
+[13]
+S. Wang, V. Leroy, Y. Cabon, B. Chidlovskii, and J. Revaud (2024)
+Dust3r: geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20697–20709.
+Cited by: §1,
+§2.
+[14]
+V. Leroy, Y. Cabon, and J. Revaud (2024)
+Grounding image matching in 3d with mast3r.
+In European Conference on Computer Vision,
+pp. 71–91.
+Cited by: §1,
+§2.
+[15]
+J. Wang, M. Chen, N. Karaev, A. Vedaldi, C. Rupprecht, and D. Novotny (2025)
+VGGT: visual geometry grounded transformer.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+Cited by: §1,
+§2,
+§3.3,
+§4.1.
+[16]
+Y. Wang, J. Zhou, H. Zhu, W. Chang, Y. Zhou, Z. Li, J. Chen, J. Pang, C. Shen, and T. He (2025)
+\pi^{3} : Permutation-equivariant visual geometry learning.
+arXiv preprint arXiv:2507.13347.
+Cited by: §1,
+§2,
+§4.1.
+[17]
+Y. Hu, C. Cheng, S. Yu, X. Guo, and H. Wang (2025)
+VGGT4D: mining motion cues in visual geometry transformers for 4d scene reconstruction.
+External Links: 2511.19971,
+Link
+Cited by: §1.
+[18]
+J. Wang, C. Lin, C. Guan, L. Nie, J. He, H. Li, K. Liao, and Y. Zhao (2025)
+Jasmine: harnessing diffusion prior for self-supervised depth estimation.
+arXiv preprint arXiv:2503.15905.
+Cited by: §1.
+[19]
+O. Press, N. A. Smith, and M. Lewis (2022)
+Train short, test long: attention with linear biases enables input length extrapolation.
+External Links: 2108.12409,
+Link
+Cited by: §1.
+[20]
+Z. Dai, Z. Yang, Y. Yang, J. Carbonell, Q. V. Le, and R. Salakhutdinov (2019)
+Transformer-xl: attentive language models beyond a fixed-length context.
+External Links: 1901.02860,
+Link
+Cited by: §1.
+[21]
+L. Yang, B. Kang, Z. Huang, X. Xu, J. Feng, and H. Zhao (2024)
+Depth anything: unleashing the power of large-scale unlabeled data.
+External Links: 2401.10891,
+Link
+Cited by: §1,
+§3.2,
+§3.4.
+[22]
+G. Xiao, Y. Tian, B. Chen, S. Han, and M. Lewis (2024)
+Efficient streaming language models with attention sinks.
+External Links: 2309.17453,
+Link
+Cited by: §1,
+§3.5.
+[23]
+S. Galliani, K. Lasinger, and K. Schindler (2015)
+Massively parallel multiview stereopsis by surface normal diffusion.
+In Proceedings of the IEEE International Conference on Computer Vision (ICCV),
+Cited by: §2.
+[24]
+Q. Fu, Q. Xu, Y. Ong, and W. Tao (2022)
+Geo-neus: geometry-consistent neural implicit surfaces learning for multi-view reconstruction.
+External Links: 2205.15848,
+Link
+Cited by: §2.
+[25]
+D. Charatan, S. L. Li, A. Tagliasacchi, and V. Sitzmann (2024)
+Pixelsplat: 3d gaussian splats from image pairs for scalable generalizable 3d reconstruction.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 19457–19467.
+Cited by: §2.
+[26]
+J. Xu, S. Gao, and Y. Shan (2025)
+Freesplatter: pose-free gaussian splatting for sparse-view 3d reconstruction.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 25442–25452.
+Cited by: §2.
+[27]
+J. Zhang, C. Herrmann, J. Hur, V. Jampani, T. Darrell, F. Cole, D. Sun, and M. Yang (2025)
+MonST3R: a simple approach for estimating geometry in the presence of motion.
+External Links: 2410.03825,
+Link
+Cited by: §2.
+[28]
+K. Zhang, S. Bi, H. Tan, Y. Xiangli, N. Zhao, K. Sunkavalli, and Z. Xu (2024)
+Gs-lrm: large reconstruction model for 3d gaussian splatting.
+In European Conference on Computer Vision,
+pp. 1–19.
+Cited by: §2.
+[29]
+V. Sitzmann, J. Thies, F. Heide, M. Nießner, G. Wetzstein, and M. Zollhofer (2019)
+Deepvoxels: learning persistent 3d feature embeddings.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 2437–2446.
+Cited by: §2.
+[30]
+G. Gkioxari, J. Malik, and J. Johnson (2019)
+Mesh r-cnn.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 9785–9795.
+Cited by: §2.
+[31]
+J. J. Park, P. Florence, J. Straub, R. Newcombe, and S. Lovegrove (2019)
+Deepsdf: learning continuous signed distance functions for shape representation.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 165–174.
+Cited by: §2.
+[32]
+B. Mildenhall, P. P. Srinivasan, M. Tancik, J. T. Barron, R. Ramamoorthi, and R. Ng (2021)
+Nerf: representing scenes as neural radiance fields for view synthesis.
+Communications of the ACM 65 (1), pp. 99–106.
+Cited by: §2.
+[33]
+C. Cheng, Y. Hu, S. Yu, B. Zhao, Z. Wang, and H. Wang (2025)
+RegGS: unposed sparse views gaussian splatting with 3dgs registration.
+External Links: 2507.08136,
+Link
+Cited by: §2.
+[34]
+R. Murai, E. Dexheimer, and A. J. Davison (2025)
+MASt3R-slam: real-time dense slam with 3d reconstruction priors.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 16695–16705.
+Cited by: §2,
+§4.1.
+[35]
+B. Kerbl, G. Kopanas, T. Leimkühler, and G. Drettakis (2023)
+3D gaussian splatting for real-time radiance field rendering..
+ACM Trans. Graph. 42 (4), pp. 139–1.
+Cited by: §2,
+§4.2.
+[36]
+C. Cheng, Z. Wang, S. Yu, Y. Hu, N. Yao, and H. Wang (2025)
+Unposed 3dgs reconstruction with probabilistic procrustes mapping.
+External Links: 2507.18541,
+Link
+Cited by: §2.
+[37]
+C. Cheng, S. Yu, Z. Wang, Y. Zhou, and H. Wang (2025)
+Outdoor monocular slam with global scale-consistent 3d gaussian pointmaps.
+External Links: 2507.03737,
+Link
+Cited by: §2.
+[38]
+S. Yu, C. Cheng, Y. Zhou, X. Yang, and H. Wang (2025)
+RGB-only gaussian splatting slam for unbounded outdoor scenes.
+External Links: 2502.15633,
+Link
+Cited by: §2.
+[39]
+A. J. Davison, I. D. Reid, N. D. Molton, and O. Stasse (2007)
+MonoSLAM: real-time single camera slam.
+IEEE transactions on pattern analysis and machine intelligence 29 (6), pp. 1052–1067.
+Cited by: §2.
+[40]
+Y. Liu, S. Dong, S. Wang, Y. Yin, Y. Yang, Q. Fan, and B. Chen (2025)
+Slam3r: real-time dense scene reconstruction from monocular rgb videos.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 16651–16662.
+Cited by: §2.
+[41]
+Z. Zhu, S. Peng, V. Larsson, Z. Cui, M. R. Oswald, A. Geiger, and M. Pollefeys (2024)
+Nicer-slam: neural implicit scene encoding for rgb slam.
+In 2024 International Conference on 3D Vision (3DV),
+pp. 42–52.
+Cited by: §2.
+[42]
+C. B. Choy, D. Xu, J. Gwak, K. Chen, and S. Savarese (2016)
+3d-r2n2: a unified approach for single and multi-view 3d object reconstruction.
+In European conference on computer vision,
+pp. 628–644.
+Cited by: §2.
+[43]
+A. Yu, V. Ye, M. Tancik, and A. Kanazawa (2021)
+Pixelnerf: neural radiance fields from one or few images.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 4578–4587.
+Cited by: §2.
+[44]
+Q. Wang, Z. Wang, K. Genova, P. P. Srinivasan, H. Zhou, J. T. Barron, R. Martin-Brualla, N. Snavely, and T. Funkhouser (2021)
+Ibrnet: learning multi-view image-based rendering.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 4690–4699.
+Cited by: §2.
+[45]
+Q. Wang, Y. Zhang, A. Holynski, A. A. Efros, and A. Kanazawa (2025)
+Continuous 3d perception model with persistent state.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 10510–10522.
+Cited by: §2,
+§4.1.
+[46]
+B. Triggs, P. F. McLauchlan, R. I. Hartley, and A. W. Fitzgibbon (2000)
+Bundle adjustment — a modern synthesis.
+In Vision Algorithms: Theory and Practice, B. Triggs, A. Zisserman, and R. Szeliski (Eds.),
+Berlin, Heidelberg, pp. 298–372.
+External Links: ISBN 978-3-540-44480-0
+Cited by: §3.2.
+[47]
+Z. Zhang, G. Gallego, and D. Scaramuzza (2018)
+On the comparison of gauge freedom handling in optimization-based visual-inertial state estimation.
+IEEE Robotics and Automation Letters 3 (3), pp. 2710–2717.
+External Links: Document
+Cited by: §3.2.
+[48]
+M. Oquab, T. Darcet, T. Moutakanni, H. Vo, M. Szafraniec, V. Khalidov, P. Fernandez, D. Haziza, F. Massa, A. El-Nouby, M. Assran, N. Ballas, W. Galuba, R. Howes, P. Huang, S. Li, I. Misra, M. Rabbat, V. Sharma, G. Synnaeve, H. Xu, H. Jegou, J. Mairal, P. Labatut, A. Joulin, and P. Bojanowski (2024)
+DINOv2: learning robust visual features without supervision.
+External Links: 2304.07193,
+Link
+Cited by: §3.3.
+[49]
+Z. Teed and J. Deng (2020)
+RAFT: Recurrent All-Pairs Field Transforms for Optical Flow.
+In European Conference on Computer Vision (ECCV),
+Cited by: §3.3.
+[50]
+N. Keetha, N. Müller, J. Schönberger, L. Porzi, Y. Zhang, T. Fischer, A. Knapitsch, D. Zauss, E. Weber, N. Antunes, J. Luiten, M. Lopez-Antequera, S. R. Bulò, C. Richardt, D. Ramanan, S. Scherer, and P. Kontschieder (2026)
+MapAnything: universal feed-forward metric 3d reconstruction.
+External Links: 2509.13414,
+Link
+Cited by: §3.3.
+[51]
+A. Geiger, P. Lenz, and R. Urtasun (2012)
+Are we ready for autonomous driving? the kitti vision benchmark suite.
+In 2012 IEEE Conference on Computer Vision and Pattern Recognition,
+Vol. , pp. 3354–3361.
+External Links: Document
+Cited by: Table 1.
+[52]
+R. Xu, G. Xiao, Y. Chen, L. He, K. Peng, Y. Lu, and S. Han (2025)
+StreamingVLM: real-time understanding for infinite video streams.
+External Links: 2510.09608,
+Link
+Cited by: §3.5.
+[53]
+S. Yang, W. Huang, R. Chu, Y. Xiao, Y. Zhao, X. Wang, M. Li, E. Xie, Y. Chen, Y. Lu, S. Han, and Y. Chen (2025)
+LongLive: real-time interactive long video generation.
+External Links: 2509.22622,
+Link
+Cited by: §3.5,
+§3.5.
+[54]
+J. Shin, Z. Li, R. Zhang, J. Zhu, J. Park, E. Shechtman, and X. Huang (2026)
+MotionStream: real-time video generation with interactive motion controls.
+External Links: 2511.01266,
+Link
+Cited by: §3.5.
+[55]
+J. Sturm, N. Engelhard, F. Endres, W. Burgard, and D. Cremers (2012)
+A benchmark for the evaluation of rgb-d slam systems.
+In Proc. of the International Conference on Intelligent Robot Systems (IROS),
+Cited by: §4.2,
+Table 2,
+Table 2,
+Table 2.
+[56]
+Y. Tao, M. Á. Muñoz-Bañón, L. Zhang, J. Wang, L. F. T. Fu, and M. Fallon (2025)
+The oxford spires dataset: benchmarking large-scale lidar-visual localisation, reconstruction and radiance field methods.
+External Links: 2411.10546,
+Link
+Cited by: §4.2,
+Table 2,
+Table 2,
+Table 2.
+[57]
+P. Sun, H. Kretzschmar, X. Dotiwalla, A. Chouard, V. Patnaik, P. Tsui, J. Guo, Y. Zhou, Y. Chai, B. Caine, V. Vasudevan, W. Han, J. Ngiam, H. Zhao, A. Timofeev, S. Ettinger, M. Krivokon, A. Gao, A. Joshi, S. Zhao, S. Cheng, Y. Zhang, J. Shlens, Z. Chen, and D. Anguelov (2020)
+Scalability in perception for autonomous driving: waymo open dataset.
+External Links: 1912.04838,
+Link
+Cited by: §4.1,
+§4.2,
+Table 2,
+Table 2,
+Table 2.
+[58]
+D. Maggio, H. Lim, and L. Carlone (2025)
+VGGT-slam: dense rgb slam optimized on the sl(4) manifold.
+External Links: 2505.12549,
+Link
+Cited by: §4.1,
+Table 2.
+[59]
+Y. Cabon, N. Murray, and M. Humenberger (2020)
+Virtual kitti 2.
+External Links: 2001.10773,
+Link
+Cited by: §4.1,
+§4.2,
+Table 3.
+[60]
+K. Greff, F. Belletti, L. Beyer, C. Doersch, Y. Du, D. Duckworth, D. J. Fleet, D. Gnanapragasam, F. Golemo, C. Herrmann, T. Kipf, A. Kundu, D. Lagun, I. Laradji, H. (. Liu, H. Meyer, Y. Miao, D. Nowrouzezahrai, C. Oztireli, E. Pot, N. Radwan, D. Rebain, S. Sabour, M. S. M. Sajjadi, M. Sela, V. Sitzmann, A. Stone, D. Sun, S. Vora, Z. Wang, T. Wu, K. M. Yi, F. Zhong, and A. Tagliasacchi (2022)
+Kubric: a scalable dataset generator.
+In CVPR,
+Cited by: §4.1.
+[61]
+H. Xia, Y. Fu, S. Liu, and X. Wang (2024)
+RGBD objects in the wild: scaling real-world 3d object learning from rgb-d videos.
+External Links: 2401.12592
+Cited by: §4.1.
+[62]
+A. Dai, A. X. Chang, M. Savva, M. Halber, T. Funkhouser, and M. Nießner (2017)
+Scannet: richly-annotated 3d reconstructions of indoor scenes.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 5828–5839.
+Cited by: §4.1.
+[63]
+M. Roberts, J. Ramapuram, A. Ranjan, A. Kumar, M. A. Bautista, N. Paczan, R. Webb, and J. M. Susskind (2021)
+Hypersim: A photorealistic synthetic dataset for holistic indoor scene understanding.
+In International Conference on Computer Vision (ICCV) 2021,
+Cited by: §4.1.
+[64]
+M. Lopez-Antequera, P. Gargallo, M. Hofinger, S. Rota BulÃ², Y. Kuang, and P. Kontschieder (2020)
+Mapillary planet-scale depth dataset.
+In Proceedings of the European Conference on Computer Vision (ECCV),
+Cited by: §4.1.
+[65]
+J. Straub, T. Whelan, L. Ma, Y. Chen, E. Wijmans, S. Green, J. J. Engel, R. Mur-Artal, C. Ren, S. Verma, A. Clarkson, M. Yan, B. Budge, Y. Yan, X. Pan, J. Yon, Y. Zou, K. Leon, N. Carter, J. Briales, T. Gillingham, E. Mueggler, L. Pesqueira, M. Savva, D. Batra, H. M. Strasdat, R. D. Nardi, M. Goesele, S. Lovegrove, and R. Newcombe (2019)
+The replica dataset: a digital replica of indoor spaces.
+External Links: 1906.05797,
+Link
+Cited by: §4.1.
+[66]
+P. Huang, K. Matzen, J. Kopf, N. Ahuja, and J. Huang (2018)
+DeepMVS: learning multi-view stereopsis.
+In IEEE Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §4.1.
+[67]
+Y. Zheng, A. W. Harley, B. Shen, G. Wetzstein, and L. J. Guibas (2023)
+PointOdyssey: a large-scale synthetic dataset for long-term point tracking.
+In ICCV,
+Cited by: §4.1.
+[68]
+X. Pan, N. Charron, Y. Yang, S. Peters, T. Whelan, C. Kong, O. Parkhi, R. Newcombe, and Y. (. Ren (2023)
+Aria digital twin: a new benchmark dataset for egocentric 3d machine perception.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV),
+pp. 20133–20143.
+Cited by: §4.1.
+[69]
+M. Deitke, D. Schwenk, J. Salvador, L. Weihs, O. Michel, E. VanderBilt, L. Schmidt, K. Ehsani, A. Kembhavi, and A. Farhadi (2023)
+Objaverse: a universe of annotated 3d objects.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 13142–13153.
+Cited by: §4.1.
+[70]
+L. Mehl, J. Schmalfuss, A. Jahedi, Y. Nalivayko, and A. Bruhn (2023)
+Spring: a high-resolution high-detail dataset and benchmark for scene flow, optical flow and stereo.
+External Links: 2303.01943,
+Link
+Cited by: §4.1.
+[71]
+Y. Yao, Z. Luo, S. Li, J. Zhang, Y. Ren, L. Zhou, T. Fang, and L. Quan (2020)
+Blendedmvs: a large-scale dataset for generalized multi-view stereo networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 1790–1799.
+Cited by: §4.1.
+[72]
+J. Reizenstein, R. Shapovalov, P. Henzler, L. Sbordone, P. Labatut, and D. Novotny (2021)
+Common Objects in 3D: large-scale learning and evaluation of real-life 3D category reconstruction.
+In ICCV,
+Cited by: §4.1.
+[73]
+Z. Li and N. Snavely (2018)
+Megadepth: learning single-view depth prediction from internet photos.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 2041–2050.
+Cited by: §4.1.
+[74]
+L. Ling, Y. Sheng, Z. Tu, W. Zhao, C. Xin, K. Wan, L. Yu, Q. Guo, Z. Yu, Y. Lu, et al. (2024)
+Dl3dv-10k: a large-scale scene dataset for deep learning-based 3d vision.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 22160–22169.
+Cited by: §4.1.
+[75]
+Y. Shen, Z. Zhang, Y. Qu, X. Zheng, J. Ji, S. Zhang, and L. Cao (2025)
+FastVGGT: training-free acceleration of visual geometry transformer.
+External Links: 2509.02560,
+Link
+Cited by: §4.1.
+Supplementary Material
+7 Gauge Invariance of Relative Pose and Scale
+This appendix provides concise proofs that (1) the keyframe–relative pose used in LongStream is strictly invariant to the choice of global coordinate frame, and (2) the geometry and scale objectives are orthogonally decoupled.
+7.1 SE(3) Gauge Invariance of Keyframe Relative Pose
+We show that our learning target
+|
+| \mathbf{T}_{i\leftarrow k}=\mathbf{T}_{i}\,\mathbf{T}_{k}^{-1},
+|
+| (13)
+is invariant under any global SE(3) gauge transformation. This guarantees that training is not affected by arbitrary choices of world coordinates.
+Gauge transformation.
+Let \mathbf{G}\in SE(3) re-parameterize the world frame \mathcal{W} into \mathcal{W}^{\prime} . For any 3D point \mathbf{x} :
+|
+| \mathbf{x}_{\mathcal{W}^{\prime}}=\mathbf{G}\,\mathbf{x}_{\mathcal{W}}.
+|
+| (14)
+Transformation of absolute pose.
+For a world-to-camera pose \mathbf{T} , the corresponding pose in \mathcal{W}^{\prime} is
+|
+| \mathbf{T}^{\prime}=\mathbf{T}\,\mathbf{G}^{-1}.
+|
+| (15)
+This follows from enforcing that camera-frame coordinates remain unchanged.
+Invariance of keyframe–relative pose.
+We apply Equation (15) to frames i and k :
+|
+| \mathbf{T}^{\prime}_{i}=\mathbf{T}_{i}\mathbf{G}^{-1},\qquad\mathbf{T}^{\prime}_{k}=\mathbf{T}_{k}\mathbf{G}^{-1}.
+|
+| (16)
+Then the relative pose in \mathcal{W}^{\prime} becomes
+|
+| \displaystyle\mathbf{T}^{\prime}_{i\leftarrow k}
+| \displaystyle=\mathbf{T}^{\prime}_{i}(\mathbf{T}^{\prime}_{k})^{-1}
+|
+| (17)
+|
+|
+| \displaystyle=(\mathbf{T}_{i}\mathbf{G}^{-1})(\mathbf{T}_{k}\mathbf{G}^{-1})^{-1}
+|
+|
+|
+| \displaystyle=\mathbf{T}_{i}\,(\mathbf{G}^{-1}\mathbf{G})\,\mathbf{T}_{k}^{-1}=\mathbf{T}_{i}\mathbf{T}_{k}^{-1}.
+|
+Thus,
+|
+| \mathbf{T}^{\prime}_{i\leftarrow k}=\mathbf{T}_{i\leftarrow k},
+|
+| (18)
+showing that the target is strictly SE(3) gauge-invariant.
+7.2 Sim(3) Orthogonal Decoupling of Scale
+We now show that our normalized geometry objective is independent of the global scale factor, ensuring that shape and scale are optimized through separate gradient paths.
+Let the predicted metric point cloud be
+|
+| \hat{\mathbf{X}}=s\,\hat{\mathbf{X}}_{\mathrm{raw}},
+|
+| (19)
+where s>0 is the global scale predicted by the scale head.
+Let \mathrm{Norm}(\cdot) be homogeneous of degree one:
+|
+| \mathrm{Norm}(\alpha\mathbf{X})=\alpha\,\mathrm{Norm}(\mathbf{X}).
+|
+| (20)
+The normalized prediction used in the geometry loss is
+|
+| \tilde{\mathbf{X}}_{\mathrm{pred}}=\frac{\hat{\mathbf{X}}}{\mathrm{Norm}(\hat{\mathbf{X}})}=\frac{s\hat{\mathbf{X}}_{\mathrm{raw}}}{s\,\mathrm{Norm}(\hat{\mathbf{X}}_{\mathrm{raw}})}=\frac{\hat{\mathbf{X}}_{\mathrm{raw}}}{\mathrm{Norm}(\hat{\mathbf{X}}_{\mathrm{raw}})}.
+|
+| (21)
+Hence the geometry loss
+|
+| \ell_{\mathrm{geom}}=\big\|\tilde{\mathbf{X}}_{\mathrm{pred}}-\tilde{\mathbf{X}}_{\mathrm{gt}}\big\|_{1}
+|
+| (22)
+is independent of s , and thus
+|
+| \frac{\partial\ell_{\mathrm{geom}}}{\partial s}=0.
+|
+| (23)
+This confirms that global scale is fully decoupled from shape optimization, and is learned solely through the dedicated scale objective.
+In summary, keyframe–relative poses provide strict SE(3) gauge invariance, while normalized geometry ensures Sim(3) scale orthogonality. Together they yield a principled gauge-consistent training objective for long-sequence streaming reconstruction.
+Figure 7:
+Cache-consistent training (CCT).
+We show attention maps (top) and Relative Pose Error (RPE) heatmaps (bottom) under different training–inference settings.
+Without CCT (left), causal inference develops a strong attention sink; windowed inference either amplifies this sink when it is kept or collapses when it is removed.
+With CCT (right), the sink is strongly suppressed in causal mode and likewise suppressed in both windowed modes, yielding stable and best accuracy.
+Light blue denotes attention to the keyframe.
+8 Additional Attention Visualization Analysis
+As shown in Figure 7, we visualize frame-level attention to analyze how the model distributes focus over historical frames during streaming inference. Token–token attention is aggregated into an S\times S frame–frame matrix by summing over target-frame tokens and averaging over source-frame tokens. The causal full-window view contains up to 80 visible frames, while the sliding-window view contains only 10 , which is reflected in the visualization.
+The batch-trained baseline exhibits a clear temporal bias: the model assigns disproportionately high attention to the first frame (the “sink”) and to more distant frames, while under-attending the recent frames that are most relevant for local geometric consistency. Intuitively, a geometry model should primarily rely on temporally adjacent frames; however, this imbalance causes rapid growth in RPE and unstable long-range predictions. In windowed inference, retaining the sink yields accelerated degradation, whereas removing it leads to collapse, indicating that the baseline is strongly dependent on the initial frame.
+With our cache-consistent KV-cache training (CCT), the attention distribution becomes more balanced. The model reduces its reliance on the first frame and allocates relatively more attention to nearby frames, resulting in more stable behavior across both full-window and sliding-window inference. Nonetheless, as sequence length approaches \sim 80 frames, we still observe a gradual shift of attention toward earlier history, consistent with cache saturation effects.
+Overall, these visualizations highlight the underlying mechanism of long-sequence degradation: baseline models develop a strong first-frame attraction and long-range bias, while CCT encourages attention patterns that better align with temporal geometric coherence.
+9 Long-Sequence Stability Analysis
+Table 6 reports long-sequence results on Waymo #520018670 (135 m) and KITTI #03 (561 m). Streaming methods, including baselines and LongStream without refresh, exhibit non-linear error growth as sequence length increases. This suggests that under strictly-online constraints, longer histories or revisiting do not necessarily improve performance and may instead amplify long-horizon effects as the sequence grows. In contrast, LongStream remains stable over long sequences by removing first-frame anchoring and mitigating long-history effects through cache-consistent training with periodic cache refresh.
+| Method
+| 15x
+| 30x
+| 60x
+| 199x
+| 30x
+| 801x
+| CUT3R
+| 0.159
+| 1.421
+| 2.505
+| 8.591
+| 3.867
+| 148.06
+| TTT3R
+| 0.153
+| 0.873
+| 1.127
+| 5.505
+| 1.957
+| 105.28
+| Stream3R
+| 0.181
+| 1.329
+| 2.998
+| 21.440
+| 3.412
+| 158.25
+| VGGT-SLAM
+| 0.172
+| 0.518
+| 0.992
+| 3.740
+| 0.929
+| 169.83
+| Ours (w/o SW)
+| 0.151
+| 0.192
+| 0.477
+| 1.699
+| 0.347
+| 20.83
+| Ours
+| 0.151
+| 0.183
+| 0.343
+| 0.723
+| 0.164
+| 3.81
+Table 6: ATE (m) as sequence length increases on Waymo #520018670 (Left, 135 m) and KITTI #03 (Right, 561 m). w/o SW denotes the variant without cache refresh and sliding window.
+10 Additional Hyperparameter Analysis
+In this section, we provide detailed ablation studies on hyperparameters. These experiments were conducted on the vKITTI dataset to validate our design choices.
+10.1 Impact of Keyframe Interval
+We first examine the sensitivity of the model to the keyframe interval N . As presented in Table 7, setting an extremely short interval such as N=1 degenerates the system into frame-to-frame tracking, leading to rapid error accumulation. Conversely, extending the interval to 15 also degrades performance.
+This happens because the training chunk is fixed at 22 frames. With such sparse keyframe switches, the model receives too few supervision signals. It cannot reliably learn the switching behaviour.
+| Interval N
+| ATE \downarrow
+| RPE \downarrow
+| 1
+| 4.047
+| 0.565
+| 3
+| 3.384
+| 0.514
+| 8
+| 0.122
+| 0.131
+| 10
+| 0.115
+| 0.126
+| 15
+| 1.398
+| 0.412
+Table 7: Effect of Keyframe Interval. N=10 yields the best trade-off between drift accumulation and training dynamics.
+10.2 Impact of Cache Window Size
+We further investigate the influence of the cache window size W . As shown in Table 8, while a window size of 10 is sufficient to maintain context, increasing it to 30 significantly impairs accuracy with the ATE rising to 0.516 . This empirical evidence supports our theory of “geometric saturation” where an excessively long history cache accumulates outdated features that pollute the attention mechanism. Thus, a window size of 10 is adopted to minimize computational cost while preventing long-term drift.
+| Window W
+| ATE \downarrow
+| RPE \downarrow
+| 10
+| 0.115
+| 0.126
+| 20
+| 0.119
+| 0.129
+| 30
+| 0.516
+| 0.293
+Table 8: Effect of Cache Window Size. W=10 prevents geometric saturation while maintaining sufficient context.
+Figure 8: Without loop-closure correction, LongStream shows mild drift when revisiting the same place. Adding online loop-closure cues is a promising direction for improving global consistency.
+11 Additional Limitation
+As illustrated in Figure 8, LongStream does not perform explicit loop-closure optimization, and therefore does not benefit from the strong trajectory correction achievable in offline global bundle adjustment. While the proposed relative pose formulation and cache-consistent training already provide stable drift behavior over long horizons, incorporating lightweight online loop-closure cues may further improve global consistency, especially in large loops. We leave this as future work.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

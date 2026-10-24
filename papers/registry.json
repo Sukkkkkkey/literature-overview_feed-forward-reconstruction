@@ -1,0 +1,104 @@
+[
+  {
+    "id": "A01",
+    "slug": "dust3r",
+    "title": "DUSt3R",
+    "path": "papers/dust3r.html",
+    "version": "2312.14132v3",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3
+  },
+  {
+    "id": "A06",
+    "slug": "vggt",
+    "title": "VGGT",
+    "path": "papers/vggt.html",
+    "version": "2503.11651v1",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 4
+  },
+  {
+    "id": "A08",
+    "slug": "pi3",
+    "title": "π³",
+    "path": "papers/pi3.html",
+    "version": "2507.13347v3",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 4
+  },
+  {
+    "id": "A09",
+    "slug": "mapanything",
+    "title": "MapAnything",
+    "path": "papers/mapanything.html",
+    "version": "2509.13414v3",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3
+  },
+  {
+    "id": "A10",
+    "slug": "depth-anything-3",
+    "title": "Depth Anything 3",
+    "path": "papers/depth-anything-3.html",
+    "version": "2511.10647v1",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 5
+  },
+  {
+    "id": "A12",
+    "slug": "vggt-omega",
+    "title": "VGGT-Ω",
+    "path": "papers/vggt-omega.html",
+    "version": "2605.15195v1",
+    "sections": [
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3
+  }
+]

@@ -1,0 +1,682 @@
+Motion- and Gravity-Aware Feedforward 3D Reconstruction
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Work
+2.1 Feed-forward 3D reconstruction
+2.2 Learning Using Privileged Information (LUPI)
+3 Methodology
+3.1 Data Preprocessing
+3.1.1 Optical flow estimation and decomposition
+3.1.2 Gravity direction estimation
+3.2 Privileged Information Injection
+Residual Flow Encoding.
+Gravity Encoding.
+Injection Locations.
+3.3 Finetuning
+Stage 1: Privileged Feature Alignment.
+Stage 2: Knowledge Distillation and Hallucination.
+4 Experiments
+4.1 Datasets
+4.2 Implementation Details
+4.3 Dense Multi-View Evaluation
+4.4 Ablation Studies
+4.4.1 Residual vs. Full Flow Injection
+4.4.2 Layer-wise Injection Analysis
+VGGT (Middle-Layer).
+\pi^{3} (Late-Layer).
+Early Injection.
+4.4.3 Gravity Prior Analysis
+4.5 Analysis
+5 Limitations
+6 Conclusion
+References
+A Finetuning Details
+B Additional Ablation Results
+License: arXiv.org perpetual non-exclusive license
+arXiv:2610.22177v1 [cs.CV] 15 Oct 2026
+Motion- and Gravity-Aware Feedforward 3D Reconstruction
+Shiyao Qian
+††thanks: Huawei Noah’s Ark Lab, Markham, ON, Canada. Email: {yuan.ren3, baidongfeng}@huawei.com.††thanks: University of Toronto††thanks: Toronto††thanks: ON††thanks: Canada. This work was done during an internship at Huawei Noah’s Ark Lab. Email: shiyao.qian@mail.utoronto.ca.
+Yuan Ren11footnotemark:
+1
+Dongfeng Bai11footnotemark:
+1
+Abstract
+Feed-forward transformer models have recently achieved strong performance in multi-view 3D reconstruction, but they still rely primarily on appearance-based attention and often struggle in dynamic scenes with weak geometric cues. In this work, we introduce a motion- and gravity-aware framework under the Learning Using Privileged Information (LUPI) paradigm. During training, residual optical flow and gravity direction are provided as privileged signals to guide geometric representation learning; during inference, the model uses standard visual inputs only.
+We add these priors to the transformer backbones with few architectural changes while preserving feed-forward efficiency. Experiments on standard benchmarks show consistent gains in reconstruction accuracy and robustness, especially in scenes with dynamic objects, ambiguous structure, and challenging camera motion. Our analysis further shows that the optimal injection stage is backbone-dependent: middle-layer integration is generally preferable for VGGT, while late-stage integration is more effective for \pi^{3} . These results suggest that LUPI offers a practical way to inject motion and physical priors into feed-forward 3D reconstruction without increasing test-time complexity.
+Keywords: Feed-forward 3D reconstruction; learning using privileged information
+1 Introduction
+Feedforward transformer-based approaches have recently achieved impressive progress in multi-view 3D reconstruction by directly reasoning over dense patch correspondences across images. Methods such as VGGT[1] demonstrate that strong geometric priors can emerge from large-scale training, enabling accurate reconstruction without computationally expensive Bundle Adjustment [2] involved in Structure-from-Motion [3] and dense matching with cost volumes in the Multi-view stereo methods [4]. This paradigm has significantly improved efficiency and scalability, making feedforward reconstruction an increasingly attractive solution for real-world perception tasks.
+Despite these advances, most existing feedforward models rely primarily on appearance-driven attention mechanisms and treat each input view as a collection of static visual tokens. In practice, however, real-world scenes are rarely static: independently moving objects, camera ego-motion, and temporal inconsistencies introduce challenges that cannot always be resolved from appearance alone. Without explicit motion reasoning, the model must implicitly infer whether observed changes arise from viewpoint variation or true scene dynamics, which can lead to unstable correspondences and degraded reconstruction quality in dynamic or ambiguous scenarios.
+In addition, feedforward reconstruction methods typically operate without global physical orientation cues. As a result, the predicted geometry may suffer from scale ambiguity, drifting orientation, or inconsistent spatial layouts across views, especially when visual evidence is weak or repetitive. Incorporating simple physical priors, such as gravity direction, offers a natural way to stabilize spatial reasoning and enforce a consistent reference frame, complementing purely appearance-based token interactions.
+Motivated by the importance of motion and orientation cues in robust visual understanding, we propose to augment 3D vision foundation models with explicit motion- and gravity-aware signals. Specifically, we inject optical flow as an additional motion representation that highlights local pixel displacement patterns, enabling the model to better separate static background structure from dynamic foreground regions. Furthermore, we incorporate gravity direction as a lightweight global orientation prior, providing a stable reference axis that improves spatial consistency across views. These cues introduce structured inductive biases that are absent in standard feedforward architectures, while preserving the simplicity and efficiency of transformer-based reconstruction.
+To maintain architectural integrity and isolate the impact of our priors, we adopt the Learning Using Privileged Information (LUPI) paradigm during fine-tuning and treat the new modalities as privileged data. We demonstrate generalizability by applying this approach to two architectures with distinct structural designs. Comprehensive evaluations on standard benchmarks reveal consistent gains in reconstruction accuracy and robustness, especially in scenarios with dynamic content, complex camera motion, and scale ambiguity. These results indicate that explicitly incorporating motion and physical orientation cues is a robust and generalizable strategy for enhancing feed-forward 3D reconstruction.
+•
+We propose a motion- and gravity-aware augmentation for feedforward transformer-based 3D reconstruction, improving robustness in dynamic scenes.
+•
+We introduce optical flow as an explicit motion cue for static–dynamic separation, and gravity direction as a global orientation prior for spatial consistency.
+•
+We demonstrate the effectiveness of the proposed approach through extensive experiments and ablation studies on standard multi-view reconstruction benchmarks.
+2 Related Work
+2.1 Feed-forward 3D reconstruction
+Recent years have witnessed rapid progress in feed-forward 3D reconstruction, where models directly infer geometry from one or multiple images without test-time optimization. Early learning-based MVS systems[5][6][7][8][9] typically relied on explicit cost-volume construction and geometric reasoning, while more recent foundation-style approaches shift the emphasis toward correspondence learning with large-capacity backbones and transformers[10][11][12][13][14]. In particular, transformer-based feed-forward methods such as VGGT[1] represent scenes as collections of image patch tokens and perform cross-view reasoning through attention, achieving strong reconstruction quality and scalability. Along this line, \pi^{3} [13] further explores efficient multi-view reasoning and generalization under diverse camera configurations, while mapping-oriented systems such as MapAnything[14] aim to produce geometry or map representations at scale from in-the-wild imagery, emphasizing robustness and transfer. In parallel, large-scale monocular depth pretraining (e.g., DepthAnything v3[15]) provides strong single-view geometric priors that can serve as initialization or auxiliary supervision for multi-view reconstruction and downstream 3D perception tasks. Beyond these examples, related feed-forward reconstruction and correspondence-centric paradigms include DUSt3R/MASt3R-style models[11][16][17] that unify matching and geometry prediction in a single forward pass, as well as other transformer-based MVS variants[10][18] that replace hand-crafted matching pipelines[4] with learned token interactions.
+Despite their success, existing feed-forward methods primarily rely on appearance-driven features and implicit geometric regularities learned from data. They generally lack explicit physical or motion priors—such as structured optical-flow cues to disentangle dynamic foregrounds or gravity direction (e.g., from IMU or geo-calibration) to serve as a global orientation reference. Consequently, these models must infer correspondences and spatial consistency purely from visual tokens, which can be brittle in dynamic scenes or under ambiguous textures [19]. Our work complements this paradigm by injecting lightweight motion and gravity signals into feed-forward transformers, improving geometric robustness while preserving the efficiency of the inference process.
+2.2 Learning Using Privileged Information (LUPI)
+Classical supervised learning minimizes a loss function L(h(x_{i},\theta),y_{i}) over training pairs (x_{i},y_{i}) , where the input space X remains identical during both training and inference. In contrast, Vapnik [20] introduced the LUPI paradigm to mimic human learning, where a ”teacher” provides supplemental guidance—such as explanations or comparisons—available only during training. This transforms the training set into triplets (x_{i},x^{*}_{i},y_{i}) , where x^{*}_{i}\in X^{*} represents privileged information that is withheld during inference.
+While early LUPI research focused on Support Vector Machines (SVMs) to predict slack variables and accelerate convergence[21][22], the framework has since evolved into a generalized mechanism for knowledge transfer[23]. LUPI has been successfully applied to diverse domains including image matting[24], person re-identification[25], and healthcare analytics[26]. In this work, we integrate the LUPI paradigm with transformer-based 3D foundation models, utilizing motion and orientation priors as privileged information to guide the model toward a more robust, geometrically-aware interpretation of visual inputs.
+3 Methodology
+3.1 Data Preprocessing
+3.1.1 Optical flow estimation and decomposition
+We perform a preprocessing step to selectively compute the residual optical flow for the training data. For datasets composed of continuous video sequences, optical flow can generally be estimated between adjacent frames. However, when large temporal gaps or abrupt scene changes occur, flow estimation becomes unreliable. To address this issue, we first compute an image similarity score between neighboring frames and only estimate optical flow when the similarity exceeds a predefined threshold.
+Optical flow is computed using RAFT [27], which produces dense flow fields capturing the overall motion between frames. We assume that the rigid motion induced by camera movement can be approximated by a global affine transformation, which is denoted by
+|
+| \mathbf{f}_{i}=A\mathbf{p}_{i}+\mathbf{t}
+|
+| (1)
+where \mathbf{f}_{i} is the optical flow of a pixel i . \mathbf{p}_{i} is the [u,v] coordinate of the pixel. A is a 2\times 2 rotation matrix, and \mathbf{t} is a 2\times 1 translation vector. A and \mathbf{t} can be solved by minimizing \Sigma_{i}||\mathbf{f}_{i}-(A\mathbf{p}_{i}+\mathbf{t})||^{2} . Pixels consistent with the affine transformation are treated as static background, while deviations from this model indicate dynamic regions. The residual flow is defined as the difference between the original optical flow and the estimated affine transformation, thereby isolating motion components that cannot be explained by the global camera motion model. Figure 1 shows two adjacent input frames together with the decomposed rigid flow and the resulting residual.
+Importantly, residual flow does not solely correspond to independently moving objects. The affine transformation provides only a global approximation of camera-induced motion and therefore cannot perfectly model perspective projection effects in scenes with significant depth variation. In regions with large depth gradients, structural discontinuities, or partial occlusions, the global motion model becomes insufficient even under predominantly static conditions. Consequently, these regions yield non-negligible residual flow. Such areas typically coincide with geometrically challenging regions for multi-view aggregation, as illustrated by the traffic light region in Fig. 1. Therefore, residual flow can also be interpreted as a signal highlighting deviations from the global motion model, which often require more careful geometric reasoning during reconstruction.
+Figure 1: Optical flow decomposition.
+3.1.2 Gravity direction estimation
+We estimate 3D gravity vectors in the camera coordinate system for all training images using the pretrained GeoCalib model [28]. The model is applied offline to each image to extract its corresponding gravity direction.
+GeoCalib first predicts a dense perspective field from a single image, which encodes geometric cues such as vanishing directions and horizon structure. Based on this representation, gravity direction is recovered through a Levenberg–Marquardt optimization procedure. To ensure reliability, we retain only those gravity estimates for which the optimization converges within a predefined number of iterations. In practice, non-convergence occurs only in a very small fraction of images. Samples for which the optimization fails to converge are excluded from gravity supervision. The resulting gravity vectors, expressed in the camera coordinate system, are used as orientation priors during training.
+3.2 Privileged Information Injection
+To incorporate additional geometric cues during training, we introduce a privileged information injection mechanism that integrates residual optical flow and gravity direction into the transformer-based reconstruction backbone. These signals are encoded into token-aligned representations and injected into the aggregation process with minimal modification to the original architecture.
+Residual Flow Encoding.
+Residual optical flow is first partitioned into patches using the same patchification scheme as the input images. For each patch, we compute a compact statistical representation consisting of five parameters: the mean flow components \mu_{x},\mu_{y} , the log-variance terms \log(\sigma_{xx}+\epsilon),\log(\sigma_{yy}+\epsilon) , and the normalized covariance \sigma_{xy}/\sqrt{\sigma_{xx}\sigma_{yy}+\epsilon} .
+These statistics summarize the motion distribution within each patch and provide a lightweight representation of local motion dynamics.
+The resulting 5-dimensional vector is passed through a three-layer MLP, referred to as the patch encoder, to produce a residual-flow embedding with the same dimensionality as the visual patch tokens extracted by the DINO backbone. The encoded residual-flow feature is then scaled by a learnable weight W_{\text{flow}} and added to the corresponding patch token:
+|
+| \tilde{t}_{patch}=t_{patch}+W_{\text{flow}}\cdot f_{flow}.
+|
+| (2)
+This additive fusion allows motion information to be integrated with minimal perturbation to the existing embedding space while enabling the network to leverage dynamic cues during multi-view aggregation.
+Gravity Encoding.
+In addition to motion cues, we incorporate scene orientation information through gravity direction. The gravity vector is first normalized and then encoded using a two-layer MLP, referred to as the gravity encoder, producing a representation aligned with the dimensionality of camera tokens. The encoded gravity feature is scaled by a learnable parameter W_{\text{grav}} and fused with the camera token:
+|
+| \tilde{t}_{cam}=t_{cam}+W_{\text{grav}}\cdot f_{grav}.
+|
+| (3)
+The specific implementation of this fusion varies depending on the model architecture. For \pi^{3} , since there are no specialized camera tokens, we define the camera tokens as the aggregator encoder’s output embeddings that feed into the camera head. The gravity feature corresponding to a specific image is fused with all constituent patch tokens for the image.
+For VGGT, we modify the gravity input to align with its reference-frame design. The first camera token in the sequence receives no gravity information, as it serves as a fixed reference for camera parameters. All subsequent tokens are fused with a concatenated gravity vector containing both their own view’s orientation and that of the first view. This ensures the gravity features remain aware of the reference frame with minimal learning overhead.
+This design allows the model to incorporate global orientation priors that help stabilize camera estimation and improve geometric consistency across views.
+Injection Locations.
+The encoded privileged information can be injected at different stages of the transformer-based aggregation module, as illustrated in Fig. 2. Specifically, residual flow features are fused with patch tokens, while gravity embeddings are combined with camera tokens when such tokens are present.
+For reconstruction architectures that do not explicitly maintain camera tokens (e.g., \pi^{3} ), gravity embeddings are instead injected before the camera decoder to influence the camera prediction stage.
+The framework supports multiple potential injection points throughout the aggregator layers, as shown in Fig. 2. Empirically, our experiments show that the optimal injection position depends on the backbone architecture, with different models favoring different stages of the aggregator.
+Figure 2: Architecture Overview.
+3.3 Finetuning
+Our training objectives include local and global point maps, log-space depth maps, pixel ray directions, and pairwise camera translations and rotations. Additionally, for synthetic datasets, we incorporate surface normal and depth-gradient signals to provide finer geometric supervision. All loss terms are computed using the Generalized Robust Loss [29], with the final objective being a weighted sum of these individual components. We provide detailed formulae and hyperparameter configurations in the supplementary materials.
+Following the principles of Learning Using Privileged Information (LUPI), we employ a two-stage finetuning strategy designed to extract reliable privileged features and subsequently train the model to interpret and hallucinate them during inference.
+Stage 1: Privileged Feature Alignment.
+The primary objective of the first stage is to develop a robust privileged information encoder and adapt the model’s decoders to utilize it. We freeze the model layers preceding the information injection point, focusing training exclusively on the privileged encoder (i.e. residual flow or gravity encoder) and the downstream decoder layers. This isolation ensures the new modality encoder receives sufficient gradient signal to provide meaningful features while the decoders learn to leverage this injected information. By freezing the early encoder layers, the privileged features are forced to align with the existing distribution of patch and camera tokens, facilitating better fusion. To minimize architectural disturbance, we also freeze unrelated decoders and heads; for instance, the VGGT camera decoder remains frozen in stage 1 when finetuning with residual flow as the privileged modality.
+Stage 2: Knowledge Distillation and Hallucination.
+As privileged modalities are unavailable at inference time under the LUPI paradigm, the second stage shifts toward guiding the primary model to converge faster and learn more robustly. With the privileged encoder and decoders now prepared, we unfreeze the entire model and introduce aggressive modality dropout. This mechanism creates a shortcut for the finetuning process, forcing the unfrozen model encoder to ”hallucinate” the missing privileged features when they are dropped out. In this framework, the privileged information encoder acts as a teacher during standard iterations, while the model encoder serves as the student during dropout iterations. The student learns to extract high-level features related to motion or gravity cues directly from visual inputs, effectively filling the gap left by the privileged modality to maintain the performance gains established in stage 1.
+4 Experiments
+4.1 Datasets
+We apply dataset-level train-test split using 13 high-quality datsets. Among them, 11 are used for training and 2 are used for benchmarking. For our LUPI method, gravity vectors are pre-computed for all datasets, while dynamic flow maps are computed for 6 of them where continuous scene frames are available.
+A wide range of indoor and outdoor scenes are covered in the datasets either synthetic or captured in the wild. In each training epoch, we randomly sampled a fixed number of scenes from each training dataset: 1,000 in Spring, 2,750 in UnrealStereo4K, and 26,250 in the other 9 datasets. We preprocess the datasets into WAI format[14] for the ease of training and benchmarking.
+Table 1: Datasets used for training and testing.
+| Dataset
+| #images
+| #images w OF
+| %images w OF
+| Datasets for training
+| BlendedMVS[30]
+| 230,284
+| 0
+| 0
+| Mapillary Planet-Scale Depth[31]
+| 1,688,784
+| 0
+| 0
+| Spring[32]
+| 34,000
+| 11,853
+| 34.9
+| UnrealStereo4K[33]
+| 16,400
+| 0
+| 0
+| Aria Synthetic Environments[34]
+| 11,765,050
+| 10,647,370
+| 90.5
+| DL3DV-10K[35]
+| 5,178,105
+| 0
+| 0
+| Dynamic Replica[36]
+| 337,800
+| 244,027
+| 72.24
+| MegaDepth[37]
+| 41,311
+| 0
+| 0
+| MVS-Synth[38]
+| 12,000
+| 10,836
+| 90.3
+| ParallelDomain-4D[39]
+| 1,448,106
+| 1,159,273
+| 80.1
+| SAIL-VOS 3D[40]
+| 79,953
+| 76,386
+| 95.5
+| Datasets for testing
+| ETH3D[41]
+| 647
+| /
+| /
+| TartanAirV2-WB[42]
+| 727,360
+| /
+| /
+4.2 Implementation Details
+We implement our method using the official pretrained checkpoints of \pi^{3} [13] and VGGT [1], fine-tuning them with the proposed motion and orientation priors. The injection points for privileged information are tailored to each architecture: for VGGT, information is injected into the 12th layer of the aggregator. In contrast, as \pi^{3} lacks explicit camera tokens, we inject additional modalities after the aggregator but before the specific transformer decoders to maintain architectural isolation. Specifically, gravity features are injected before the camera decoder, while residual flow features are integrated before the point and confidence decoders. A detailed analysis of these injection points is provided in Section 4.4.
+All models are fine-tuned for a total of 10 epochs. For single-modality configurations, Stage 1 (Privileged Alignment) spans the first 2 epochs, while the remaining 8 epochs are dedicated to Stage 2 (Knowledge Distillation). During Stage 2, we employ a scene-wise modality dropout rate fixed at 0.5 to encourage the model encoder to hallucinate privileged features. To ensure stable gradient flow to the privileged encoders, the scaling weights W_{\text{flow}} and W_{\text{grav}} are initialized and fixed at 1.0 during the first two epochs.
+For experiments involving both modalities, we utilize a sequential multi-stage fine-tuning schedule. The model first undergoes Stages 1 and 2 for optical flow injection during the initial 5 epochs. In the subsequent 5 epochs (Stages 3 and 4), we introduce gravity injection using the same two-stage protocol while maintaining the presence of the flow injection. This sequential curriculum allows the model to stabilize one privileged modality before integrating the second, ensuring coherent multi-modal feature fusion.
+4.3 Dense Multi-View Evaluation
+We evaluate our method under the dense multi-view protocol using both \pi^{3} and VGGT backbones. Figures 3 and 4 report performance across a varying number of input views.
+On both architectures, injecting residual flow consistently outperforms the baselines across all key metrics, including depth relative error, ray alignment, and inlier-based statistics. These gains confirm that explicitly modeling dynamic motion is highly beneficial for feed-forward multi-view reconstruction. Similarly, the introduction of gravity priors yields results comparable to residual flow, further validating the role of global orientation cues in enhancing structural alignment. Crucially, models fine-tuned with both modalities outperform those using any single injection, demonstrating that these priors are complementary rather than redundant or contradictory.
+Notably, the performance gap between our method and the baseline widens as the number of input views increases. In dense settings, cross-view aggregation becomes the dominant factor, which simultaneously amplifies geometric inconsistencies caused by independently moving objects or misaligned camera orientations. By effectively suppressing these inconsistencies, motion and gravity awareness leads to increasingly pronounced gains as view redundancy grows. This trend indicates that our approach actively enhances cross-view geometric aggregation rather than merely compensating for sparse observations.
+Furthermore, the consistency of these improvements across both \pi^{3} and VGGT demonstrates that our proposed learning framework generalizes effectively across different feed-forward reconstruction backbones without requiring specialized architectural modifications.
+Figure 3: \pi^{3} injection results
+Figure 4: VGGT injection results
+4.4 Ablation Studies
+4.4.1 Residual vs. Full Flow Injection
+To examine the necessity of motion decomposition, we conduct experiments by injecting both full optical flow and residual flow into VGGT and \pi^{3} . Table 2 reports the reconstruction performance of each variant under the 8-view setting.
+Empirically, injecting full optical flow yields performance comparable to the baseline, with slight degradation observed in some metrics. In contrast, injecting residual flow consistently achieves the best performance across both backbones.
+A possible explanation is that full optical flow contains both camera-induced rigid motion and dynamic motion. But with the random set of views sampling for 3D vision models’ input, there is no guarantee of the sequence of the view nor the existance of the next view whose camera relate to the source view in the way expressed by rigid motion. In contrast, By explicitly removing the rigid component, residual flow isolates motion signals that deviate from the global motion due to the camera. These signals often correspond to independently moving objects or geometrically challenging regions, making them more readily helpful for 3D reconstruction.
+Table 2: Residual vs. Full Flow Injection.
+| Backbone
+| Flow Type
+| Depth rel \downarrow
+| Rays err∘ \downarrow
+| Pose AUC \uparrow
+| Depth Inliers \uparrow
+| \pi^{3}
+| Residual flow
+| 0.107
+| 2.055
+| 40.94
+| 40.87
+| Full flow
+| 0.113
+| 2.235
+| 42.19
+| 38.76
+|
+| No injection
+| 0.116
+| 2.242
+| 42.14
+| 39.55
+| VGGT
+| Residual flow
+| 0.114
+| 2.459
+| 36.69
+| 36.94
+| Full flow
+| 0.124
+| 2.491
+| 35.46
+| 35.44
+|
+| No injection
+| 0.121
+| 2.478
+| 35.80
+| 36.11
+4.4.2 Layer-wise Injection Analysis
+To determine the optimal depth for incorporating motion and orientation priors, we evaluate feature injection at three distinct stages of the reconstruction backbone: Early (input image patch features), Middle (intermediate aggregator layers), and Late (aggregator output). Performance benchmarks for 8-view scenes are summarized in Table 3. Our results reveal a consistent architectural preference: middle-layer injection performs best on most metrics for VGGT, while late-layer injection is optimal for \pi^{3} .
+VGGT (Middle-Layer).
+At this depth, patch and camera tokens have developed sufficient global geometric awareness to fuse effectively with privileged features. Unlike late injection, this placement allows subsequent transformer blocks to refine the fused representations through cross-view attention, ensuring deeper integration before reaching the decoders. Furthermore, VGGT’s explicit camera tokens provide natural modality isolation: gravity features fused with camera tokens are directed exclusively to the camera head, while residual flow features in patch tokens are reserved for depth-related decoders.
+\pi^{3} (Late-Layer).
+The absence of explicit camera tokens in \pi^{3} means the aggregator output is shared across all heads. Middle-layer injection causes privileged information to leak into unrelated decoders (e.g., gravity features influencing the point decoder). Injecting at the aggregator output instead allows for precise, head-specific integration, providing the isolation necessary for superior performance.
+Early Injection.
+This configuration consistently yields the poorest results across all cases. Raw input features lack the cross-view geometric context required to interpret motion priors. Additionally, this placement forces the pretrained image encoder—which lacks multi-view awareness—to handle the complex task of feature hallucination, a burden that undermines the LUPI learning shortcut and prevents the model from effectively leveraging the privileged information.
+Table 3: Layer-wise injection analysis on \pi^{3} and VGGT.
+| Backbone
+| Injection Layer
+| Depth rel \downarrow
+| Rays err∘ \downarrow
+| Pose AUC \uparrow
+| Depth Inliers \uparrow
+| \pi^{3}(ResFlow)
+| Early (Input)
+| 0.115
+| 1.714
+| 46.19
+| 44.43
+| Middle (Layer 17)
+| 0.110
+| 1.621
+| 47.87
+| 45.85
+| Late (Output)
+| 0.102
+| 1.539
+| 48.62
+| 46.13
+| \pi^{3}(Grav)
+| Early (Input)
+| 0.104
+| 1.707
+| 43.03
+| 44.08
+| Middle (Layer 17)
+| 0.096
+| 1.561
+| 44.38
+| 45.67
+| Late (Output)
+| 0.095
+| 1.478
+| 49.39
+| 46.39
+| VGGT(ResFlow)
+| Early (Input)
+| 0.129
+| 2.369
+| 34.16
+| 36.56
+| Middle (Layer 11)
+| 0.109
+| 1.973
+| 37.58
+| 40.13
+| Late (Output)
+| 0.114
+| 2.167
+| 37.52
+| 38.07
+| VGGT(Grav)
+| Early (Input)
+| 0.123
+| 2.362
+| 36.36
+| 38.18
+| Middle (Layer 11)
+| 0.121
+| 2.087
+| 36.77
+| 38.72
+| Late (Output)
+| 0.118
+| 2.188
+| 37.44
+| 38.85
+4.4.3 Gravity Prior Analysis
+To evaluate the effect of gravity injection, we train two models under identical settings: one with gravity prior and one without it. Figure 5 shows the reconstructed point maps predicted by the two models. The model trained with gravity prior produces more stable global structures, where ground surfaces appear flatter and walls are more consistently aligned with the vertical direction.
+This observation suggests that gravity prior mainly improves reconstruction by enforcing a global orientation reference rather than altering local geometric predictions. By anchoring the reconstruction to a physically meaningful direction, gravity helps reduce structural drift and leads to more geometrically coherent scene reconstruction.
+Figure 5: Qualitative comparison with and without gravity injection. In each pair, the upper image shows reconstruction without gravity injection, and the lower image shows reconstruction with gravity injection.
+4.5 Analysis
+We discuss the proposed priors from three perspectives: view-density behavior, architecture-dependent injection preference, and prior complementarity.
+First, the gain over the baseline increases with the number of input views. This trend indicates that the guidance of motion and gravity priors does not simply compensate for sparse observations; instead, they improve the consistency of cross-view geometric aggregation. As view density grows, dynamic regions introduce stronger multi-view conflicts, and residual flow helps suppress these inconsistencies.
+Second, the optimal injection stage is backbone-dependent. For \pi^{3} , late-stage injection performs best, suggesting that decoder-side integration better preserves modality isolation when no explicit camera token is available. For VGGT, middle-layer injection is generally more effective, likely because privileged cues can be fused earlier with geometry-aware tokens and further refined by subsequent cross-view transformer blocks. In both backbones, early-stage injection is consistently weaker, implying that shallow appearance-dominant features are less suitable for privileged geometric guidance.
+Third, residual flow and gravity priors contribute at complementary structural scales. Residual flow primarily improves local dynamic consistency by emphasizing non-rigid motion components, while gravity provides a global orientation anchor that stabilizes scene-level structure. Their combination improves geometric coherence without changing the feed-forward inference paradigm.
+5 Limitations
+A limitation of our current formulation lies in the use of rigid optical flow components. In principle, rigid flow primarily reflects the apparent motion induced by camera ego-motion, implicitly encoding information about the underlying translational velocity and angular velocity of the camera. Such signals can be highly informative for stabilizing geometry and improving motion-aware reasoning.
+However, most existing feedforward multi-view reconstruction frameworks, including VGGT, are designed for static-scene reconstruction and operate on unordered sets of input images, without explicit temporal ordering or timestamp information. Under this setting, the rigid flow component does not provide a consistent notion of camera dynamics across views, and consequently offers limited benefit for reconstruction performance in our experiments.
+We believe that the velocity and angular motion cues embedded in rigid flow remain a valuable source of physical information. An important direction for future work is to extend feedforward reconstruction toward streaming or temporally coherent settings, where sequential inputs and ego-motion estimates can be explicitly modeled. Incorporating rigid motion cues in such a framework may further improve robustness and enable more principled dynamic scene reconstruction.
+6 Conclusion
+In this work, we presented a motion- and gravity-aware framework for feed-forward multi-view 3D reconstruction under the Learning Using Privileged Information (LUPI) paradigm. During training, residual flow and gravity cues are used as privileged supervision signals; during inference, the model operates with standard visual inputs only, while retaining the geometric benefits transferred from privileged modalities.
+Extensive experiments show consistent improvements in reconstruction accuracy and robustness, especially in dynamic scenes, under ambiguous geometry, and across challenging camera motion. The results further indicate that the optimal injection stage is architecture-dependent, highlighting the importance of aligning privileged-feature integration with backbone design.
+Overall, this study demonstrates that LUPI is an effective and practical mechanism for introducing motion and physical priors into feed-forward 3D reconstruction without sacrificing inference efficiency. We hope this perspective motivates future work on temporally coherent and physically grounded feed-forward reconstruction with richer privileged training signals.
+References
+[1]
+J. Wang, M. Chen, N. Karaev, A. Vedaldi, C. Rupprecht, and D. Novotny (2025)
+VGGT: visual geometry grounded transformer.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+Cited by: §1,
+§2.1,
+§4.2.
+[2]
+B. Triggs, P. F. McLauchlan, R. I. Hartley, and A. W. Fitzgibbon (1999)
+Bundle adjustment—a modern synthesis.
+In International workshop on vision algorithms,
+pp. 298–372.
+Cited by: §1.
+[3]
+J. L. Schönberger and J. Frahm (2016)
+Structure-from-motion revisited.
+In Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §1.
+[4]
+J. L. Schönberger, E. Zheng, M. Pollefeys, and J. Frahm (2016)
+Pixelwise view selection for unstructured multi-view stereo.
+In European Conference on Computer Vision (ECCV),
+Cited by: §1,
+§2.1.
+[5]
+Y. Yao, Z. Luo, S. Li, T. Fang, and L. Quan (2018)
+MVSNet: depth inference for unstructured multi-view stereo.
+In European Conference on Computer Vision (ECCV),
+Cited by: §2.1.
+[6]
+Y. Yao, Z. Luo, S. Li, T. Shen, T. Fang, and L. Quan (2019)
+Recurrent mvsnet for high-resolution multi-view stereo depth inference.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 5525–5534.
+Cited by: §2.1.
+[7]
+R. Chen, S. Han, J. Xu, and H. Su (2019)
+Point-based multi-view stereo network.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 1538–1547.
+Cited by: §2.1.
+[8]
+X. Gu et al. (2020)
+Cascade cost volume for high-resolution multi-view stereo and stereo matching.
+In IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: §2.1.
+[9]
+J. Yang, W. Mao, J. M. Alvarez, and M. Liu (2020)
+Cost volume pyramid based depth inference for multi-view stereo.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 4877–4886.
+Cited by: §2.1.
+[10]
+Y. Ding, W. Yuan, Q. Zhu, H. Zhang, X. Liu, Y. Wang, and X. Liu (2022)
+Transmvsnet: global context-aware multi-view stereo network with transformers.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 8585–8594.
+Cited by: §2.1.
+[11]
+T. Wang et al. (2023)
+DUSt3R: geometric 3d vision made easy.
+arXiv preprint arXiv:2312.14132.
+Cited by: §2.1.
+[12]
+L. Yang et al. (2024)
+Depth anything: unleashing the power of large-scale unlabeled data for monocular depth estimation.
+arXiv preprint arXiv:2401.10891.
+Cited by: §2.1.
+[13]
+Y. Wang, J. Zhou, H. Zhu, W. Chang, Y. Zhou, Z. Li, J. Chen, J. Pang, C. Shen, and T. He (2026)
+\pi^{3} : Permutation-equivariant visual geometry learning.
+In International Conference on Learning Representations,
+Vol. 2026, pp. 10481–10497.
+Cited by: §2.1,
+§4.2.
+[14]
+N. Keetha, N. Müller, J. Schönberger, L. Porzi, Y. Zhang, T. Fischer, A. Knapitsch, D. Zauss, E. Weber, N. Antunes, J. Luiten, M. Lopez-Antequera, S. R. Bulò, C. Richardt, D. Ramanan, S. Scherer, and P. Kontschieder (2026)
+MapAnything: universal feed-forward metric 3D reconstruction.
+In International Conference on 3D Vision (3DV),
+Cited by: Appendix A,
+§2.1,
+§4.1.
+[15]
+H. Lin, S. Chen, J. Liew, D. Y. Chen, Z. Li, G. Shi, J. Feng, and B. Kang (2025)
+Depth anything 3: recovering the visual space from any views.
+arXiv preprint arXiv:2511.10647.
+Cited by: §2.1.
+[16]
+P. Lindenberger et al. (2024)
+MASt3R: matching and stereo reconstruction with transformers.
+arXiv preprint.
+Cited by: §2.1.
+[17]
+Y. Cabon, L. Stoffl, L. Antsfeld, G. Csurka, B. Chidlovskii, J. Revaud, and V. Leroy (2025)
+Must3r: multi-view network for stereo 3d reconstruction.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 1050–1060.
+Cited by: §2.1.
+[18]
+C. Cao, X. Ren, and Y. Fu (2024)
+Mvsformer++: revealing the devil in transformer’s details for multi-view stereo.
+arXiv preprint arXiv:2401.11673.
+Cited by: §2.1.
+[19]
+J. Zhang, Y. Li, A. Chen, M. Xu, K. Liu, J. Wang, X. Long, H. Liang, Z. Xu, H. Su, et al. (2025)
+Advances in feed-forward 3d reconstruction and view synthesis: a survey.
+arXiv preprint arXiv:2507.14501.
+Cited by: §2.1.
+[20]
+V. Vapnik and A. Vashist (2009)
+A new learning paradigm: learning using privileged information.
+Neural networks 22 (5-6), pp. 544–557.
+Cited by: §2.2.
+[21]
+S. Suthaharan (2016)
+Support vector machine.
+In Machine learning models and algorithms for big data classification: thinking with examples for effective learning,
+pp. 207–235.
+Cited by: §2.2.
+[22]
+L. Niu, Y. Shi, and J. Wu (2012)
+Learning using privileged information with l-1 support vector machine.
+In 2012 IEEE/WIC/ACM International Conferences on Web Intelligence and Intelligent Agent Technology,
+Vol. 3, pp. 10–14.
+Cited by: §2.2.
+[23]
+V. Vapnik and R. Izmailov (2015)
+Learning using privileged information: similarity control and knowledge transfer.
+The Journal of Machine Learning Research 16 (1), pp. 2023–2049.
+Cited by: §2.2.
+[24]
+C. Lyu, J. Xie, B. Xu, C. Lu, H. Huang, X. Huang, M. Wu, C. Zhang, and Y. Tang (2024)
+Privileged prior information distillation for image matting.
+In Proceedings of the AAAI Conference on Artificial Intelligence,
+Vol. 38, pp. 4044–4052.
+Cited by: §2.2.
+[25]
+X. Yang, M. Wang, and D. Tao (2017)
+Person re-identification with metric learning using privileged information.
+IEEE Transactions on Image Processing 27 (2), pp. 791–805.
+Cited by: §2.2.
+[26]
+M. Ganaie and M. Tanveer (2022)
+Ensemble deep random vector functional link network using privileged information for alzheimer’s disease diagnosis.
+IEEE/ACM Transactions on Computational Biology and Bioinformatics 21 (4), pp. 534–545.
+Cited by: §2.2.
+[27]
+Z. Teed and J. Deng (2020)
+RAFT: recurrent all-pairs field transforms for optical flow.
+In European Conference on Computer Vision (ECCV),
+Cited by: §3.1.1.
+[28]
+A. Veicht, P. Sarlin, P. Lindenberger, and M. Pollefeys (2024)
+GeoCalib: Single-image Calibration with Geometric Optimization.
+In ECCV,
+Cited by: §3.1.2.
+[29]
+J. T. Barron (2019)
+A general and adaptive robust loss function.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 4331–4339.
+Cited by: Appendix A,
+§3.3.
+[30]
+Y. Yao, Z. Luo, S. Li, J. Zhang, Y. Ren, L. Zhou, T. Fang, and L. Quan (2020)
+BlendedMVS: a large-scale dataset for generalized multi-view stereo networks.
+Computer Vision and Pattern Recognition (CVPR).
+Cited by: Table 1.
+[31]
+M. L. Antequera, P. Gargallo, M. Hofinger, S. R. Bulo, Y. Kuang, and P. Kontschieder (2020)
+Mapillary planet-scale depth dataset.
+In European Conference on Computer Vision,
+pp. 589–604.
+Cited by: Table 1.
+[32]
+L. Mehl, J. Schmalfuss, A. Jahedi, Y. Nalivayko, and A. Bruhn (2023)
+Spring: a high-resolution high-detail dataset and benchmark for scene flow, optical flow and stereo.
+In Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: Table 1.
+[33]
+F. Tosi, Y. Liao, C. Schmitt, and A. Geiger (2021)
+SMD-nets: stereo mixture density networks.
+In Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: Table 1.
+[34]
+A. Avetisyan, C. Xie, H. Howard-Jenkins, T. Yang, S. Aroudj, S. Patra, F. Zhang, D. Frost, L. Holland, C. Orme, et al. (2024)
+Scenescript: reconstructing scenes with an autoregressive structured language model.
+In European Conference on Computer Vision,
+pp. 247–263.
+Cited by: Table 1.
+[35]
+L. Ling, Y. Sheng, Z. Tu, W. Zhao, C. Xin, K. Wan, L. Yu, Q. Guo, Z. Yu, Y. Lu, et al. (2024)
+Dl3dv-10k: a large-scale scene dataset for deep learning-based 3d vision.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 22160–22169.
+Cited by: Table 1.
+[36]
+N. Karaev, I. Rocco, B. Graham, N. Neverova, A. Vedaldi, and C. Rupprecht (2023)
+DynamicStereo: consistent dynamic depth from stereo videos.
+CVPR.
+Cited by: Table 1.
+[37]
+Z. Li and N. Snavely (2018)
+MegaDepth: learning single-view depth prediction from internet photos.
+In Computer Vision and Pattern Recognition (CVPR),
+Cited by: Table 1.
+[38]
+P. Huang, K. Matzen, J. Kopf, N. Ahuja, and J. Huang (2018)
+DeepMVS: learning multi-view stereopsis.
+In IEEE Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: Table 1.
+[39]
+B. Van Hoorick, R. Wu, E. Ozguroglu, K. Sargent, R. Liu, P. Tokmakov, A. Dave, C. Zheng, and C. Vondrick (2024)
+Generative camera dolly: extreme monocular dynamic novel view synthesis.
+In European Conference on Computer Vision (ECCV),
+Cited by: Table 1.
+[40]
+Y.-T. Hu, J. Wang, R. A. Yeh, and A. G. Schwing (2021)
+SAIL-VOS 3D: A Synthetic Dataset and Baselines for Object Detection and 3D Mesh Reconstruction from Video Data.
+In Proc. CVPR,
+Cited by: Table 1.
+[41]
+T. Schöps, J. L. Schönberger, S. Galliani, T. Sattler, K. Schindler, M. Pollefeys, and A. Geiger (2017)
+A multi-view stereo benchmark with high-resolution images and multi-camera videos.
+In Conference on Computer Vision and Pattern Recognition (CVPR),
+Cited by: Table 1.
+[42]
+Y. Zhang, N. Keetha, C. Lyu, B. Jhamb, Y. Chen, Y. Qiu, J. Karhade, S. Jha, Y. Hu, D. Ramanan, S. Scherer, and W. Wang (2025)
+UFM: a simple path towards unified dense correspondence with flow.
+In arXiV,
+Cited by: Table 1.
+[43]
+R. Wang, S. Xu, C. Dai, J. Xiang, Y. Deng, X. Tong, and J. Yang (2025)
+MoGe: unlocking accurate monocular geometry estimation for open-domain images with optimal training supervision.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 5261–5271.
+Cited by: Appendix A,
+Appendix B.
+[44]
+Z. Yu, S. Peng, M. Niemeyer, T. Sattler, and A. Geiger (2022)
+MonoSDF: exploring monocular geometric cues for neural implicit surface reconstruction.
+In Advances in Neural Information Processing Systems,
+Vol. 35.
+Cited by: Appendix A,
+Appendix B.
+[45]
+I. Loshchilov and F. Hutter (2019)
+Decoupled weight decay regularization.
+In International Conference on Learning Representations,
+Cited by: Appendix A,
+Appendix B.
+Appendix A Finetuning Details
+We employ the WAI_format [14] for dataset pre-processing and fine-tuning. Specifically, we determine the co-visibility between all image pairs within a scene by evaluating the re-projection error derived from ground-truth depth maps and camera poses. During fine-tuning, input sequences are curated by sampling images that maintain a co-visibility of at least 25% relative to at least one other view in the sequence; this ensures consistent spatial overlap across the chosen views. For each input sequence, we compute local and global point maps, ray directions and distances, camera translations, and rotations (represented as quaternions), alongside a per-view confidence map.
+All loss terms are calculated using the robust regression loss [29] with a shape parameter of 0.5 and a scaling parameter of 0.25 to mitigate the influence of outliers. We apply a logarithmic transformation to the ground truth and model outputs for point maps and z -depth values prior to computing the regression loss on their differences; notably, no loss terms are calculated for ray distances or confidence maps. When high-quality, smooth ground-truth point maps are available, we also integrate normal loss [43] and gradient matching loss [44] into our objective function. To account for noise and extreme values inherent in “in-the-wild” real-world datasets, we apply confidence weights to the global point map losses and exclude the top 5% of errors as outliers for local point maps and VGGT depth losses. To align with the reference-view-free architecture of \pi^{3} , we compute pairwise relative pose losses rather than direct differences between predicted and ground-truth global poses. The same 5% outlier exclusion logic is applied to all three losses for \pi^{3} .
+The loss terms for the different configurations and dataset types are expressed as follows:
+|
+| \mathcal{L}_{\text{VGGT}}^{\text{syn}}=L_{pt}+L_{z}+L_{ray}+L_{pose}+3L_{norm}+3L_{grad}
+|
+| (4)
+|
+| \mathcal{L}_{\text{VGGT}}^{\text{real}}=W_{conf}\cdot L_{pt,glob}+M_{top5\%}\cdot(L_{pt,loc}+L_{z})+L_{ray}+L_{pose}
+|
+| (5)
+|
+| \mathcal{L}_{\pi^{3}}^{\text{syn}}=L_{pt}+L_{z}+L_{ray}+L_{rel}+3L_{norm}+3L_{grad}
+|
+| (6)
+|
+| \mathcal{L}_{\pi^{3}}^{\text{real}}=M_{top5\%}\cdot(L_{pt,glob}+L_{pt,loc}+L_{z})+L_{ray}+L_{rel}
+|
+| (7)
+where:
+•
+L_{pt} , L_{z} , and L_{ray} represent the robust regression losses for point maps, z-depth values, and ray directions, respectively.
+•
+L_{pose} denotes the global camera pose loss (translation and rotation) used for VGGT.
+•
+L_{rel} denotes the pairwise relative pose loss used for the reference-view-free \pi^{3} architecture.
+•
+L_{norm} and L_{grad} are the normal and gradient matching losses, applied only when smooth synthetic ground truth is available.
+•
+W_{conf} is the per-pixel confidence weight applied to global point map predictions.
+•
+M_{top5\%} is the binary outlier mask that excludes the highest 5% of errors to ensure robustness against noise in real-world data.
+Optimization is performed using the AdamW optimizer [45] with hyperparameters set to \beta_{1}=0.9 , \beta_{2}=0.95 , and a weight decay of 0.05 . We employ a differentiated learning rate strategy: the peak learning rate is set to 5\times 10^{-6} for the DINOv2 image encoder, 5\times 10^{-5} for the gravity and flow encoders when present, and 1\times 10^{-5} for all other architectural components. The training follows a structured schedule throughout Stage 1, consisting of a 20% linear warmup to reach the peak learning rate, followed by a half-cycle cosine decay to a final value two orders of magnitude lower.
+Appendix B Additional Ablation Results
+We conduct an additional ablation study on dataset scale to demonstrate the effectiveness of our approach in addressing data scarcity during fine-tuning. We modulate the effective dataset size by varying the total number of scenes sampled from each dataset per epoch. To ensure a consistent number of training steps for a fair comparison, the number of epochs is adjusted inversely to the sampling rate; for instance, when reducing the number of scenes to 10%, the total training duration is increased from 10 to 100 epochs. Figure 6 illustrates a consistent performance improvement as the effective dataset size increases during \pi^{3} fine-tuning. However, as shown in Figure 7, introducing residual flow injection with only 10% of the training data yields higher benchmarking performance than increasing the dataset size tenfold. Similar results for VGGT are shown in Figure 8.
+We also provide comprehensive benchmarking results across varying view counts for our previously discussed injection location ablation in Figures 9, 10, 11, and 12.
+Figure 6: Performance of the \pi^{3} model fine-tuned with varying effective dataset scales. PI3_10% denotes training with 10% of scenes sampled per epoch over a 10\times total epoch duration, while PI3_50% utilizes 50% of scenes over a 2\times duration to maintain constant total training steps.
+Figure 7: Comparison of \pi^{3} performance under default fine-tuning settings versus fine-tuning with a 10% effective dataset size augmented by residual flow injection.
+Figure 8: Comparison of VGGT performance under default fine-tuning settings versus fine-tuning with a 10% effective dataset size augmented by residual flow injection.
+Figure 9: Ablation study of residual flow injection locations within the \pi^{3} model. Performance of default injection point is evaluated against injection occurring both prior to and within the middle layers of the aggregator module.
+Figure 10: Ablation study of gravity injection locations within the \pi^{3} model. Performance of default injection point is evaluated against injection occurring both prior to and within the middle layers of the aggregator module.
+Figure 11: Ablation study of residual flow injection locations within the VGGT model. Performance of default injection point is evaluated against injection occurring both before and after the aggregator module.
+Figure 12: Ablation study of gravity injection locations within the VGGT model. Performance of the default injection point is evaluated against injection occurring both before and after the aggregator module.
+43, 44, 45
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

@@ -1,0 +1,1304 @@
+Point4D: Long-range 4D Motion Reconstruction
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Work
+3 Method
+3.1 Preliminaries
+Feed-forward visual geometry prediction.
+Query-based 4D decoding.
+3.2 3D Query-based Decoder
+3D query construction.
+Query embedding and decoding.
+Loss.
+3.3 Trajectory Chaining
+Alignment of chunk-level 4D reconstruction.
+Chaining trajectories with 3D queries.
+3.4 Implementation Details
+4 Experiments
+4.1 Experimental Setting
+Baselines.
+Setup.
+Metrics.
+4.2 4D Tracking
+Long-video trajectory chaining.
+Single-chunk tracking.
+4.3 Ablations and Analysis
+Ablation on query formulation.
+Robustness of tracking across chunks.
+5 Discussion
+Limitations.
+Acknowledgements.
+References
+A Implementation Details
+Training Details.
+Evaluation Details.
+B Runtime Analysis
+C Video depth and camera pose estimation.
+D Chaining Accuracy by Visibility at the Handoff Frame
+Choosing the handoff strategy for 2D-query baselines.
+3D vs. 2D re-querying across visibility regimes.
+E Additional Quantitative Results on Long-Video Tracking
+4D tracking results on dynamic points.
+4D tracking results on longer sequences.
+Additional chunk-wise tracking accuracy analysis.
+F Additional Qualitative Results on Long-Video Tracking
+License: arXiv.org perpetual non-exclusive license
+arXiv:2609.09145v1 [cs.CV] 08 Sep 2026
+Point4D: Long-range 4D Motion Reconstruction
+Minsik Jeon
+Jay Karhade
+Deva Ramanan†
+Shubham Tulsiani†
+Affiliation: Carnegie Mellon University
+Affiliation: Project Page:https://point-4d.github.io
+Abstract
+We introduce Point4D, a feed-forward model for 4D reconstruction of long-range video sequences. Point4D is able to reliably infer dense per-point 3D trajectories across multi-hundred-frame videos, unlike existing 4D methods that are limited to short input windows of at most a few dozen frames. A key innovation that enables this is our flexible 3D query-based motion decoder that decouples trajectory prediction from image-plane visibility. The predicted 3D endpoints are then directly re-queried in the next chunk without re-projection or matching. Furthermore, we show that extracting and reusing a visual descriptor from an arbitrary frame where the point is visible leads to better performance than relying solely on the source patch. Overall, Point4D achieves state-of-the-art performance across diverse long-video tracking benchmarks spanning over 200 frames and largely outperforms previous feed-forward 4D method. Project page: point-4d.github.io
+††footnotetext: †Equal advising.
+Figure 1:
+Point4D enables long-range 4D reconstruction via autoregressively chaining motion reconstruction across overlapping chunks. Existing 4D reconstruction methods (e.g., TraceAnything [19], Any4D [15], 4RC [20], VDPM [27]) predict 4D motion for query 2D pixels, and cannot be easily chained under occlusion as the tracked points may not be visible in overlapping frames. Point4D decodes motion for query 3D points instead of 2D pixels, allowing direct chaining for long-range motion reconstruction under occlusions.
+1 Introduction
+Consider the runner in Fig. 1: a person jogging down a long corridor, vanishing behind structural columns and reappearing moments later. We humans can effortlessly follow the runner’s continuing trajectory throughout the clip, understanding their long-range motion despite occlusions, and even reasoning about where they may be when not directly visible. In this work, we seek to build a computational system that can similarly perform long-range 4D motion reconstruction from a monocular video — recovering per-point 3D trajectories across hundreds of frames.
+While initial approaches [34, 35, 44, 40] for such ‘4D reconstruction’ leveraged slow and expensive iterative optimization, there has been a marked shift towards feed-forward methods [15, 45, 20, 24, 19, 27] which, following the successes in feed-forward 3D reconstruction [37, 33], have extended such multi-view models to additionally perform motion prediction. Specifically, by adding scene flow prediction ‘heads’ to multi-view models, these approaches allow decoding each pixel’s 3D position at any queried timestep, thereby inferring the 4D motion of the scene in an efficient feed-forward manner. While these methods deliver impressive results, they are designed to operate over short input windows of a handful of frames. Long videos that span hundreds or more frames expose two challenges that short windows do not face. First, jointly processing the full frame set is computationally infeasible for the underlying transformer encoders, and second, the points to be tracked routinely become occluded or leave the field of view between observations.
+Figure 2: Point4D uses 3D query representations for chaining motion prediction. A 2D-query-based motion decoder requires image reprojection and is not robust to chaining under occlusions. Our insight is to leverage 3D queries, allowing direct chaining without reprojection.
+The first challenge is not unique to long-range 4D reconstruction. Indeed, approaches for long-range static reconstruction are similarly bottlenecked by computational complexity, and a common solution is to chain short-range predictions across overlapping chunks [6]. Whereas chaining static reconstruction merely requires aligning the coordinate systems from independent per-chunk reconstructions, chaining for 4D reconstruction requires autoregressive motion prediction – the motion for a point tracked in an earlier chunk needs to be queried again from a later chunk to continue the point track. Existing 4D methods that compute 3D track predictions for query pixels are not well suited for such chaining, either requiring reprojection from 3D to 2D for re-querying or a computationally expensive ‘matching’ of independently predicted 4D trajectories. However, these strategies break down when a point is occluded or outside the field of view at the chunk boundary which are the very situations that are routine in long videos. Our key insight is to query points, not pixels – a motion reconstruction decoder with 3D points as queries allows the predicted endpoint of one chunk to be re-queried in the next directly, with no reprojection or matching (see Fig. 2). More generally, 3D queries also encourage the decoder to focus on motion reconstruction instead of geometry estimation (which is already captured in the input) and can also help resolve ambiguous 2D pixel queries e.g., on object boundaries where it may be unclear if the query is a foreground or background pixel.
+We operationalize this insight in Point4D , a feed-forward model that decodes 3D motion from a 3D-coordinate query. A shared ViT encoder produces a scene representation along with per-frame depth and camera poses; a lightweight cross-attention decoder takes a 3D query, target time and camera indices, and a visual descriptor extracted once from any prior frame where the point is visible; it then predicts the queried point’s 3D position at the target time. To process long videos, we partition the video into overlapping chunks, autoregressively re-querying each predicted 3D endpoint in the next chunk based on the decoded trajectory from the previous one, while reusing the same visual descriptor throughout. We validate our approach across multiple datasets and show that Point4D substantially improves over the prior state of the art on long-video 4D tracking while also improving over its 2D-query counterpart for short-range motion reconstruction.
+In summary, our contributions are:
+•
+We build a feed-forward pipeline for long-range 4D motion reconstruction, recovering per-point motion across hundreds of frames via trajectory chaining across chunks.
+•
+We introduce a 3D-query-based motion decoding that decouples trajectory prediction from image-plane visibility. This also allows predicted 3D endpoints to be propagated directly across chunks.
+•
+We achieve state-of-the-art long-video 4D tracking, outperforming both chaining-based feed-forward 4D methods and 3D point trackers.
+2 Related Work
+3D Tracking. To model scene motion, point tracking and optical flow [28] methods estimate pixel-level correspondences across frames. Subsequent work extended tracking to longer temporal ranges through correlation-based matching and iterative updates [7, 8, 13], yet these methods operate purely in 2D. The TAPVid-3D benchmark [17] motivated lifting tracks into 3D: DELTA [21] and SpatialTracker [40] combine 2D trackers with monocular depth to track points in camera coordinates. More recently, TAPIP3D [44] lifts video features into a camera-stabilized 3D point cloud and iteratively refines trajectories in 3D space, while SpatialTrackerV2 [39] learns geometry and point motion jointly in an end-to-end architecture, eliminating separate depth estimation. However, these methods only track sparse query points, often rely on off-the-shelf depth modules, and require iterative refinement that limits speed. Point4D can predict dense 3D trajectories in a single forward pass via query-based decoding, while remaining competitive with iterative trackers on sparse benchmarks.
+4D Reconstruction of Dynamic Scenes.
+4D reconstruction aims to recover both the 3D structure of a scene and how it changes over time. Early methods rely on per-scene optimization [35], achieving high fidelity but at a prohibitive cost. Recent feed-forward approaches extend 3D reconstruction architectures to the temporal dimension, predicting dense geometry and motion jointly from a short window of frames [9, 19, 15, 27, 20]. Although these methods differ in motion representation – scene flow from a canonical view [15], continuous trajectory fields [19], or dense point maps at queried timesteps [20, 27], they all decode motion for every pixel through DPT-style heads or similar dense decoders. D4RT [45] instead introduces a query-based 4D decoder that predicts the 3D position of a 2D query point at a target timestep and coordinate frame. In all cases, however, queries live on the image plane, so extending a track beyond the window requires reprojecting predictions back to pixels, which fails under occlusion. Together with the memory cost of joint multi-frame encoding, this confines prior work to a few dozen frames. We extend D4RT’s query-based decoding from 2D to 3D queries, which decouples tracking from visibility and enables longer video 4D reconstruction to over hundreds of frames through direct re-querying of predicted 3D positions.
+Long-range 3D reconstruction.
+Feed-forward 3D reconstruction methods [37, 33, 18, 16] have shown impressive results in multi-view 3D reconstruction. However, these approaches only work for a limited number of frames, due to high memory requirements, and quickly run out of memory for longer sequence inputs. CUT3R [36], InfiniteVGGT [43], StreamingVGGT [50] proposed memory mechanisms for long-sequence reconstructions, while VGGT-Long [6] proposes a chunking and loop closure mechanism. More recently, Loger [47], TTT3R [3] and Zipmap [12] integrate test-time training mechanisms. These works demonstrate that 3D reconstruction models trained for small inputs can be effectively chained to handle longer sequences. Point4D extends this insight to the 4D setting: rather than simply chaining static geometry, it uses 3D point queries to chain motion across chunks, recovering dense scene flow and long-range 3D tracks in a scalable, feed-forward manner.
+3 Method
+Figure 3: Overview of Point4D . Unlike 2D-query methods, which bind a query to a source pixel and its patch, Point4D queries a 3D point with a descriptor drawn from any frame in which it is visible. Given a monocular video V , an encoder \mathcal{E} with self-attention layers produces a scene representation \mathcal{F} together with per-frame depth maps and camera poses. A 3D query \mathbf{p}=(x,y,z) is constructed as the point’s position at time t_{\text{src}} , expressed in the camera coordinates of frame t_{\text{src}} , and its visual patch is extracted from any timestep where the point is visible. The resulting query embedding \mathbf{q} cross-attends to \mathcal{F} to predict the point’s 3D position at the target timestep t_{\text{tgt}} . Together, the 3D query and its visibility-agnostic descriptor decouple a query point from any single frame’s image plane, so that occluded and out-of-frame points remain valid queries.
+Our goal is to recover dense 3D trajectories from long monocular video sequences. To achieve this, we propose Point4D , a feed-forward model that uses 3D coordinate queries as input instead of inferring motion from 2D pixels. By querying directly in 3D space, we decouple trajectory prediction from image-plane visibility. Building upon established visual geometry prediction models [33, 18, 20] and D4RT [45], we first encode the video into a feature representation while predicting depth and camera poses to support query decoding (Sec. 3.1). We then reformulate the query mechanism to use 3D points (x,y,z) in the source frame, paired with a visual descriptor extracted from any timestep at which the point is visible (Sec. 3.2). This formulation allows us to predict a point’s 3D position at any target time regardless of its image-plane visibility. Finally, we present a simple chaining framework for long-range 3D trajectory inference (Sec. 3.3). Since 3D queries remain well-defined under occlusion, we can propagate trajectories across overlapping video chunks by re-querying predicted 3D endpoints, remaining valid through occlusions and field-of-view exits. An overview of our method is shown in Fig. 3.
+3.1 Preliminaries
+Feed-forward visual geometry prediction.
+Recent feed-forward methods [18, 33, 46, 37, 4] process multi-view images, or video V through a ViT backbone \mathcal{E} with alternating frame-wise and global self-attention layers, producing patch tokens \mathbf{Z}_{i} and camera tokens \mathbf{c}_{i} for each frame i\in\{1,\dots,T\} . Dedicated heads decode camera poses \mathbf{P}_{i} from \mathbf{c}_{i} and depth maps \mathbf{D}_{i} from \mathbf{Z}_{i} via a DPT decoder [25]. To handle dynamic scenes, recent work augments this representation with a learnable time token \mathbf{t}_{i} per frame [20], initialized from a sinusoidal encoding of the normalized timestep in [0,1] and refined through the same attention layers. This yields a scene representation \mathcal{F}=\{\mathbf{Z}_{i}\}_{i=1}^{T} along with per-frame tokens and predictions:
+|
+| \mathcal{F},\{\mathbf{c}_{i},\mathbf{t}_{i},\mathbf{P}_{i},\mathbf{D}_{i}\}_{i=1}^{T}=\mathcal{E}(V).
+|
+| (1)
+Query-based 4D decoding.
+While most 4D reconstruction methods utilize DPT-style heads for dense geometry, D4RT introduces on-demand query-based decoding. This mechanism defines a query as (u,v,t_{\text{src}},t_{\text{tgt}},t_{\text{cam}},S) , where (u,v) represents a 2D pixel in frame t_{\text{src}} and S provides visual context via an RGB patch around (u,v) . The decoder \mathcal{D} then predicts the 3D position \hat{\textbf{p}} of the corresponding point pixel at a target timestep t_{\text{tgt}} , expressed in camera t_{\text{cam}} ’s coordinate system. Each query is mapped to an embedding \mathbf{q} and independently cross-attends to \mathcal{F} to produce a predicted point:
+|
+| \hat{\mathbf{p}}=\mathcal{D}(\mathbf{q},\mathcal{F})\in\mathbb{R}^{3}.
+|
+| (2)
+This formulation enables flexible decoding of arbitrary pixel sets across varying timesteps and coordinate frames.
+However, like prior 4D methods, D4RT relies on 2D pixel coordinates, requiring the queried point to be visible in the source frame for initialization.
+3.2 3D Query-based Decoder
+Existing 4D reconstruction methods infer motion via predicting scene flow for 2D pixels and require the tracked 3D point to be visible in the source frame. This breaks down when the point is occluded or outside the field of view, and is especially problematic across video chunks where the predicted 3D position at the end of one chunk may have no visible pixel to re-query in the next. We address this with two key design choices. First, we replace 2D pixels with 3D points as queries, which decouples point identity from image-plane visibility, and allows the decoder to focus on predicting motion rather than jointly recovering geometry. Second, we supply appearance context via a local image patch drawn from any frame where the point is visible, rather than tying visual context to the query frame. This enables cross-chunk trajectory chaining as the patch can be sourced from a different chunk entirely, even when the point is occluded or out of view in the current one.
+3D query construction.
+To specify a query, we first select a pixel (u,v) that is visible in some frame t_{\text{ref}} and extract a local image patch S around it as a visual descriptor. We then obtain the query coordinate \mathbf{p}=(x,y,z) by taking this point’s 3D position at a source time t_{\text{src}} , expressed in frame t_{\text{src}} ’s camera coordinate system. When t_{\text{ref}}\neq t_{\text{src}} , the point may have moved and may be occluded or outside the field of view at t_{\text{src}} . While its corresponding 2D pixel is then ill-defined, the 3D coordinate remains valid since it does not depend on the pixel projection. The full query is (\mathbf{p},\,t_{\text{src}},\,t_{\text{tgt}},\,t_{\text{cam}},\,S) : where is the 3D point at position \mathbf{p} (in frame t_{\text{src}} ’s coordinate frame) with visual descriptor S at timestep t_{\text{tgt}} , expressed in camera t_{\text{cam}} ’s coordinate frame?
+Query embedding and decoding.
+To build the query embedding \mathbf{q} , the 3D spatial coordinates \mathbf{p} are first encoded with sinusoidal positional encoding [31]. The temporal and camera indices are encoded using corresponding tokens from the encoder: t_{\text{src}} and t_{\text{cam}} use camera tokens \mathbf{c}_{t_{\text{src}}} and \mathbf{c}_{t_{\text{cam}}} , while t_{\text{tgt}} uses time token \mathbf{t}_{t_{\text{tgt}}} . These encodings are summed with an embedding of S to form the query embedding \mathbf{q} . The decoder then follows D4RT (Eq. 2), passing \mathbf{q} through cross-attention layers attending to \mathcal{F} and obtain predicted 3D position \hat{\mathbf{p}} . It uses no self-attention between queries, so each query is decoded independently, enabling flexible batching of arbitrary query sets at inference.
+Loss.
+The primary loss \mathcal{L}_{\text{point}} is an L1 loss on the predicted 3D position, where both prediction and target are passed through a signed log-transform \phi(x)=\operatorname{sign}(x)\log(1+|x|) to dampen the influence of far-away points. The confidence loss \mathcal{L}_{\text{conf}} modulates \mathcal{L}_{\text{point}} by a per-query confidence score, so that uncertain predictions are penalized less heavily. The auxiliary reprojection loss \mathcal{L}_{\text{2d}} is an L1 loss on the predicted 2D projection of \hat{\mathbf{p}} into frame t_{\text{cam}} , enforcing consistency between the predicted 3D position and camera geometry. The auxiliary visibility loss \mathcal{L}_{\text{vis}} is a binary cross-entropy loss on a per-query logit predicting whether the point is visible at t_{\text{tgt}} . The total loss is:
+|
+| \mathcal{L}=\mathcal{L}_{\text{point}}+\mathcal{L}_{\text{conf}}+\mathcal{L}_{\text{2d}}+\mathcal{L}_{\text{vis}}.
+|
+| (3)
+3.3 Trajectory Chaining
+Long videos cannot be processed in a single forward pass due to memory constraints. We therefore partition the video into short, overlapping chunks and encode each chunk independently. Producing coherent long-range trajectories from these chunk-level predictions requires (1) aligning each chunk’s independent 3D coordinate frame into a single global frame, and (2) propagating point identity across chunk boundaries so that per-chunk predictions form a single continuous trajectory.
+Algorithm 1 Trajectory Chaining for Long Video
+1:
+Video V of T frames; query pixels \{(u_{i},v_{i})\} visible in frame 0
+2:
+4D trajectories \{P_{i}(t)\}_{t=0}^{T-1} in a global coordinate frame
+3:
+Partition V into K overlapping chunks \{C_{k}\}_{k=0}^{K-1} , where C_{k} starts at global time t_{k}
+4:
+\mathbf{p}_{i}\leftarrow\textsc{Unproject}(u_{i},\,v_{i},\,\mathbf{D}_{0}) \forall i \triangleright lift pixel query to 3D at t{=}0
+5:
+S_{i}\leftarrow\textsc{ExtractPatch}(\mathrm{frame}_{0},\,u_{i},\,v_{i}) \forall i \triangleright visual descriptor, extracted once
+6:
+for k=0,\ldots,K-1 do
+7:
+F_{k}\leftarrow\textsc{Encode}(C_{k}) \triangleright 4D scene representation for chunk k
+8:
+\pi_{t}\leftarrow(t_{src}=0,\;t_{tgt}=t-t_{k},\;t_{cam}=0) \triangleright (t_{src},t_{tgt},t_{cam}) local to C_{k}
+9:
+P_{i}(t)\leftarrow\mathcal{D}((\mathbf{p}_{i},\;\pi_{t},\;S_{i}),\;F_{k}) \forall i,\;\forall t\in C_{k} \triangleright decode 3D position at each frame
+10:
+if k<K-1 then
+11:
+(c,\mathbf{R},\mathbf{t})\leftarrow\textsc{EstimateSim3}(C_{k}\cap C_{k+1}) \triangleright align chunks via overlap depth
+12:
+\mathbf{p}_{i}\leftarrow c\,\mathbf{R}\,P_{i}(t_{k+1})+\mathbf{t} \forall i \triangleright propagate 3D query into C_{k+1} ’s frame; reuse S_{i}
+13:
+end if
+14:
+end for
+15:
+return \{P_{i}(t)\}_{t=0}^{T-1} transformed to global frame-0 coordinates
+Alignment of chunk-level 4D reconstruction.
+Since each chunk’s geometry is predicted up to an unknown scale and its own coordinate frame, we align adjacent chunks via a Sim(3) transformation [30] estimated from dense depth predictions on the shared overlap frames. Composing these pairwise Sim(3) transforms places every chunk’s predictions into a single global coordinate frame. While this procedure suffices for static 3D reconstruction, we also need to propagate the temporal point identity across chunks for 4D scene reconstruction.
+Chaining trajectories with 3D queries.
+Our 3D query formulation reduces this correspondence problem to a single coordinate transform. Within each chunk, we decode every query point’s trajectory by sweeping the target time t_{\text{tgt}} across the chunk’s frames. At the first overlapping frame t_{k} between chunk k and chunk k{+}1 , we take the predicted 3D position P_{i}(t_{k}) and apply the already-estimated Sim(3) to express it in chunk k{+}1 ’s local coordinates, yielding the re-query coordinate \mathbf{p}_{i} for the next chunk. The visual descriptor S_{i} , extracted once from the first frame where the point is visible, is reused across all subsequent chunks without re-extraction. This procedure chains trajectories regardless of whether the point is visible in the overlap: the 3D coordinate is always well-defined, so occluded and out-of-frame points propagate without failure. In contrast, 2D-query methods must project the predicted 3D position back to pixel coordinates to re-query, which is undefined for occluded points and compounds camera prediction error for visible ones. The overall trajectory chaining procedure is described in Algorithm 1.
+3.4 Implementation Details
+We initialize the encoder and geometry heads from Depth Anything 3 [18] pretrained weights, while the decoder is trained from scratch. We train on a mixture of dynamic datasets (PointOdyssey [48], Dynamic Replica [14], Bedlam2 [29], Kubric Movi-F [11], CoTracker-Kubric [13], Waymo [1], Omniworld [49]) and static datasets (ScanNet [5], ScanNet++ [42], BlendedMVS [41], Co3Dv2 [26], WildRGBD [38]), where static points are treated as stationary trajectories. Each training sequence contains 16 to 64 frames, with width sampled from [252,518] . Further details are in Appendix A.
+4 Experiments
+4.1 Experimental Setting
+Figure 4: Point4D produces reliable and consistent 4D tracking over 200-frame sequences via trajectory chaining. 4RC struggles to maintain correspondence and its tracks are wrongly chained. SpatialTrackerV2 only can predict a sparser trajectory due to memory constraints.
+Baselines.
+We compare against two categories of methods: (1) Feed-forward 4D reconstruction methods such as TraceAnything [19], Any4D [15], 4RC [20], and V-DPM [27], which predict dense per-pixel 3D positions at queried timesteps and are most directly comparable to ours.
+(2) 3D point trackers such as SpatialTrackerV2 [39] and TAPIP3D [44], which represent the current state of the art in per-point 3D tracking but do not support dense per-pixel queries and are slower (Appendix B).
+Setup.
+We evaluate Point4D on (A) long-video tracking, which requires trajectory chaining across chunks, and a simpler (B) single-chunk tracking. For long-video tracking, we use PointOdyssey and Dynamic Replica sequences of 200 frames and TAPVid3D Panoptic Studio (PStudio) sequences of 150 frames. Each sequence is partitioned into chunks of 48 frames with 8-frame overlap, where, for Point4D , trajectories are chained across chunks using 3D queries (Sec. 3.3). Feed-forward 4D methods are evaluated with selection-based reprojection chaining, which picks the overlapping frame with the best depth agreement for each point (Appendix D). SpatialTrackerV2 and TAPIP3D use their sliding-window inference modes. For single-chunk tracking, we evaluate on LSFOdyssey, Dynamic Replica and PStudio with up to 64 frames per sequence.
+Metrics.
+Following the benchmarking protocol of recent works [9, 15], we report end-point error (EPE) and the average percentage of points within distance thresholds \delta_{3D}\in\{0.1,0.3,0.5,1.0\} m (APD), after median-scale alignment of ground truth and predicted trajectories (Further details are in Appendix A).
+|
+| \displaystyle\text{EPE}_{i,t}
+| \displaystyle=\|\mathbf{\hat{p}}_{i}^{t}-\mathbf{p}_{\text{GT},i}^{t}\|
+|
+| (4)
+|
+| APD
+| \displaystyle=\sum_{i,t}\mathbbm{1}\cdot\left(\text{EPE}_{i,t}<\delta_{\text{3D}}\right)
+|
+| (5)
+For long-video, we additionally report Survival rate [48]: the average fraction of video length before tracking failure. A point i is considered failed at frame t if \left\|\hat{\mathbf{p}}_{i}^{t}-\mathbf{p}_{\text{GT},i}^{t}\right\|_{2}>\delta_{\text{3D}} , and we report:
+|
+| \text{Survival}=\frac{1}{N}\sum_{i=1}^{N}\frac{t_{i}^{\text{fail}}-1}{T}
+|
+| (6)
+where t_{i}^{\text{fail}} is the first failure frame and N is total queries. We average over \delta_{\text{3D}}\in\{0.1,0.3,0.5,1.0\} m.
+|
+| Method
+| PointOdyssey [48]
+| Dynamic Replica [14]
+| PStudio [17]
+|
+| EPE \downarrow
+| APD \uparrow
+| Survival \uparrow
+| EPE \downarrow
+| APD \uparrow
+| Survival \uparrow
+| EPE \downarrow
+| APD \uparrow
+| Survival \uparrow
+|
+Iter.
+| TAPIP3D
+| 0.952
+| 0.417
+| 0.317
+| 0.185
+| 0.806
+| 0.748
+| 0.230
+| 0.741
+| 0.622
+| SpatialTrackV2
+| 0.498
+| 0.611
+| 0.477
+| 0.218
+| 0.772
+| 0.687
+| 0.234
+| 0.719
+| 0.623
+|
+Feed-Forward
+| TraceAnything
+| 2.147
+| 0.121
+| 0.070
+| 0.767
+| 0.464
+| 0.391
+| 0.665
+| 0.408
+| 0.312
+| Any4D
+| 1.026
+| 0.400
+| 0.291
+| 0.364
+| 0.711
+| 0.629
+| 0.497
+| 0.495
+| 0.389
+| 4RC
+| 0.789
+| 0.559
+| 0.463
+| 0.336
+| 0.733
+| 0.654
+| 0.379
+| 0.613
+| 0.534
+| VDPM
+| 0.736
+| 0.559
+| 0.461
+| 0.386
+| 0.666
+| 0.587
+| 0.280
+| 0.719
+| 0.634
+| Point4D
+| 0.616
+| 0.585
+| 0.514
+| 0.155
+| 0.856
+| 0.812
+| 0.236
+| 0.731
+| 0.664
+Table 1: Long-Video 4D Tracking via Trajectory Chaining. Point4D achieves the best average rank among all compared methods, outperforming every other feed-forward method, while running much faster than iterative trackers (see Appendix). We report EPE ( \downarrow ), APD ( \uparrow ), and survival rate ( \uparrow ) on sequences of 200 frames, partitioned into chunks of 48 frames with 8-frame overlap. Red, Orange, and Yellow indicate the top three results.
+4.2 4D Tracking
+Long-video trajectory chaining.
+Table 1 compares all methods on 200-frame sequences (150 for PStudio) that require chaining across multiple chunks. Point4D outperforms both categories of baselines on most sequences. Feed-forward 4D baselines use reprojection-based chaining, which is undefined for occluded points and compounds camera prediction error even for visible ones, causing trajectories to drift or break at chunk boundaries. Iterative 3D trackers propagate tracks within their own fixed windows, but their iterative refinement is slow and memory constraints preclude dense query sets. In contrast, Point4D re-queries predicted 3D coordinates directly in each subsequent chunk, avoiding both failure modes.
+Figure 4 shows qualitative results on 200-frame sequences, where we sample a regular grid of query points on the first frame and decode their trajectories across chunks. Point4D maintains continuous trajectories through occlusion and field-of-view exits, while 2D-query methods lose track at chunk boundaries. SpatialTrackerV2 uses a sparser query grid due to GPU memory constraints, resulting in visibly sparser trajectories. Additional results can be found in Appendix E and F.
+Figure 5: Single-chunk 4D tracking on DAVIS [23]. Point4D produces consistent 3D trajectories across challenging real-world sequences.
+Single-chunk tracking.
+Table 2 evaluates all methods on sequences short enough to fit within a single chunk (64 frames), isolating decoder accuracy from chaining. Point4D performs comparably to other feed-forward 4D methods while outperforming both 2D tracker + 3D reconstruction pipelines and iterative refinement-based methods. Combined with the long-video results, this shows that our advantage on longer sequences comes from reliable 3D-query chaining rather than a gap in single-chunk decoding. Figure 5 shows representative results on DAVIS sequences.
+|
+| Method
+| LSFOdyssey [32]
+| Dynamic Replica [14]
+| PStudio [17]
+|
+| EPE \downarrow
+| APD \uparrow
+| EPE \downarrow
+| APD \uparrow
+| EPE \downarrow
+| APD \uparrow
+|
+2D Tracker
+| MonST3R + CoTracker3
+| 0.61
+| 0.51
+| 0.81
+| 0.43
+| 0.51
+| 0.52
+| MASt3R + CoTracker3
+| 0.83
+| 0.46
+| 0.40
+| 0.58
+| 0.43
+| 0.54
+| VGGT + CoTracker3
+| 0.47
+| 0.59
+| 0.26
+| 0.69
+| 0.26
+| 0.69
+| MapAnything + CoTracker3
+| 0.63
+| 0.35
+| 0.25
+| 0.71
+| 0.63
+| 0.51
+|
+| DepthAnything3 +CoTracker3
+| 0.50
+| 0.69
+| 0.11
+| 0.89
+| 0.33
+| 0.63
+|
+Iter.
+| TAPIP3D
+| 0.35
+| 0.66
+| 0.87
+| 0.50
+| 0.30
+| 0.65
+| SpatialTrackv2
+| 0.34
+| 0.68
+| 0.69
+| 0.62
+| 0.21
+| 0.75
+|
+Feed-Forward
+| St4RTrack
+| 0.56
+| 0.48
+| 0.17
+| 0.81
+| 0.41
+| 0.53
+| TraceAnything
+| 0.76
+| 0.42
+| 0.34
+| 0.66
+| 0.25
+| 0.72
+| Any4D
+| 0.27
+| 0.72
+| 0.07
+| 0.93
+| 0.28
+| 0.66
+| 4RC
+| 0.16
+| 0.87
+| 0.07
+| 0.95
+| 0.29
+| 0.66
+| VDPM
+| 0.14
+| 0.85
+| 0.14
+| 0.84
+| 0.17
+| 0.79
+| Point4D
+| 0.27
+| 0.73
+| 0.09
+| 0.91
+| 0.23
+| 0.73
+Table 2: Single-chunk 4D tracking. Point4D performs comparably to
+existing methods on short sequences that do not require trajectory
+chaining, which confirms that the long-video gains in
+Table 1 stem from the proposed 3D query formulation,
+not a stronger single-chunk decoder. We report EPE ( \downarrow )
+and APD ( \uparrow ). Red, Orange,
+and Yellow indicate the top three results.
+4.3 Ablations and Analysis
+Ablation on query formulation.
+We ablate the two key design choices in Point4D’s query formulation: (1) using 3D coordinates instead of 2D pixels, and (2) training with visual descriptors from arbitrary visible frames rather than only the source frame. Table 3 compares three variants: 2D queries with pixel coordinates (u,v) as in D4RT [45]; 3D (source patch), which uses 3D coordinates but always extracts the visual descriptor from the source frame, so the model never sees occluded or out-of-frame queries during training; and 3D (Point4D ), which combines 3D coordinates with descriptors from arbitrary visible frames. The 2D variant must reproject each predicted point back to the image plane to continue a trajectory, as in other 2D-query based methods. The 3D source patch variant avoids reprojection but expects a visible query with descriptor from the source frame, where the point may be occluded or out of view at a chunk boundary. Point4D outperforms both, especially in long-video tracking, indicating that both design choices are needed for reliable chaining.
+|
+| Long-Video Tracking
+| Single-Chunk Tracking
+|
+| PointOdyssey [48]
+| Dynamic Replica [14]
+| LSFOdyssey [32]
+| Dynamic Replica [14]
+|
+Query
+Formulation
+| EPE \downarrow
+| SR \uparrow
+| EPE \downarrow
+| SR \uparrow
+| EPE \downarrow
+| APD \uparrow
+| EPE \downarrow
+| APD \uparrow
+| 2D
+| 0.891
+| 0.283
+| 0.712
+| 0.422
+| 0.279
+| 0.713
+| 0.110
+| 0.870
+| 3D (source patch)
+| 0.869
+| 0.380
+| 0.825
+| 0.266
+| 0.442
+| 0.620
+| 0.121
+| 0.800
+| 3D (Point4D )
+| 0.616
+| 0.514
+| 0.155
+| 0.812
+| 0.274
+| 0.731
+| 0.091
+| 0.906
+Table 3: Point4D ’s proposed 3D query formulation is optimal for reliable decoding. We ablate this choice on both single-chunk and long-video chaining benchmarks. We report EPE ( \downarrow ), APD ( \uparrow ) and Survival Rate (SR, \uparrow ).
+Robustness of tracking across chunks.
+Figure 6: Chunk-wise tracking accuracy on PStudio. Point4D (red) degrades slowly across chunks, while others worsen faster.
+To verify that our 3D query formulation enables reliable trajectory chaining across video chunks, we measure per-chunk APD and EPE on PStudio long tracking result. Figure 6 shows that Point4D degrades slowly across chunks in both APD and EPE, while baselines deteriorate faster as chaining proceeds. The gap widens because 2D-query methods compound error at every chunk boundary through reprojection, whereas our 3D re-querying avoids this entirely. Notably, VDPM starts with higher first-chunk accuracy, yet Point4D surpasses them within a few chunks. This confirms that the advantage of 3D queries lies not in single-chunk decoding but in chaining across many chunks, which matters for long-video 4D reconstruction.
+5 Discussion
+We presented Point4D, a feed-forward model for 4D reconstruction of long-range video sequences. Point4D infers motion using 3D coordinate queries compared to prior feed-forward methods which inferred motion from 2D pixels. This decouples trajectory prediction from image-plane visibility, and allows for direct requerying of 3D points across chunks even when occluded or out of field of view. Moreover, we show that our visual descriptor extracted from arbitrary frames improves over the source patch descriptor alone. We show these design choices enable Point4D to outperform existing methods on long-range videos. Ultimately, we believe Point4D will serve as a foundation step towards achieving reliable 4D reconstruction on in-the-wild videos of arbitrary length and serve for diverse applications in generative AI, AR/VR and robotics.
+Limitations.
+The handoff between chunks carries only each query’s 3D coordinate and its patch descriptor; no scene representation or feature memory is retained. Since the encoder represents only what is observed within the current chunk, a point that remains occluded or out of frame for an entire chunk has no supporting evidence in that chunk, and its predicted position becomes unreliable.
+Our formulation also relies on predicted depth and on the Sim(3) alignment between consecutive chunks, so errors in depth prediction can compound across chunks.
+Acknowledgements.
+We thank the members of the Physical Perception Lab at CMU for their valuable discussions. This work was supported in part by NSF Award IIS-2345610. This work used Bridges-2 at Pittsburgh Supercomputing Center through allocation CIS251064 from the Advanced Cyberinfrastructure Coordination Ecosystem: Services & Support (ACCESS) program, which is supported by National Science Foundation grants #2138259, #2138286, #2138307, #2137603, and #2138296.
+This work was supported by Intelligence Advanced Research Projects Activity (IARPA) via Department of Interior/Interior Business Center (DOI/IBC) contract number 140D0423C0074. The U.S. Government is authorized to reproduce and distribute reprints for Governmental purposes notwithstanding any copyright annotation thereon. Disclaimer: The views and conclusions contained herein are those of the authors and should not be interpreted as necessarily representing the official policies or endorsements, either expressed or implied, of IARPA, DOI/IBC, or the U.S. Government.
+References
+[1]
+A. Balasingam, J. Chandler, C. Li, Z. Zhang, and H. Balakrishnan (2024)
+Drivetrack: a benchmark for long-range point tracking in real-world videos.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 22488–22497.
+Cited by: Table 4,
+§3.4.
+[2]
+D. J. Butler, J. Wulff, G. B. Stanley, and M. J. Black (2012)
+A naturalistic open source movie for optical flow evaluation.
+In European conference on computer vision,
+pp. 611–625.
+Cited by: Table 5,
+Table 5,
+Appendix C.
+[3]
+X. Chen, Y. Chen, Y. Xiu, A. Geiger, and A. Chen (2026)
+Ttt3r: 3d reconstruction as test-time training.
+In International Conference on Learning Representations,
+Vol. 2026, pp. 50694–50718.
+Cited by: §2.
+[4]
+Z. Cong, Q. Zhao, M. Jeon, and S. Tulsiani (2026)
+Flow3r: factored flow prediction for scalable visual geometry learning.
+arXiv preprint arXiv:2602.20157.
+Cited by: §3.1.
+[5]
+A. Dai, A. X. Chang, M. Savva, M. Halber, T. Funkhouser, and M. Nießner (2017)
+Scannet: richly-annotated 3d reconstructions of indoor scenes.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 5828–5839.
+Cited by: Table 4,
+§3.4.
+[6]
+K. Deng, Z. Ti, J. Xu, J. Yang, and J. Xie (2025)
+VGGT-long: chunk it, loop it, align it–pushing vggt’s limits on kilometer-scale long rgb sequences.
+arXiv preprint arXiv:2507.16443.
+Cited by: §1,
+§2.
+[7]
+C. Doersch, A. Gupta, L. Markeeva, A. Recasens, L. Smaira, Y. Aytar, J. Carreira, A. Zisserman, and Y. Yang (2022)
+Tap-vid: a benchmark for tracking any point in a video.
+Advances in Neural Information Processing Systems 35, pp. 13610–13626.
+Cited by: §2.
+[8]
+C. Doersch, Y. Yang, M. Vecerik, D. Gokay, A. Gupta, Y. Aytar, J. Carreira, and A. Zisserman (2023)
+Tapir: tracking any point with per-frame initialization and temporal refinement.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 10061–10072.
+Cited by: §2.
+[9]
+H. Feng, J. Zhang, Q. Wang, Y. Ye, P. Yu, M. J. Black, T. Darrell, and A. Kanazawa (2025)
+St4rtrack: simultaneous 4d reconstruction and tracking in the world.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 8503–8513.
+Cited by: §2,
+§4.1.
+[10]
+A. Geiger, P. Lenz, C. Stiller, and R. Urtasun (2013)
+Vision meets robotics: the kitti dataset.
+The international journal of robotics research 32 (11), pp. 1231–1237.
+Cited by: Table 5,
+Appendix C.
+[11]
+K. Greff, F. Belletti, L. Beyer, C. Doersch, Y. Du, D. Duckworth, D. J. Fleet, D. Gnanapragasam, F. Golemo, C. Herrmann, et al. (2022)
+Kubric: a scalable dataset generator.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 3749–3761.
+Cited by: Table 4,
+§3.4.
+[12]
+H. Jin, R. Wu, T. Zhang, R. Gao, J. T. Barron, N. Snavely, and A. Hołyński (2026)
+Zipmap: linear-time stateful 3d reconstruction via test-time training.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 21748–21759.
+Cited by: §2.
+[13]
+N. Karaev, Y. Makarov, J. Wang, N. Neverova, A. Vedaldi, and C. Rupprecht (2025)
+Cotracker3: simpler and better point tracking by pseudo-labelling real videos.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 6013–6022.
+Cited by: Table 4,
+§2,
+§3.4.
+[14]
+N. Karaev, I. Rocco, B. Graham, N. Neverova, A. Vedaldi, and C. Rupprecht (2023)
+Dynamicstereo: consistent dynamic depth from stereo videos.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 13229–13239.
+Cited by: Table 4,
+Table 8,
+Table 9,
+§3.4,
+Table 1,
+Table 2,
+Table 3,
+Table 3.
+[15]
+J. Karhade, N. Keetha, Y. Zhang, T. Gupta, A. Sharma, S. Scherer, and D. Ramanan (2025)
+Any4D: unified feed-forward metric 4d reconstruction.
+arXiv preprint arXiv:2512.10935.
+Cited by: Appendix A,
+Figure 1,
+Figure 1,
+§1,
+§2,
+§4.1,
+§4.1.
+[16]
+N. Keetha, N. Müller, J. Schönberger, L. Porzi, Y. Zhang, T. Fischer, A. Knapitsch, D. Zauss, E. Weber, N. Antunes, J. Luiten, M. Lopez-Antequera, S. R. Bulò, C. Richardt, D. Ramanan, S. Scherer, and P. Kontschieder (2026)
+MapAnything: universal feed-forward metric 3D reconstruction.
+In International Conference on 3D Vision (3DV),
+Cited by: §2.
+[17]
+S. Koppula, I. Rocco, Y. Yang, J. Heyward, J. Carreira, A. Zisserman, G. Brostow, and C. Doersch (2024)
+Tapvid-3d: a benchmark for tracking any point in 3d.
+Advances in Neural Information Processing Systems 37, pp. 82149–82165.
+Cited by: §2,
+Table 1,
+Table 2.
+[18]
+H. Lin, S. Chen, J. Liew, D. Y. Chen, Z. Li, G. Shi, J. Feng, and B. Kang (2025)
+Depth anything 3: recovering the visual space from any views.
+arXiv preprint arXiv:2511.10647.
+Cited by: §2,
+§3.1,
+§3.4,
+§3.
+[19]
+X. Liu, Y. Xiao, D. Y. Chen, J. Feng, Y. Tai, C. Tang, and B. Kang (2025)
+Trace anything: representing any video in 4d via trajectory fields.
+arXiv preprint arXiv:2510.13802.
+Cited by: Figure 1,
+Figure 1,
+§1,
+§2,
+§4.1.
+[20]
+Y. Luo, S. Zhou, Y. Lan, X. Pan, and C. C. Loy (2026)
+4RC: 4d reconstruction via conditional querying anytime and anywhere.
+arXiv preprint arXiv:2602.10094.
+Cited by: Figure 1,
+Figure 1,
+§1,
+§2,
+§3.1,
+§3,
+§4.1.
+[21]
+T. D. Ngo, P. Zhuang, C. Gan, E. Kalogerakis, S. Tulyakov, H. Lee, and C. Wang (2024)
+Delta: dense efficient long-range 3d tracking for any video.
+arXiv preprint arXiv:2410.24211.
+Cited by: §2.
+[22]
+E. Palazzolo, J. Behley, P. Lottes, P. Giguere, and C. Stachniss (2019)
+ReFusion: 3d reconstruction in dynamic environments for rgb-d cameras exploiting residuals.
+In 2019 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS),
+pp. 7855–7862.
+Cited by: Table 5,
+Table 5,
+Appendix C.
+[23]
+F. Perazzi, J. Pont-Tuset, B. McWilliams, L. Van Gool, M. Gross, and A. Sorkine-Hornung (2016)
+A benchmark dataset and evaluation methodology for video object segmentation.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 724–732.
+Cited by: Figure 5,
+Figure 5.
+[24]
+S. Qian, G. Zhang, S. Wu, and D. Cremers (2026)
+Flow4R: unifying 4d reconstruction and tracking with scene flow.
+arXiv preprint arXiv:2602.14021.
+Cited by: §1.
+[25]
+R. Ranftl, A. Bochkovskiy, and V. Koltun (2021)
+Vision transformers for dense prediction.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 12179–12188.
+Cited by: §3.1.
+[26]
+J. Reizenstein, R. Shapovalov, P. Henzler, L. Sbordone, P. Labatut, and D. Novotny (2021)
+Common objects in 3d: large-scale learning and evaluation of real-life 3d category reconstruction.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 10901–10911.
+Cited by: Table 4,
+§3.4.
+[27]
+E. Sucar, E. Insafutdinov, Z. Lai, and A. Vedaldi (2026)
+V-dpm: 4d video reconstruction with dynamic point maps.
+arXiv preprint arXiv:2601.09499.
+Cited by: Appendix B,
+Figure 1,
+Figure 1,
+§1,
+§2,
+§4.1.
+[28]
+Z. Teed and J. Deng (2020)
+Raft: recurrent all-pairs field transforms for optical flow.
+In European conference on computer vision,
+pp. 402–419.
+Cited by: §2.
+[29]
+J. Tesch, G. Becherini, P. Achar, A. Yiannakidis, M. Kocabas, P. Patel, and M. J. Black (2025)
+BEDLAM2.0: synthetic humans and cameras in motion.
+In The Thirty-ninth Annual Conference on Neural Information Processing Systems Datasets and Benchmarks Track,
+Cited by: Table 4,
+§3.4.
+[30]
+S. Umeyama (2002)
+Least-squares estimation of transformation parameters between two point patterns.
+IEEE Transactions on pattern analysis and machine intelligence 13 (4), pp. 376–380.
+Cited by: §3.3.
+[31]
+A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. Polosukhin (2017)
+Attention is all you need.
+Advances in neural information processing systems 30.
+Cited by: §3.2.
+[32]
+B. Wang, J. Li, Y. Yu, L. Liu, Z. Sun, and D. Hu (2025)
+Scenetracker: long-term scene flow estimation network.
+IEEE Transactions on Pattern Analysis and Machine Intelligence.
+Cited by: Table 2,
+Table 3.
+[33]
+J. Wang, M. Chen, N. Karaev, A. Vedaldi, C. Rupprecht, and D. Novotny (2025)
+Vggt: visual geometry grounded transformer.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5294–5306.
+Cited by: §1,
+§2,
+§3.1,
+§3.
+[34]
+Q. Wang, Y. Chang, R. Cai, Z. Li, B. Hariharan, A. Holynski, and N. Snavely (2023)
+Tracking everything everywhere all at once.
+In International Conference on Computer Vision,
+Cited by: §1.
+[35]
+Q. Wang, V. Ye, H. Gao, W. Zeng, J. Austin, Z. Li, and A. Kanazawa (2025)
+Shape of motion: 4d reconstruction from a single video.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 9660–9672.
+Cited by: §1,
+§2.
+[36]
+Q. Wang, Y. Zhang, A. Holynski, A. A. Efros, and A. Kanazawa (2025)
+Continuous 3d perception model with persistent state.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 10510–10522.
+Cited by: §2.
+[37]
+S. Wang, V. Leroy, Y. Cabon, B. Chidlovskii, and J. Revaud (2024)
+Dust3r: geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 20697–20709.
+Cited by: §1,
+§2,
+§3.1.
+[38]
+H. Xia, Y. Fu, S. Liu, and X. Wang (2024)
+Rgbd objects in the wild: scaling real-world 3d object learning from rgb-d videos.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 22378–22389.
+Cited by: Table 4,
+§3.4.
+[39]
+Y. Xiao, J. Wang, N. Xue, N. Karaev, Y. Makarov, B. Kang, X. Zhu, H. Bao, Y. Shen, and X. Zhou (2025)
+Spatialtrackerv2: advancing 3d point tracking with explicit camera motion.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 6726–6737.
+Cited by: Appendix B,
+§2,
+§4.1.
+[40]
+Y. Xiao, Q. Wang, S. Zhang, N. Xue, S. Peng, Y. Shen, and X. Zhou (2024)
+Spatialtracker: tracking any 2d pixels in 3d space.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20406–20417.
+Cited by: §1,
+§2.
+[41]
+Y. Yao, Z. Luo, S. Li, J. Zhang, Y. Ren, L. Zhou, T. Fang, and L. Quan (2020)
+Blendedmvs: a large-scale dataset for generalized multi-view stereo networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 1790–1799.
+Cited by: Table 4,
+§3.4.
+[42]
+C. Yeshwanth, Y. Liu, M. Nießner, and A. Dai (2023)
+Scannet++: a high-fidelity dataset of 3d indoor scenes.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 12–22.
+Cited by: Table 4,
+§3.4.
+[43]
+S. Yuan, Y. Yang, X. Yang, X. Zhang, Z. Zhao, L. Zhang, and Z. Zhang (2026)
+InfiniteVGGT: visual geometry grounded transformer for endless streams.
+arXiv preprint arXiv:2601.02281.
+Cited by: §2.
+[44]
+B. Zhang, L. Ke, A. W. Harley, and K. Fragkiadaki (2025)
+Tapip3d: tracking any point in persistent 3d geometry.
+arXiv preprint arXiv:2504.14717.
+Cited by: Appendix B,
+§1,
+§2,
+§4.1.
+[45]
+C. Zhang, G. L. Moing, S. Koppula, I. Rocco, L. Momeni, J. Xie, S. Sun, R. Sukthankar, J. K. Barral, R. Hadsell, et al. (2025)
+Efficiently reconstructing dynamic scenes one d4rt at a time.
+arXiv preprint arXiv:2512.08924.
+Cited by: §1,
+§2,
+§3,
+§4.3.
+[46]
+J. Zhang, C. Herrmann, J. Hur, V. Jampani, T. Darrell, F. Cole, D. Sun, and M. Yang (2024)
+Monst3r: a simple approach for estimating geometry in the presence of motion.
+arXiv preprint arXiv:2410.03825.
+Cited by: §3.1.
+[47]
+J. Zhang, C. Herrmann, J. Hur, C. Sun, M. Yang, F. Cole, T. Darrell, and D. Sun (2026)
+LoGeR: long-context geometric reconstruction with hybrid memory.
+arXiv preprint arXiv:2603.03269.
+Cited by: §2.
+[48]
+Y. Zheng, A. W. Harley, B. Shen, G. Wetzstein, and L. J. Guibas (2023)
+Pointodyssey: a large-scale synthetic dataset for long-term point tracking.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 19855–19865.
+Cited by: Table 4,
+Table 8,
+Table 9,
+§3.4,
+§4.1,
+Table 1,
+Table 3.
+[49]
+Y. Zhou, Y. Wang, J. Zhou, W. Chang, H. Guo, Z. Li, K. Ma, X. Li, Y. Wang, H. Zhu, et al. (2025)
+Omniworld: a multi-domain and multi-modal dataset for 4d world modeling.
+arXiv preprint arXiv:2509.12201.
+Cited by: Appendix A,
+Table 4,
+§3.4.
+[50]
+D. Zhuo, W. Zheng, J. Guo, Y. Wu, J. Zhou, and J. Lu (2025)
+Streaming 4d visual geometry transformer.
+arXiv preprint arXiv:2507.11539.
+Cited by: §2.
+Appendix A Implementation Details
+Training Details.
+Table 4 summarizes the training datasets and their sampling ratios. OmniWorld [49] contains dynamic content but lacks trajectory ground truth; we restrict its queries to t_{\text{src}}=t_{\text{tgt}} , reducing the task to depth and relative-pose estimation without requiring cross-frame trajectory labels.
+For each frame, we sample N=750 query pixels, with 40% drawn from edge regions detected by Sobel filtering to encourage coverage of object boundaries. The query indices t_{\text{src}} , t_{\text{tgt}} , and t_{\text{cam}} are sampled uniformly from the frame indices, with 40% of queries constrained to t_{\text{cam}}=t_{\text{tgt}} so the model frequently predicts points in the target frame’s own coordinate system.
+We use AdamW with a peak learning rate of 1\times 10^{-4} for 150 epochs, linearly warmed up till 10 epoch and then cosine-decayed. During training, the learning rate for models initialized from DepthAnything3 is scaled by 0.1. Training is done on 8 H100 GPUs, and the loss for dynamic points is upweighted relative to static points. We apply color jittering, Gaussian blurring, random rescaling, and aspect-ratio augmentation throughout the training.
+Table 4: Training datasets. Sampling ratio denotes the proportion of samples drawn per epoch. Dynamic datasets provide ground-truth trajectories; static datasets treat all points as stationary.
+| Dataset
+| Dynamic
+| Sampling Ratio
+| PointOdyssey [48]
+| ✓
+| 19.8%
+| Dynamic Replica [14]
+| ✓
+| 19.8%
+| BEDLAM2 [29]
+| ✓
+| 19.8%
+| CoTracker Kubric [13]
+| ✓
+| 11.9%
+| Kubric Movi-F [11]
+| ✓
+| 11.9%
+| Waymo Drivetrack [1]
+| ✓
+| 5.8%
+| OmniWorld [49]
+| ✓†
+| 2.0%
+| ScanNet [5]
+| ✗
+| 2.0%
+| ScanNet++ [42]
+| ✗
+| 2.0%
+| BlendedMVS [41]
+| ✗
+| 2.0%
+| Co3Dv2 [26]
+| ✗
+| 2.0%
+| WildRGBD [38]
+| ✗
+| 1.0%
+| † Dynamic content but no trajectory GT; queries restricted to t_{\text{src}}=t_{\text{tgt}} .
+Evaluation Details.
+For long-video 4D Tracking (Table 1), we evaluated both static and dynamic points, aligning ground-truth and predicted trajectories with a single global scale per sequence. We include static points because they are the ones that most often leave the field of view during chaining, and thus directly measure tracking accuracy for occluded and out-of-frame points. Results on dynamic points only are reported in Appendix E. For single-chunk tracking (Table 2), we evaluate dynamic points only and follow the protocol of Any4D [15], which rescales each frame pair independently.
+Appendix B Runtime Analysis
+We measure the runtime of each method, scaling either the number of input frames or the number of query points at the first frame. When scaling the number of frames ( 16 , 32 , 48 , 64 ), the number of queries are fixed to 100 , and when scaling the number of queries ( 100 to 5{,}000 ) the number of frame is fixed to 48 . All measurements are taken on a single A6000 (48 GB) at an input resolution of 294\times 518 .
+Figure 7: Runtime Comparison. Inference time vs. the number of input frames (left) and query points (right). Point4D is the second fastest with sparse queries; with dense queries it falls behind the dense DPT-head methods but still completes, where SpatialTrackV2 runs out of memory.
+Results are shown in Figure 7 on a log scale. When scaling the number of input frames, Point4D is the second-fastest method at every frame count. When scaling the number of queries, the runtime of Point4D grows, whereas other feed-forward methods remain constant: their DPT-based dense decoders predict every pixel regardless of how many points are queried. This growth is a property of query-based decoding in general, not of 3D queries specifically, and it is precisely what makes it flexible and sparse tracking cheap: querying 100 points costs proportionally little, while dense decoders pay their full cost either way.
+Finally, SpatialTrackerV2 [39] and TAPIP3D [44] are the slowest methods after VDPM [27], and SpatialTrackerV2 runs out of memory at 5{,}000 queries.
+Appendix C Video depth and camera pose estimation.
+We evaluate video depth and camera pose estimation on Sintel [2], Bonn [22], and KITTI [10]. Depth accuracy is measured by absolute relative error (AbsRel, \downarrow ) and the inlier ratio \delta<1.25 ( \uparrow ). Camera pose is assessed using Absolute Trajectory Error (ATE), translational Relative Pose Error (RPEt), and rotational Relative Pose Error (RPEr), computed after global SE(3) alignment. As shown in Table 5, Point4D performs on par with DA3, while outperforming other feed-forward 4D reconstruction methods on most metrics. This indicates that Point4D , built on the DA3 backbone, maintains accurate scene geometry understanding — important for ensuring that the 3D queries used in motion reconstruction are reliably initialized from predicted depth.
+|
+| Video Depth Estimation
+| Camera Pose Estimation
+|
+| KITTI [10]
+| Bonn [22]
+| Sintel [2]
+| Bonn [22]
+| Sintel [2]
+| Method
+| AbsRel
+| \delta\!<\!1.25
+| AbsRel
+| \delta\!<\!1.25
+| AbsRel
+| \delta\!<\!1.25
+| ATE
+| RPEt
+| RPEr
+| ATE
+| RPEt
+| RPEr
+| DA3
+| 0.053
+| 0.976
+| 0.069
+| 0.967
+| 0.238
+| 0.655
+| 0.029
+| 0.011
+| 0.667
+| 0.124
+| 0.053
+| 0.479
+| TraceAnything
+| 0.1055
+| 0.903
+| 6.964
+| 0.462
+| 0.506
+| 0.409
+| 0.040
+| 0.015
+| 43.280
+| 0.499
+| 0.322
+| 10.801
+| Any4D
+| 0.090
+| 0.939
+| 0.414
+| 0.600
+| 0.670
+| 0.384
+| 0.059
+| 0.023
+| 0.632
+| 0.619
+| 0.241
+| 0.741
+| 4RC
+| 0.051
+| 0.960
+| 0.076
+| 0.910
+| 0.483
+| 0.581
+| 0.030
+| 0.009
+| 0.645
+| 0.397
+| 0.190
+| 0.654
+| VDPM
+| 0.068
+| 0.945
+| 0.086
+| 0.925
+| 0.239
+| 0.651
+| 0.028
+| 0.009
+| 0.664
+| 0.133
+| 0.063
+| 0.508
+| Point4D
+| 0.051
+| 0.978
+| 0.072
+| 0.934
+| 0.202
+| 0.707
+| 0.029
+| 0.010
+| 0.588
+| 0.114
+| 0.049
+| 0.470
+Table 5: Video depth and camera pose estimation. Point4D achieves state-of-the-art accuracy among feed-forward 4D reconstruction methods. We report AbsRel ( \downarrow ) and \delta<1.25 ( \uparrow ) for depth, and ATE ( \downarrow ), RPEt ( \downarrow ), RPEr ( \downarrow ) for pose on KITTI, Bonn, and Sintel.
+Appendix D Chaining Accuracy by Visibility at the Handoff Frame
+Chaining requires re-acquiring each point where two chunks meet, and how difficult this is depends on whether the point is visible there. We therefore break down EPE by the visibility state at the handoff frame: Visible (the point projects into the frame and is unoccluded), Occluded (it projects into the frame but is hidden by another object), and OOF (it projects outside the frame boundary). We first identify the strongest handoff strategy for 2D-query baselines, and then compare 2D and 3D re-querying under each condition.
+Choosing the handoff strategy for 2D-query baselines.
+Table 6: Chaining strategy ablation for 2D-query chaining (4RC), EPE by visibility.
+Per-sequence EPE averaged over sequences (regime columns average over sequences containing that regime).
+Selection-based chaining achieves the lowest EPE on Visible, Occluded, and overall across all datasets.
+|
+| PointOdyssey
+| DynamicReplica
+| PStudio
+| Chaining
+| Vis.
+| Occ.
+| OOF
+| All
+| Vis.
+| Occ.
+| OOF
+| All
+| Vis.
+| Occ.
+| OOF
+| All
+| First-frame
+| 0.845
+| 1.105
+| 1.198
+| 0.960
+| 0.318
+| 0.598
+| 0.340
+| 0.361
+| 0.423
+| 0.531
+| 0.644
+| 0.454
+| Stationary
+| 0.822
+| 1.074
+| 0.758
+| 0.891
+| 0.322
+| 0.597
+| 0.260
+| 0.357
+| 0.421
+| 0.525
+| 0.597
+| 0.451
+| Linear
+| 0.831
+| 1.087
+| 0.810
+| 0.907
+| 0.325
+| 0.600
+| 0.278
+| 0.358
+| 0.435
+| 0.541
+| 0.619
+| 0.466
+| Selection
+| 0.672
+| 0.915
+| 1.097
+| 0.789
+| 0.290
+| 0.574
+| 0.335
+| 0.336
+| 0.354
+| 0.443
+| 0.610
+| 0.379
+Table 7: EPE by visibility across datasets. Point4D achieves the lowest EPE in nearly every visibility, with the largest margins on Occluded points, where 2D re-querying fails but 3D re-querying carries the point through directly.
+|
+| PointOdyssey
+| DynamicReplica
+| PStudio
+| Method
+| Vis.
+| Occ.
+| OOF
+| All
+| Vis.
+| Occ.
+| OOF
+| All
+| Vis.
+| Occ.
+| OOF
+| All
+| TraceAnything
+| 2.049
+| 2.258
+| 2.748
+| 2.147
+| 0.728
+| 0.856
+| 1.203
+| 0.767
+| 0.635
+| 0.744
+| 1.187
+| 0.665
+| Any4D
+| 0.893
+| 1.190
+| 1.377
+| 1.026
+| 0.305
+| 0.635
+| 0.509
+| 0.364
+| 0.474
+| 0.582
+| 0.802
+| 0.497
+| 4RC
+| 0.672
+| 0.915
+| 1.097
+| 0.789
+| 0.290
+| 0.574
+| 0.335
+| 0.336
+| 0.354
+| 0.443
+| 0.610
+| 0.379
+| VDPM
+| 0.636
+| 0.860
+| 1.171
+| 0.736
+| 0.346
+| 0.607
+| 0.379
+| 0.386
+| 0.261
+| 0.332
+| 0.493
+| 0.280
+| Point4D
+| 0.548
+| 0.597
+| 1.147
+| 0.616
+| 0.140
+| 0.202
+| 0.309
+| 0.155
+| 0.228
+| 0.265
+| 0.409
+| 0.236
+Since 2D-query methods require projecting predicted 3D points to pixel coordinates for re-querying, the choice of handoff strategy affects chaining quality. Table 6 ablates four strategies using 4RC as the base method across three datasets. Each strategy decides, from the trajectory predicted in the current chunk, where to re-query the point in the next chunk. First-frame projects all points to the first overlapping frame and clips out-of-frame projections to the image boundary. Stationary and Linear apply the same projection but extrapolate out-of-frame points as stationary or with constant velocity, respectively. Selection projects each point at every overlapping frame, selects the frame where the projected depth best matches the depth head’s prediction, and re-queries at that frame, which reduces occlusion-related errors by choosing the frame where the point is most likely visible. Selection attains the lowest EPE overall on all three datasets, and we therefore use it for all 2D-query baselines.
+3D vs. 2D re-querying across visibility regimes.
+Table 7 compares Point4D with 2D-query baselines (all using Selection chaining) broken down by visibility regime. Point4D achieves lower EPE on visible and occluded points on every dataset, with the largest margin on occluded points. This indicates that even when a 2D method re-queries at the best overlapping frame they still cannot successfully chain occluded points, whereas a 3D query carries it through the occlusion directly. For out-of-frame points the advantage narrows, and on PointOdyssey 4RC is better. This is expected: some OOF points the next chunk never observes leave no trace in its scene representation, while 2D methods clip to the image boundary and re-query a wrong surface that can still yield a smaller error.
+Appendix E Additional Quantitative Results on Long-Video Tracking
+4D tracking results on dynamic points.
+|
+| Method
+| PointOdyssey [48]
+| Dynamic Replica [14]
+|
+| EPE \downarrow
+| APD \uparrow
+| Survival \uparrow
+| EPE \downarrow
+| APD \uparrow
+| Survival \uparrow
+|
+Iter.
+| TAPIP3D
+| 0.779
+| 0.470
+| 0.353
+| 0.251
+| 0.728
+| 0.614
+| SpatialTrackV2
+| 0.493
+| 0.589
+| 0.425
+| 0.240
+| 0.755
+| 0.636
+|
+Feed-Forward
+| TraceAnything
+| 1.863
+| 0.120
+| 0.070
+| 0.722
+| 0.462
+| 0.361
+| Any4D
+| 1.127
+| 0.276
+| 0.170
+| 0.431
+| 0.614
+| 0.505
+| 4RC
+| 0.879
+| 0.445
+| 0.355
+| 0.359
+| 0.698
+| 0.598
+| VDPM
+| 0.784
+| 0.467
+| 0.373
+| 0.386
+| 0.660
+| 0.557
+| Point4D
+| 0.617
+| 0.566
+| 0.474
+| 0.200
+| 0.794
+| 0.717
+Table 8: Long-Video 4D Tracking on Dynamic Points Only. Point4D achieves the best
+average rank among all compared methods, outperforming every other feed-forward methods. We report metrics over dynamic points only, on sequences of 200 frames partitioned into chunks of 48 frames with 8-frame overlap. PStudio is omitted as it evaluates only dynamic queries, making the results identical to Table 1. Red, Orange, and Yellow indicate the top three results.
+Table 1 evaluates all query points, including those on static background, whose trajectories are largely explained by camera motion alone. To verify that Point4D remains effective on points that actually move, we repeat the evaluation using only dynamic points. PStudio is excluded, as its ground-truth trajectories are annotated only for dynamic points and its numbers are therefore identical. As shown in Table 8, Point4D outperforms every feed-forward method on all metrics and attains the best average rank among all compared methods, showing that 3D-query chaining extends trajectories reliably even when the queried points are in motion.
+4D tracking results on longer sequences.
+|
+| Method
+| PointOdyssey [48] (500 frames)
+| Dynamic Replica [14] (300 frames)
+|
+| EPE \downarrow
+| APD \uparrow
+| Survival \uparrow
+| EPE \downarrow
+| APD \uparrow
+| Survival \uparrow
+|
+Iter.
+| TAPIP3D
+| 1.020
+| 0.421
+| 0.292
+| 0.198
+| 0.797
+| 0.725
+| SpatialTrackV2
+| 1.008
+| 0.461
+| 0.307
+| 0.251
+| 0.749
+| 0.644
+|
+F.F.
+| 4RC
+| 1.597
+| 0.338
+| 0.228
+| 0.418
+| 0.676
+| 0.582
+| VDPM
+| 1.458
+| 0.318
+| 0.213
+| 0.478
+| 0.610
+| 0.513
+| Point4D
+| 0.972
+| 0.482
+| 0.387
+| 0.174
+| 0.836
+| 0.786
+Table 9: Long-Video 4D Tracking on Extended Sequences. Point4D ranks first on
+every metric, surpassing not only feed-forward baselines but also iterative trackers. Chunking follows the
+same setting (48-frame chunks with 8-frame overlap), so longer sequences require more
+handoffs: 12 for PointOdyssey and 7 for Dynamic Replica. Red, Orange,
+and Yellow indicate the top three results.
+To assess how each method behaves under more chaining steps, we extend the evaluation to 500 frames on PointOdyssey and 300 frames on Dynamic Replica (the full length of its sequences), keeping the chunk size 48 and overlap 8; PStudio is excluded as it is already evaluated at its full length of 150 frames. The results are shown in Table 9. Point4D ranks first on every metric, surpasses all iterative trackers and feed-forward 4D models at longer horizons. This demonstrates the robustness of our method for long video tracking.
+Additional chunk-wise tracking accuracy analysis.
+Complementing the chunk-wise robustness analysis in Figure 6, we report the full results on PointOdyssey and Dynamic Replica in Figure 8. On both datasets, the accuracy of Point4D remains stable across chunks, while the accuracy of feed-forward methods which rely on 2D re-querying degrades as chaining proceeds.
+Appendix F Additional Qualitative Results on Long-Video Tracking
+We provide additional tracking results for long videos, where the number of frames varies between 100 and 500 in Figure 9 and Figure 10. Each chunk has size 48 with 16 overlapping frames. Point4D show robust trajectory prediction across long videos, showing its effectiveness on trajectory chaining.
+Figure 8: Chunk-wise tracking accuracy on (Left) Dynamic Replica and (Right) PointOdyssey. On both datasets, the accuracy of Point4D (red) degrades more slowly than that of other methods as chaining proceeds, demonstrating the robustness of 3D-query trajectory chaining.
+Figure 9: Additional results for long-video tracking via trajectory chaining. Point4D produces consistent 3D trajectories across long videos.
+Figure 10: Additional results for long-video tracking via trajectory chaining. Point4D produces consistent 3D trajectories across long videos.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

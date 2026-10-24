@@ -1,0 +1,921 @@
+Reliev3R: Relieving Feed-forward 3D Reconstruction from Multi-View Geometric Annotations
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Works
+Evolvement of 3D Reconstruction.
+Feed-Forward Reconstruction Models.
+Other Feed-Forward 3D Models.
+3 Method
+3.1 Revisiting Supervisions of FFRMs
+3.2 Shape Regularization of Depth Maps
+3.3 Multi-View Geometry Registration Learning
+4 Experiments
+4.1 Implementation Details
+Datasets and Benchmarks.
+Model Details.
+Training Details.
+4.2 Comparison with Prior FFRMs
+Baselines.
+Results.
+4.3 Zero-Shot Evaluation
+5 Limitation
+6 Conclusion
+References
+A Training Setup for Baselines
+CUT3R, VGGT, \pi^{3} , and MapAnything [29, 28, 32, 13]
+\mathbf{\pi^{3{\dagger}}} [32].
+MVDUSt3R [24].
+FLARE [43].
+AnyCam [33].
+B Extending Reliev3R to Semi-Supervision
+C Ablation Study
+D More Visualization for Reliev3R Prediction
+License: arXiv.org perpetual non-exclusive license
+arXiv:2604.00548v1 [cs.CV] 01 Apr 2026
+Reliev3R: Relieving Feed-forward 3D Reconstruction
+from Multi-View Geometric Annotations
+Youyu Chen Junjun Jiang Yueru Luo Kui Jiang
+Xianming Liu Xu Yan Dave Zhenyu Chen
+Affiliation: Huawei
+Harbin Institute of Technology
+Affiliation: The Chinese University of Hong Kong, Shenzhen#Work done during internship at Huawei
+Affiliation: Corresponding Author
+Abstract
+With recent advances, Feed-forward Reconstruction Models (FFRMs) have demonstrated great potential in reconstruction quality and adaptiveness to multiple downstream tasks. However, the excessive reliance on multi-view geometric annotations, e.g. 3D point maps and camera poses, makes the fully-supervised training scheme of FFRMs difficult to scale up.
+In this paper, we propose Reliev3R, a weakly-supervised paradigm for training FFRMs from scratch without cost-prohibitive multi-view geometric annotations.
+Relieving the reliance on geometric sensory data and compute-exhaustive structure-from-motion preprocessing, our method draws 3D knowledge directly from monocular relative depths and image sparse correspondences given by zero-shot predictions of pretrained models.
+At the core of Reliev3R, we design an ambiguity-aware relative depth loss and a trigonometry-based reprojection loss to facilitate supervision for multi-view geometric consistency.
+Training from scratch with the less data, Reliev3R catches up with its fully-supervised sibling models, taking a step towards low-cost 3D reconstruction supervisions and scalable FFRMs.
+Figure 1:
+In this paper, we propose Reliev3R, the first learning paradigm to train a Feed-forward Reconstruction Model (FFRM) from scratch without reliance on multi-view geometric annotations.
+To learn multi-view geometric knowledge, Reliev3R engages pseudo monocular relative depths and pseudo image sparse correspondences with multi-view geometry constraints as a weakly-supervised learning objective.
+As shown above in the figure, Reliev3R surpasses early FFRMs (e.g., FLARE [43]) and weakly-supervised camera pose estimation models (e.g., AnyCam [33]) in the overall performance.
+1 Introduction
+3D reconstruction, of which the ultimate goal is to reconstruct the 3D content of a scene directly from a set of images, has been investigated by the community for decades.
+Recent advances in Feed-forward Reconstruction Models (FFRMs) demonstrate the feasibility of an end-to-end paradigm that maps 2D images to 3D contents such as point maps and camera poses [31, 28, 32, 13].
+Beyond reducing the time cost of 3D reconstruction from minutes to merely seconds, FFRMs also empower down-stream 3D applications such as text-3D grounding [18] and embodied AI [7] with its 3D-knowledge-rich image encoder.
+Despite their impressive achievements, current FFRMs heavily rely on large-scale multi-view geometric annotations, including camera parameters, dense point maps, etc. Such annotations must satisfy strict 3D consistency: point maps across views must align into a coherent 3D structure.
+In practice, these labels are obtained through a multi-stage pipeline built upon Structure-from-Motion (SfM) [23, 22] followed by multi-view stereo (MVS) [6, 25, 8, 30].
+The pipeline is computationally expensive, often brittle in low-texture or challenging scenes, and difficult to scale.
+As a consequence, the performance of FFRMs is limited not by model design but by the scarcity and cost of producing large-scale, high-consistency geometric supervision.
+A key observation is that these multi-view geometric annotations are not the essence of reconstruction. The raw multi-view inputs already contain all the necessary cues for geometry: depth–appearance relationships, multi-view correspondences, and pose-induced reprojection structure. Supervising FFRMs with SfM/MVS annotations can therefore be interpreted as embedding the traditional reconstruction pipeline inside a transformer through ground-truth labels. This naturally raises an essential question: instead of supervising FFRMs with outputs from SfM/MVS, can we directly learn the intrinsic geometric principles from the multi-view inputs themselves, without relying on heavy geometric annotations?
+With this insight, we propose Reliev3R, the first weakly supervised training paradigm that enables learning FFRMs from scratch without multi-view geometric annotations [2, 11]. Reliev3R reconstructs a 3D-aligned depth map per view and introduces two key forms of lightweight supervision. First, monocular relative depth maps predicted by pretrained priors are used as pseudo-labels to constrain the shape of each depth distribution. To address the inherent multi-view inconsistencies in monocular estimation, we develop an ambiguity-aware scale-invariant depth loss that automatically downweights unreliable regions such as sky or reflective surfaces. Second, sparse 2D correspondences from an off-the-shelf matcher provide geometric anchors across views, enabling Reliev3R to register depth predictions into a globally aligned 3D space. The predicted camera poses and aligned depths are jointly optimized using a differentiable trigonometry-based reprojection loss, while camera intrinsics are assumed known. This formulation eliminates the dependency on SfM/MVS annotations and allows scaling to larger, more diverse training data.
+We conduct experiments to compare Reliev3R and other FFRMs that are fully-supervised with multi-view geometric annotations.
+Reliev3R matches against and even outperforms early FFRMs such as MVDUSt3R [24] and FLARE [43], while delivering comparable reconstruction accuracies with SOTA FFRMs [7, 32, 13].
+Notably, in terms of camera pose estimation, Reliev3R significantly outperforms AnyCam [33], which is expertise at camera parameter estimation and also not supervised with multi-view geometric annotations.
+All results above showcase the superiority of Reliev3R and the feasibility of learning multi-view geometry without a heavy SfM-based reconstruction pipeline.
+To summarize our contributions,
+•
+We propose Reliev3R, the first weakly-supervised learning paradigm that trains a feed-forward reconstruction model from scratch without multi-view geometric annotations.
+•
+We introduce an ambiguity-aware scale-invariant depth loss and a trigonometry-based reprojection loss, which cooperate to register view-wise depth and camera pose predictions in 3D world coordinate.
+•
+Through extensive experiments, we show that Reliev3R approaches or surpasses the performance of FFRMs trained with multi-view geometric annotations, while requiring far less curated geometric data.
+Figure 2:
+Similar to prior FFRMs, Reliev3R performs geometry reconstruction in a single forward pass given a group of images.
+However, the supervision of Reliev3R doesn’t depend on any multl-view geometric annotations (e.g., ground truth of point maps and camera poses which are registered in 3D world coordinate).
+Specifically, instead of directly predicting the point maps registered in world coordinate, Reliev3R predicts view-wise depth maps, which are regularized with pseudo relative depth.
+To learn the registration of depth maps and camera poses in world coordinate, Reliev3R draws supervision signal from pseudo image correspondences.
+Pseudo annotations used by Reliev3R are produced with pretrained expert models (see Sec. 4.1).
+Experiments in Sec. 4 demonstrate that Reliev3R catches up with and even surpasses some of FFRMs supervised with multi-view geometric annotations.
+2 Related Works
+Evolvement of 3D Reconstruction.
+With image correspondences derived from handcrafted feature descriptors [17, 26], conventional 3D reconstruction methods estimate camera parameters as the base of subsequent reconstruction [6, 25].
+As a milestone, structure-from-motion (SfM) methods [23] integrate image matching, camera estimation and point cloud reconstruction into a sophisticated pipeline, which remains to be widely applied in up-to-date open-sourced 3D datasets to produce annotation for camera parameters [16, 4, 44].
+While SfM methods struggles to produce dense point cloud for their low-efficiency, the emergence of deep-learning encourages the community to investigate learnable multi-view stereo (MVS) methods that aim to train dense depth prediction networks inputting images and camera parameters [36, 37].
+More recently, differentiable rendering [12] facilitates the development of NeRF [20, 1, 21] and 3DGS [14, 40], which propose to optimize parameters describing the 3D space in a scene-wise manner.
+Despite the SOTAs of 3DGS are now capable to reconstruct a scene in minutes [19, 5, 3], the time delay is not acceptable for applications requiring real-time reconstruction like automatic driving [41] and embodied AI [7].
+††
+🖂Corresponding author. E-mail: jiangjunjun@hit.edu.cn.
+Feed-Forward Reconstruction Models.
+The emergence of DUSt3R [31], along with its subsequent sibling improvements [15, 24, 29, 42], proves end-to-end learnable feed-forward reconstruction to be feasible from image pairs to 3D contents, e.g., 3D point maps and camera poses.
+These feed-forward reconstruction models (FFRMs), starting from merely capable to infer on two views, are now expanded to infer on thousands of images in seconds [24, 34, 43, 27].
+The improvement on reconstruction precision of FFRMs is accompanied with the expansion of training data [7, 32, 13], which is composed of multi-view images labeled with multi-view geometric annotations to make full-supervision on the model output.
+However, the amount of available training data seems to meet its bound, that high-quality annotations for FFRM supervision is cost-prohibitive to acquire.
+This encourages us to explore a new supervision paradigm for FFRM training, which can be relieved from expensive multi-view geometric annotations and easily scale up with massive unlabeled video data.
+Other Feed-Forward 3D Models.
+Under the impetus from FFRMs, 3D tasks such as novel-view synthesis and camera parameter estimation beside point map reconstruction can now be performed in a feed-forward approach as well, most of which are finetuned on pretrained FFRM checkpoints.
+For example, feed-forward Gaussian Splatting models [38, 10] typically concatenate a Gaussian primitive prediction head following pretrained FFRMs, supervised with differentiable rendering given ground truth camera parameters.
+Only a minority of researches study with supervising a feed-forward 3D model from scratch without multi-view geometric annotations.
+For example, AnyCam [33] predicts camera parameters alone inputting images, pseudo depths and pseudo optical flows, supervised with multi-view geometric constraints engaging depths, optical flows and camera poses.
+RayZer [9] is a feed-forward neural rendering model for novel-view synthesis.
+Supervised with differentiable rendering on input images only, RayZer struggles with producing meaningful camera poses and geometry reconstruction.
+As comparison, our Reliev3R simultaneously predicts registered geometry of the scene and camera poses for the input views, presenting a new paradigm for FFRM training with potential to benefit all other 3D tasks as FFRMs do.
+Figure 3:
+Point map and camera pose visualization on DL3DV-benchmark dataset [16].
+As shown above in the figure, Reliev3R delivers a visually comparable construction accuracy with the \pi^{3} [32] while surpassing FLARE [43] in the overall performance.
+The camera pose of FLARE above is adopted directly from the model prediction instead of solved with PnP [6] based on point maps.
+3 Method
+In this section, we introduce our Reliev3R in detail.
+In Sec. 3.1, we revisit the supervision of FFRMs and points out the key difference between the training paradigm of Reliev3R and other FFRMs.
+In Sec. 3.2 and Sec. 3.3, we delineate the proposed training objectives for Reliev3R, which enables the supervision for FFRMs without multi-view geometric annotations.
+3.1 Revisiting Supervisions of FFRMs
+The success of FFRMs attributes to the high-quality multi-view geometric annotations of training data.
+By learning these annotations, FFRMs essentially compress the reconstruction progress from a complicated multi-view geometric prediction pipeline into a single inference through a deep-learning model.
+We denote this process as,
+|
+| \mathcal{A}:\mathrm{I}\rightarrow(\mathrm{P},\mathrm{C}),\ \mathcal{F}=\mathcal{A}.
+|
+| (1)
+where \mathcal{A} denotes the annotation pipeline, \mathrm{I}=\{\mathrm{I}_{i}\}_{i=1}^{N} denotes N images photographing the scene to be annotated, \mathrm{P}=\{\mathrm{P}_{i}\}_{i=1}^{N} denotes the annotated point maps of images, \mathrm{C}=\{\mathrm{C}_{i}\}_{i=1}^{N} denotes the annotated camera poses, and \mathcal{F} denotes the FFRMs to be trained with the annotated data.
+Such a supervised learning paradigm makes it straight-forward but cost-prohibitive to scale up like large language models and 2D foundation models, as the acquirement of annotations demands massive efforts.
+By decomposing the annotation pipeline of FFRM training data, we locate the major annotation cost at the estimation from image correspondences to dense 3D point maps and camera poses, which can be denoted as,
+|
+| \mathcal{A}=\mathcal{R}\circ\mathcal{M},\ \mathcal{M}:\mathrm{I}\rightarrow\mathrm{M},\ \mathcal{R}:\mathrm{M}\rightarrow(\mathrm{P},\mathrm{C}),
+|
+| (2)
+where \mathcal{M} denotes the image matching process to obtain image correspondences, \mathcal{R} denotes the reconstruction process to solve camera poses and dense point maps from image correspondences, and \mathrm{M}=\{\mathrm{M_{i,j}}\}_{i,j=1}^{N} denotes the pair-wise image correspondences of \mathrm{I} .
+Since image correspondences are the origin of all other multi-view geometric annotations, a question is naturally raised: can image correspondences alone provide necessary supervisions for training FFRMs, eliminating the redundant preprocessing of 3D annotations?
+This question mark paves the way towards the foundation of Reliev3R.
+However, the question is non-trivial since the image correspondences are typically sparse and noisy, which is not capable to produce dense point maps.
+To mitigate this problem, we propose to regularize the dense geometric prediction of FFRMs with monocular relative depth predicted by pretrained models.
+Constrained with multi-view image correspondences and multi-view geometry, the predicted depth maps of FFRMs can be aligned in 3D space to produce registered 3D point maps of the scene.
+With the above analysis, now we summarize Reliev3R mathematically as,
+|
+| \mathcal{F}_{\mathrm{R}}:\mathrm{I}\rightarrow(\mathrm{D},\mathrm{C}),\ \mathcal{F}_{\mathrm{R}}=\mathcal{S}\circ(\mathcal{M}\times\mathcal{D}),\ \mathcal{D}:\mathrm{I}\rightarrow\mathrm{D},
+|
+| (3)
+where \mathcal{F}_{\mathrm{R}} is the mapping that Reliev3R learns, \mathrm{D}=\{\mathrm{D}_{i}\}_{i=1}^{N} is the view-wise dense depth maps predicted by Reliev3R, and \mathcal{D} is the pretrained monocular depth model introduced to produce relative depth information.
+\mathcal{S} is the supervisions applied upon image correspondences and monocular depth maps to ensure multi-view geometric consistency and register predicted depth maps in 3D space, which is delineated in the following sections.
+Given that \mathrm{D} is equivalent to \mathrm{P} when camera intrinsics are known, the target of Reliev3R is to minimize the difference between \mathcal{F} and \mathcal{F}_{\mathrm{R}} as much as possible.
+3.2 Shape Regularization of Depth Maps
+Ideally, Reliev3R should be supervised with multi-view geometric consistent depth maps that are naturally aligned when back-projected into world coordinate with cameras.
+However, this is infeasible without multi-view geometric annotations, which are the very objects that Reliev3R is purpose-built to sidestep.
+Despite monocular metric depth models claim to produce depth maps in metric coordinate, there is still inevitably multi-view inconsistency in both global scale and local details of monocular depth maps when multiple predictions are made for the same scene.
+To address the multi-view inconsistency in global depth scale, we adopt pretrained monocular depth models to only regularize the scale-invariant shape of depth maps (relative depth), which can be easily accomplished with canonical scale-invariant depth loss [35].
+Registration of depth maps in world coordinate is left to Sec. 3.3.
+On the other hand, the inconsistency in local details should also not be overlooked.
+This is significant for the subsequent depth map registration, because depth maps with an inconsistent local shape can never be registered in world coordinate with any scale and shift.
+For example, the depth of sky is meaningless, and should be ignored when the depth maps are registered.
+To this end, we introduce an ambiguity-aware scale-invariant depth loss \mathcal{L}_{\text{d}} , which is self-adaptive to recognize the regions to be ignored for depth shape regularization.
+Given a predicted depth map \hat{\mathrm{D}}_{i} and pseudo depth annotation \mathrm{D}_{i} from pretrained monocular depth model of the i -th image view, \mathcal{L}_{\text{d}} is denoted as,
+|
+| \mathcal{L}_{\text{d}}=\mathrm{W}_{i}\cdot|\Gamma(\hat{\mathrm{D}}_{i},\text{sg}(\mathrm{W}_{i}))-\Gamma(\mathrm{D}_{i},\text{sg}(\mathrm{W}_{i}))|-\alpha\log(\mathrm{W}_{i}),
+|
+| (4)
+where \mathrm{W}_{i} denotes the estimated confidence map from Reliev3R, \Gamma denotes the weighted median absolute deviation (WMAD), and sg denotes the gradient detach operation.
+\mathrm{W}_{i} is restricted within (0,2) , that \mathrm{W}_{i}\rightarrow 2 encourages the model to explore complicated regions while \mathrm{W}_{i}\rightarrow 0 implicates multi-view inconsistent depth to be ignored.
+We adopt WMAD to shield the influence from low-confidence pixels to the relative depth normalization process.
+Please move to the supplementary for further details about \mathcal{L}_{\text{d}} .
+3.3 Multi-View Geometry Registration Learning
+With the shape of depth maps regularized, the rest is to estimate the camera pose of each view and register the depth maps in the world coordinate.
+We denote the image correspondences of a view pair (i,j) as \mathrm{M}_{i,j}=\{(\mathrm{u}_{i,k},\mathrm{u}_{j,k})\}_{k=1}^{K} , where \mathrm{u}_{i,k} denotes the k -th corresponded pixel of the pair in view i and K denotes the number of total corresponded pixels.
+It is natural that \mathrm{p}_{i,k} should be equal with \mathrm{p}_{j,k} , with
+|
+| \mathrm{p}_{i,k}=\mathrm{C}_{i}\times\pi(\mathrm{u}_{i,k},\mathrm{d}_{i,k}),
+|
+| (5)
+where \mathrm{d}_{i,k} denotes predicted depth of \mathrm{u}_{i,k} , \pi denotes the back-projection from pixels in image space to 3D points in camera coordinate via known intrinsics, and the 3D point in world coordinate \mathrm{p}_{i,k} of pixel \mathrm{u}_{i,k} is obtained via the camera-to-world transformation \mathrm{C}_{i} of view i .
+Minimizing distance between \mathrm{p}_{i,k} and \mathrm{p}_{j,k} produces gradient to optimize \mathrm{C}_{i} and register \mathrm{d}_{i,k} with \mathrm{d}_{j,k} .
+However, we find the optimization crashes with a trivial minimization on \sum_{i,j,k}{||\mathrm{p}_{i,k}-\mathrm{p}_{j,k}||_{2}} .
+This is because points far from the camera, which have big numeric in coordinate, tend to cause a large error in this formulation.
+It tempts \mathrm{p} to fall towards camera center, resulting in distortion of the registered point cloud.
+And a trivial reprojection error in pixel space dosen’t work as well, because it cannot produce right gradient to optimize the camera pose when \mathrm{p}_{j,k} falls behind the image plane of view i .
+As the solution, we propose a trigonometry-based reprojection loss, which is essentially a reprojection error but optimized in 3D space.
+Denoting the camera center of view i as \mathrm{t}_{i} , we optimize the following objective,
+|
+| \mathcal{L}_{\text{rgst}}=\sum_{i,j,k}\langle\mathrm{p}_{i,k}-\mathrm{t}_{i},\ \mathrm{p}_{j,k}-\mathrm{t}_{i}\rangle,
+|
+| (6)
+where the operator \langle\cdot,\cdot\rangle is to calculate the angle between two vectors.
+This learning objective concentrates on minimizing the difference in direction of vectors.
+The direction of \mathrm{p}_{i,k}-\mathrm{t}_{i} is only relevant with the rotation of view i camera since its intrinsic is known and fixed.
+And the direction of \mathrm{p}_{j,k}-\mathrm{t}_{i} is determined by the relative position between \mathrm{p}_{j,k} and view i camera center \mathrm{t}_{i} , which produces the gradient to change the scale of \mathrm{D}_{j} for depth map registration.
+Please refer to the supplementary for more details about \mathcal{L}_{\text{rgst}} .
+Finally, the training objective of Reliev3R can be summarized as,
+|
+| \mathcal{L}=\mathcal{L}_{\text{d}}+\lambda\cdot\mathcal{L}_{\text{rgst}},
+|
+| (7)
+where \lambda is a weighting factor set to 0.5 in this paper by default.
+Table 1:
+Evaluation on DL3DV-benchmark dataset [16] for 8-view reconstruction.
+Reliev3R outperforms early FFRMs trained with MVS annotations like MVDUSt3R [24] and FLARE [43], demonstrating the advantage and potential of our method.
+We report the absolute relative error (rel) and inlier ratio at a relative threshold of 10% ( \tau ) to evaluate the reconstructed point maps and depth maps.
+We also report the average aligned trajectory error (ATE) and area under curve at an error threshold of 30 \degree{} to evaluate camera pose estimation.
+\pi^{3{\dagger}} denotes the result of training \pi^{3} [32] from scratch on DL3DV-10K [16] dataset.
+We display if based methods are trained with/without multi-view geometric (MVG) annotations, and classify them by whether DL3DV-10K dataset is used for training into ‘Yes’, ‘Alone’ and ‘No’.
+SOTAs trained with 20 times of data for Reliev3R are colored as gray.
+Best, second best and third best are colored respectively.
+| Method
+| Training with DL3DV-10K
+| MVG Annotations
+| Point Map
+| Camera Pose
+| Depth Map
+| rel \downarrow
+| \tau\uparrow
+| ATE \downarrow
+| AUC \uparrow
+| rel \downarrow
+| \tau\uparrow
+| Map-Anything [13]
+| Yes
+| w
+| 0.051
+| 0.911
+| 0.004
+| 87.088
+| 0.045
+| 0.896
+| \pi^{3} [32]
+| No
+| w
+| 0.056
+| 0.927
+| 0.003
+| 92.746
+| 0.054
+| 0.916
+| VGGT [28]
+| Yes
+| w
+| 0.061
+| 0.905
+| 0.003
+| 94.795
+| 0.059
+| 0.899
+| CUT3R [29]
+| Yes
+| w
+| 0.073
+| 0.815
+| 0.005
+| 89.432
+| 0.072
+| 0.801
+| \pi^{3{\dagger}}
+| Alone
+| w
+| 0.057
+| 0.897
+| 0.013
+| 63.314
+| 0.047
+| 0.890
+| MVDUSt3R [24]
+| No
+| w
+| 0.593
+| 0.233
+| 0.458
+| 2.529
+| 0.690
+| 0.134
+| FLARE [43]
+| Yes
+| w
+| 0.134
+| 0.771
+| 0.338
+| 80.905
+| 0.376
+| 0.302
+| AnyCam [33]
+| No
+| w/o
+| 0.262
+| 0.490
+| 0.023
+| 29.527
+| 0.181
+| 0.400
+| Reliev3R(ours)
+| Alone
+| w/o
+| 0.122
+| 0.663
+| 0.018
+| 49.426
+| 0.115
+| 0.657
+4 Experiments
+4.1 Implementation Details
+Datasets and Benchmarks.
+We adopt the popular DL3DV-10K dataset [16] as training set for Reliev3R.
+DL3DV-10K is a large-scale dataset with 10K scenes and 3M+ image frames, containing scenes of both indoor, outdoor and at different day time.
+To fully evaluate the performance of Reliev3R and its sibling models, we perform evaluation on DL3DV-benchmark dataset [16] for in-domain generalization performance and ScanNet++ dataset [39] for out-of-domain zero-shot performance.
+Multi-view geometric annotations of DL3DV-benchmark dataset are produced with the open-sourced annotation pipeline of Map-Anything [13].
+Model Details.
+The architecture of Reliev3R is implemented based on \pi^{3} [32] by replacing the point map prediction head with a depth prediction head.
+The Reliev3R model reported in this paper has 450M parameters in total.
+To produce pseudo label for monocular relative depth and image correspondence, Depth Pro [2] and CoTracker [11] are introduced as pretrained pseudo labeling models.
+There are two points to notice.
+First, despite Depth Pro is capable to predict metric depth, we only use its prediction for relative depth regularization (see Eq. 4).
+Second, neither Depth Pro and CoTracker are trained on DL3DV-10K dataset, which strictly simulates the real situation where we scale up the training dataset with data unseen by pseudo labeling models.
+Training Details.
+We train Reliev3R for 60k steps on 64 Ascend 910B3 NPUs for 3 days, with a total batch size of 64 and 8 image views given as input for each batch.
+The training starts with a learning rate of 10^{-4} which decays following a cosine scheduler.
+4.2 Comparison with Prior FFRMs
+Baselines.
+To precisely evaluate the performance gap in reconstruction accuracy between Reliev3R and other FFRMs supervised with multi-view geometric annotations, we train \pi^{3} [32] from scratch on a consistent training set with Reliev3R (i.e., using only DL3DV-10K dataset [16]), which is denoted as \pi^{3{\dagger}} .
+We also introduce the official release of various FFRMs for evaluation.
+The latest SOTAs are colored gray because Reliev3R is not comparable with them for training on only DL3DV-10K dataset, merely 5% of the data used by SOTAs.
+Meanwhile, we also compare the performance of Reliev3R with a feed-forward camera estimation model AnyCam [33], which is supervised without any multi-view geometric annotations as well.
+Inputting images, metric depth maps and optical flows, AnyCam predicts camera parameters which are supposed to register the input metric depth maps in the world coordinate the best.
+This makes the comparison feasible between AnyCam and FFRMs.
+Results.
+We report the metrics on 8-view reconstruction for DL3DV-benchmark dataset in Tab. 1, evaluating point map reconstruction, camera pose estimation and relative depth estimation.
+The input views are sampled with contiguous image frames.
+Although there is a distance for Reliev3R to catch up with FFRM SOTAs, Reliev3R is on par with and even outperforms early FFRMs such as MVDUSt3R [24] and FLARE [43].
+Furthermore, Reliev3R outperforms AnyCam significantly, demonstrating its superiority as a weakly-sepervised feed-forward 3D method.
+Please refer to Fig. 1 for qualitative comparison.
+Table 2:
+Zero-shot evaluation on ScanNet++ [39] dataset, which has a different focal length with DL3DV-10K dataset [16] that unseen during the training of Reliev3R and \pi^{3{\dagger}} .
+The same metrics are reported as in Tab. 1.
+While consistently outperforming AnyCam [33], Reliev3R matches against \pi^{3{\dagger}} in overall performance and holds significant advantage in depth prediction.
+| Method
+| Point Map
+| Camera Pose
+| Depth Map
+| rel \downarrow
+| \tau\uparrow
+| ATE \downarrow
+| AUC \uparrow
+| rel \downarrow
+| \tau\uparrow
+| \pi^{3} [32]
+| 0.027
+| 0.972
+| 0.002
+| 86.941
+| 0.027
+| 0.970
+| \pi^{3{\dagger}}
+| 0.232
+| 0.678
+| 0.028
+| 17.789
+| 0.220
+| 0.171
+| AnyCam [33]
+| 0.438
+| 0.448
+| 0.084
+| 15.376
+| 0.286
+| 0.095
+| Reliev3R(ours)
+| 0.172
+| 0.594
+| 0.030
+| 15.711
+| 0.124
+| 0.583
+4.3 Zero-Shot Evaluation
+To clearly depict the characteristics of Reliev3R compared with fully-supervised FFRMs, we perform evaluation on ScanNet dataset++ [39], which has a different focal length and width-height ratio against DL3DV-10K dataset [16].
+This can be proven by comparing the results of \pi^{3{\dagger}} and \pi^{3} [32], where ScanNet++ dataset is contained within the training set of \pi^{3} .
+As one of the baselines, we introduce \pi^{3{\dagger}} referred in the Sec. 4.2, which shares the same training configuration with Reliev3R but fully-supervised with multi-view geometric annotations.
+We also introduce AnyCam [33] and official \pi^{3} [32] as baselines for weakly-supervised feed-forward 3D model and SOTA fully-supervised SSFM, respectively.
+As shown in Tab. 2, both Reliev3R and \pi^{3{\dagger}} overfits on the focal length of DL3DV-10K dataset and drop significantly in reconstruction precision on ScanNet++ dataset.
+Despite of the overfitting issue, Reliev3R holds its advantage in reconstruction precision over AnyCam.
+What’s worth noticing is that, Reliev3R is on par with \pi^{3{\dagger}} in this zero-shot evaluation experiment, even significantly surpassing \pi^{3{\dagger}} in depth estimation.
+This experiment demonstrates Reliev3R to be more robust than fully-supervised FFRMs against zero-shot prediction.
+Figure 4:
+Visualization of point maps for zero-shot evaluation on ScanNet++ dataset [4], which has a different focal length from DL3DV-10K dataest [16].
+Reliev3R holds its advantage over AnyCam [33] even in zero-shot circumstance.
+Furthermore, Reliev3R presents a notable zero-shot performance on par with fully-supervised \pi^{3{\dagger}} training on the same datasets.
+5 Limitation
+Despite of the superiority and promising potential of Reliev3R, this study presents several limitations that highlight directions for future research.
+The major limitation lies in the absence of a large-scale data scaling analysis.
+Although Reliev3R is designed to reduce the reliance on SfM/MVS annotations and thereby increase the feasible training scale, we have not empirically verified its behavior under substantially larger datasets.
+Another limitation concerns dynamic scenes.
+Our current formulation does not explicitly handle multi-view inconsistencies cause by dynamics, which may limit its applicability to unconstrained, in-the-wild video collections—an important setting for truly unlimited data scaling.
+Finally, our approach inherits certain weaknesses from the pseudo-label sources we rely upon.
+These aspects are crucial for ensuring robustness when scaling training to more heterogeneous datasets.
+6 Conclusion
+In this paper, we present Reliev3R, the first weakly-supervised paradigm that enables training feed-forward reconstruction models entirely from scratch without any multi-view geometric annotations.
+By designing a dedicated training objective based on multi-view geometric constraints, Reliev3R succeeds to learn predicting depth maps and camera poses that are registered in 3D world coordinate.
+Extensive comparison with baselines demonstrate that Reliev3R surpasses early fully-supervised FFRMs and is comparable with the SOTAs, holding the potential to fully release FFRMs from multi-view geometric annotations with data scaling up.
+Future improvements of Reliev3R lies in scaling up of training data and adapting to reconstruction from dynamic image groups.
+We hope this study may draw the attention of the community to investigate a supervision paradigm which is easily scalable for further development of FFRMs.
+References
+[1]
+J. T. Barron, B. Mildenhall, D. Verbin, P. P. Srinivasan, and P. Hedman (2022)
+Mip-nerf 360: unbounded anti-aliased neural radiance fields.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 5470–5479.
+Cited by: §2.
+[2]
+A. Bochkovskii, A. Delaunoy, H. Germain, M. Santos, Y. Zhou, S. R. Richter, and V. Koltun (2024)
+Depth pro: sharp monocular metric depth in less than a second.
+arXiv preprint arXiv:2410.02073.
+Cited by: §1,
+§4.1.
+[3]
+Y. Chen, J. Jiang, K. Jiang, X. Tang, Z. Li, X. Liu, and Y. Nie (2025)
+DashGaussian: optimizing 3d gaussian splatting in 200 seconds.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 11146–11155.
+Cited by: §2.
+[4]
+A. Dai, A. X. Chang, M. Savva, M. Halber, T. Funkhouser, and M. Nießner (2017)
+Scannet: richly-annotated 3d reconstructions of indoor scenes.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 5828–5839.
+Cited by: §2,
+Figure 4,
+Figure 4.
+[5]
+G. Fang and B. Wang (2024)
+Mini-splatting: representing scenes with a constrained number of gaussians.
+In European Conference on Computer Vision,
+pp. 165–181.
+Cited by: §2.
+[6]
+M. A. Fischler and R. C. Bolles (1981)
+Random sample consensus: a paradigm for model fitting with applications to image analysis and automated cartography.
+Communications of the ACM 24 (6), pp. 381–395.
+Cited by: Appendix A,
+§1,
+Figure 3,
+Figure 3,
+§2.
+[7]
+S. Ge, Y. Zhang, S. Xie, W. Zhang, M. Zhou, and Z. Wang (2025)
+VGGT-dp: generalizable robot control via vision foundation models.
+arXiv preprint arXiv:2509.18778.
+Cited by: §1,
+§1,
+§2,
+§2.
+[8]
+S. Izquierdo, M. Sayed, M. Firman, G. Garcia-Hernando, D. Turmukhambetov, J. Civera, O. Mac Aodha, G. Brostow, and J. Watson (2025)
+MVSAnywhere: zero-shot multi-view stereo.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 11493–11504.
+Cited by: §1.
+[9]
+H. Jiang, H. Tan, P. Wang, H. Jin, Y. Zhao, S. Bi, K. Zhang, F. Luan, K. Sunkavalli, Q. Huang, et al. (2025)
+RayZer: a self-supervised large view synthesis model.
+arXiv preprint arXiv:2505.00702.
+Cited by: §2.
+[10]
+L. Jiang, Y. Mao, L. Xu, T. Lu, K. Ren, Y. Jin, X. Xu, M. Yu, J. Pang, F. Zhao, et al. (2025)
+AnySplat: feed-forward 3d gaussian splatting from unconstrained views.
+arXiv preprint arXiv:2505.23716.
+Cited by: §2.
+[11]
+N. Karaev, I. Rocco, B. Graham, N. Neverova, A. Vedaldi, and C. Rupprecht (2024)
+Cotracker: it is better to track together.
+In European conference on computer vision,
+pp. 18–35.
+Cited by: §1,
+§4.1.
+[12]
+H. Kato, D. Beker, M. Morariu, T. Ando, T. Matsuoka, W. Kehl, and A. Gaidon (2020)
+Differentiable rendering: a survey.
+arXiv preprint arXiv:2006.12057.
+Cited by: §2.
+[13]
+N. Keetha, N. Müller, J. Schönberger, L. Porzi, Y. Zhang, T. Fischer, A. Knapitsch, D. Zauss, E. Weber, N. Antunes, et al. (2025)
+MapAnything: universal feed-forward metric 3d reconstruction.
+arXiv preprint arXiv:2509.13414.
+Cited by: Appendix A,
+§1,
+§1,
+§2,
+Table 1,
+§4.1.
+[14]
+B. Kerbl, G. Kopanas, T. Leimkühler, and G. Drettakis (2023)
+3D gaussian splatting for real-time radiance field rendering..
+ACM Trans. Graph. 42 (4), pp. 139–1.
+Cited by: §2.
+[15]
+V. Leroy, Y. Cabon, and J. Revaud (2024)
+Grounding image matching in 3d with mast3r.
+In European Conference on Computer Vision,
+pp. 71–91.
+Cited by: §2.
+[16]
+L. Ling, Y. Sheng, Z. Tu, W. Zhao, C. Xin, K. Wan, L. Yu, Q. Guo, Z. Yu, Y. Lu, et al. (2024)
+Dl3dv-10k: a large-scale scene dataset for deep learning-based 3d vision.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 22160–22169.
+Cited by: Appendix A,
+Appendix A,
+Table 4,
+Table 4,
+Figure 3,
+Figure 3,
+§2,
+Table 1,
+Table 1,
+Figure 4,
+Figure 4,
+§4.1,
+§4.2,
+§4.3,
+Table 2,
+Table 2.
+[17]
+D. G. Lowe (2004)
+Distinctive image features from scale-invariant keypoints.
+International journal of computer vision 60 (2), pp. 91–110.
+Cited by: §2.
+[18]
+W. Ma, L. Ye, C. M. de Melo, A. Yuille, and J. Chen (2025)
+Spatialllm: a compound 3d-informed design towards spatially-intelligent large multimodal models.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 17249–17260.
+Cited by: §1.
+[19]
+S. S. Mallick, R. Goel, B. Kerbl, M. Steinberger, F. V. Carrasco, and F. De La Torre (2024)
+Taming 3dgs: high-quality radiance fields with limited resources.
+In SIGGRAPH Asia 2024 Conference Papers,
+pp. 1–11.
+Cited by: §2.
+[20]
+B. Mildenhall, P. P. Srinivasan, M. Tancik, J. T. Barron, R. Ramamoorthi, and R. Ng (2021)
+Nerf: representing scenes as neural radiance fields for view synthesis.
+Communications of the ACM 65 (1), pp. 99–106.
+Cited by: §2.
+[21]
+T. Müller, A. Evans, C. Schied, and A. Keller (2022)
+Instant neural graphics primitives with a multiresolution hash encoding.
+ACM transactions on graphics (TOG) 41 (4), pp. 1–15.
+Cited by: §2.
+[22]
+L. Pan, D. Baráth, M. Pollefeys, and J. L. Schönberger (2024)
+Global structure-from-motion revisited.
+In European Conference on Computer Vision,
+pp. 58–77.
+Cited by: §1.
+[23]
+J. L. Schonberger and J. Frahm (2016)
+Structure-from-motion revisited.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 4104–4113.
+Cited by: §1,
+§2.
+[24]
+Z. Tang, Y. Fan, D. Wang, H. Xu, R. Ranjan, A. Schwing, and Z. Yan (2025)
+Mv-dust3r+: single-stage scene reconstruction from sparse views in 2 seconds.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5283–5293.
+Cited by: Appendix A,
+Appendix A,
+§1,
+§2,
+Table 1,
+Table 1,
+Table 1,
+§4.2.
+[25]
+B. Triggs, P. F. McLauchlan, R. I. Hartley, and A. W. Fitzgibbon (1999)
+Bundle adjustment—a modern synthesis.
+In International workshop on vision algorithms,
+pp. 298–372.
+Cited by: §1,
+§2.
+[26]
+T. Tuytelaars K. Mikolajczyk et al. (2008)
+Local invariant feature detectors: a survey.
+Foundations and trends® in computer graphics and vision 3 (3), pp. 177–280.
+Cited by: §2.
+[27]
+H. Wang and L. Agapito (2024)
+3d reconstruction with spatial memory.
+arXiv preprint arXiv:2408.16061.
+Cited by: §2.
+[28]
+J. Wang, M. Chen, N. Karaev, A. Vedaldi, C. Rupprecht, and D. Novotny (2025)
+Vggt: visual geometry grounded transformer.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5294–5306.
+Cited by: Appendix A,
+§1,
+Table 1.
+[29]
+Q. Wang, Y. Zhang, A. Holynski, A. A. Efros, and A. Kanazawa (2025)
+Continuous 3d perception model with persistent state.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 10510–10522.
+Cited by: Appendix A,
+§2,
+Table 1.
+[30]
+R. Wang, S. Xu, C. Dai, J. Xiang, Y. Deng, X. Tong, and J. Yang (2025)
+Moge: unlocking accurate monocular geometry estimation for open-domain images with optimal training supervision.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5261–5271.
+Cited by: §1.
+[31]
+S. Wang, V. Leroy, Y. Cabon, B. Chidlovskii, and J. Revaud (2024)
+Dust3r: geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20697–20709.
+Cited by: Appendix A,
+Appendix A,
+Appendix A,
+§1,
+§2.
+[32]
+Y. Wang, J. Zhou, H. Zhu, W. Chang, Y. Zhou, Z. Li, J. Chen, J. Pang, C. Shen, and T. He (2025)
+\pi^{3} : Permutation-equivariant visual geometry learning.
+arXiv preprint arXiv:2507.13347.
+Cited by: Appendix A,
+Appendix A,
+Appendix A,
+§1,
+§1,
+Figure 3,
+Figure 3,
+§2,
+Table 1,
+Table 1,
+Table 1,
+§4.1,
+§4.2,
+§4.3,
+Table 2.
+[33]
+F. Wimbauer, W. Chen, D. Muhle, C. Rupprecht, and D. Cremers (2025)
+AnyCam: learning to recover camera poses and intrinsics from casual videos.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 16717–16727.
+Cited by: Appendix A,
+Figure 1,
+Figure 1,
+§1,
+§2,
+Table 1,
+Figure 4,
+Figure 4,
+§4.2,
+§4.3,
+Table 2,
+Table 2,
+Table 2.
+[34]
+J. Yang, A. Sax, K. J. Liang, M. Henaff, H. Tang, A. Cao, J. Chai, F. Meier, and M. Feiszli (2025)
+Fast3r: towards 3d reconstruction of 1000+ images in one forward pass.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 21924–21935.
+Cited by: §2.
+[35]
+L. Yang, B. Kang, Z. Huang, X. Xu, J. Feng, and H. Zhao (2024)
+Depth anything: unleashing the power of large-scale unlabeled data.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 10371–10381.
+Cited by: §3.2.
+[36]
+Y. Yao, Z. Luo, S. Li, T. Fang, and L. Quan (2018)
+Mvsnet: depth inference for unstructured multi-view stereo.
+In Proceedings of the European conference on computer vision (ECCV),
+pp. 767–783.
+Cited by: §2.
+[37]
+Y. Yao, Z. Luo, S. Li, T. Shen, T. Fang, and L. Quan (2019)
+Recurrent mvsnet for high-resolution multi-view stereo depth inference.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 5525–5534.
+Cited by: §2.
+[38]
+B. Ye, S. Liu, H. Xu, X. Li, M. Pollefeys, M. Yang, and S. Peng (2024)
+No pose, no problem: surprisingly simple 3d gaussian splats from sparse unposed images.
+arXiv preprint arXiv:2410.24207.
+Cited by: §2.
+[39]
+C. Yeshwanth, Y. Liu, M. Nießner, and A. Dai (2023)
+Scannet++: a high-fidelity dataset of 3d indoor scenes.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 12–22.
+Cited by: §4.1,
+§4.3,
+Table 2,
+Table 2.
+[40]
+Z. Yu, A. Chen, B. Huang, T. Sattler, and A. Geiger (2024)
+Mip-splatting: alias-free 3d gaussian splatting.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 19447–19456.
+Cited by: §2.
+[41]
+H. Zhang, W. Zhou, Y. Zhu, X. Yan, J. Gao, D. Bai, Y. Cai, B. Liu, S. Cui, and Z. Li (2025)
+Visionpad: a vision-centric pre-training paradigm for autonomous driving.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 17165–17175.
+Cited by: §2.
+[42]
+J. Zhang, C. Herrmann, J. Hur, V. Jampani, T. Darrell, F. Cole, D. Sun, and M. Yang (2024)
+Monst3r: a simple approach for estimating geometry in the presence of motion.
+arXiv preprint arXiv:2410.03825.
+Cited by: §2.
+[43]
+S. Zhang, J. Wang, Y. Xu, N. Xue, C. Rupprecht, X. Zhou, Y. Shen, and G. Wetzstein (2025)
+Flare: feed-forward geometry, appearance and camera estimation from uncalibrated sparse views.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 21936–21947.
+Cited by: Appendix A,
+Figure 1,
+Figure 1,
+§1,
+Figure 3,
+Figure 3,
+§2,
+Table 1,
+Table 1,
+Table 1,
+§4.2.
+[44]
+T. Zhou, R. Tucker, J. Flynn, G. Fyffe, and N. Snavely (2018)
+Stereo magnification: learning view synthesis using multiplane images.
+arXiv preprint arXiv:1805.09817.
+Cited by: §2.
+Supplementary Material
+Appendix A Training Setup for Baselines
+We introduce the training setup of baseline methods in this section for better depicting advantages of Reliev3R.
+CUT3R, VGGT, \pi^{3} , and MapAnything [29, 28, 32, 13]
+.
+These works are representatives as the edge of FFRMs.
+Each of these FFRM is trained on 15-17 diverse datasets with multi-view geometric annotations, which include approximately 200k scenes in total.
+\mathbf{\pi^{3{\dagger}}} [32].
+For a comprehensive comparison between Reliev3R and SOTA FFRMs, we train \pi^{3} [32] from scratch with the same training set as Reliev3R, i.e. the DL3DV-10K [16] dataset.
+The result is denoted as \pi^{3{\dagger}} .
+The parameter size of \pi^{3{\dagger}} is controlled approximate to Reliev3R as 450M.
+The training for \pi^{3{\dagger}} is directed with the same learning rate schedule as Reliev3R, and optimized for 30k steps until a full convergence on the validation set, which is randomly sampled as 2% of the DL3DV-10K dataset.
+Other setups, such as training objectives, follow \pi^{3} [32] by default.
+MVDUSt3R [24].
+MVDUSt3R is one of the pioneering works to expand the input of DUSt3R [31] from two views to multiple views.
+MVDUSt3R is trained by finetuning DUSt3R on the subset of its training data, which is relatively small compared to the training data of SOTA FFRMs.
+As a result, MVDUSt3R is hindered with overfitting issue when performing a zero-shot evaluation on unseen datasets such as DL3DV-benchmark [16], which explains the catastrophic performance of MVDUSt3R in the paper.
+FLARE [43].
+Similar to MVDUst3R [24], FLARE is one of the early works to expand the input of DUSt3R [31] to multiple views.
+Differently, FLARE is capable to directly predict the camera pose along the forward pass of the model.
+We adopt the direct output from FLARE model as its camera pose prediction, instead of following DUSt3R [31] to post process the predicted point maps with a PnP solver [6] to estimate camera poses.
+As shown in the paper (both figures and tables), we find that the directly predicted camera pose of FLARE has an inconsistent scale with the point maps.
+This is because, to handle the unreliability in reprojection when camera pose is learned from scratch, FLARE proposes a learnable reprojector conditioned on the learned camera poses, without further constraint on the scale consistency between the reprojected point maps and camera positions.
+The unreliability of reprojection is addressed by Reliev3R with a trigonometry-based reprojection loss, which is capable to produce meaningful gradient for optimization given any random camera poses.
+AnyCam [33].
+Since there is not a proper baseline to be compared with Reliev3R as a weakly-supervised FFRM, we introduce AnyCam as a less rigorous baseline.
+AnyCam is one of the few works to explore training a feed-forward 3D model without multi-view geometric annotations.
+More concretely, AnyCam focuses on estimating both intrinsics and poses of cameras given a group of input views followed by view-wise metric depth maps and optical flows.
+By back-projecting the input metric depth maps into the world coordinate with predicted camera parameters, a registered point cloud can be produced to be compared with FFRMs.
+For a fair comparison, we condition the camera pose prediction of AnyCam on the ground truth focal length of cameras.
+Table 3:
+We train \pi^{3} from-scratch (random initial weights) in a fully-supervised manner on a down-sampled mixture of synthetic datasets, including ASE dataset, TartanAir dataset, MVS-Synth dataset, Blended-MVS dataset and etc. following VGGT.
+The training runs for 20k iterations with a total batch size of 128.
+The result is denoted as ‘Synth Fully-Sup’. in the table.
+Then we subsequently finetune this checkpoint on DL3DV dataset for 20k steps using the weak supervision proposed by Reliev3R.
+The result is denoted as ‘+Reliev3R’ in the table.
+We report the same metrics as Table 1 in the paper, which are evaluated on DL3DV-benchmark dataset.
+We also evaluate camera pose estimation for RayZer on this benchmark with its recently open-sourced checkpoint.
+| Method
+| Point Map
+| Camera Pose
+| Depth Map
+| rel \downarrow
+| \tau\uparrow
+| ATE \downarrow
+| AUC \uparrow
+| rel \downarrow
+| \tau\uparrow
+| RayZer
+| \times
+| \times
+| 0.786
+| 0.362
+| \times
+| \times
+| Synth Fully-Sup.
+| 0.277
+| 0.475
+| 0.042
+| 17.075
+| 0.208
+| 0.357
+| +Reliev3R
+| 0.137
+| 0.667
+| 0.033
+| 34.240
+| 0.106
+| 0.679
+Appendix B Extending Reliev3R to Semi-Supervision
+It would be a practical approach to utilize Reliev3R to generalize a FFRM, which is fully-supervised on synthetic data, to realistic data, where ground-truth is hard to access.
+As a proof of concept, we perform an experiment in Tab. 3.
+The FFRM trained merely on synthetic data performs bad on DL3DV because of domain gap between realistic data and synthetic data.
+Reliev3R succeeds to improve this FFRM, demonstrating the feasibility of the warm-up&finetune usage of Reliev3R.
+In Tab. 3, both ‘Synth Fully-Sup.’ and ‘+Reliev3R’ are equipped with a FoV head for intrinsic prediction, where the former is supervised with ground-truth intrinsics and the latter is supervised with pseudo FoV predicted by MoGe2.
+To avoid overfitting on FoV, we introduce image cropping as augmentation to FoV.
+The pseudo depth labels used to perform the experiment in Tab. 3 are generated by MoGe2 to keep consistency with pseudo intrinsics.
+Figure 5:
+Visualization of input (multi-view images), output (multi-view depth maps and confidence maps) and pseudo labels (multi-view correspondences, monocular depth maps) of Reliev3R.
+Figure 6:
+Visualization of input (multi-view images), output (multi-view depth maps and confidence maps) and pseudo labels (multi-view correspondences, monocular depth maps) of Reliev3R.
+Figure 7:
+Visualization of input (multi-view images), output (multi-view depth maps and confidence maps) and pseudo labels (multi-view correspondences, monocular depth maps) of Reliev3R.
+Figure 8:
+Visualization of input (multi-view images), output (multi-view depth maps and confidence maps) and pseudo labels (multi-view correspondences, monocular depth maps) of Reliev3R.
+Table 4:
+Ablation study on different confidence weight \alpha on DL3DV-benchmark [16] dataset.
+\alpha=1.0 is adopted in the paper to train Reliev3R.
+Absolute relative error (rel) and inlier ratio at a relative threshold of 10% ( \tau ) are reported to evaluate point maps and depth maps.
+Average aligned trajectory error (ATE) and area under curve at an error threshold of 30° (AUC) are reported to evluate camera pose estimation.
+|
+| Point Map
+| Camera Pose
+| Depth Map
+| rel \downarrow
+| \tau\uparrow
+| ATE \downarrow
+| AUC \uparrow
+| rel \downarrow
+| \tau\uparrow
+| \alpha=0.2
+| 0.143
+| 0.607
+| 0.022
+| 42.116
+| 0.137
+| 0.606
+| \alpha=0.5
+| 0.137
+| 0.626
+| 0.023
+| 46.703
+| 0.129
+| 0.628
+| \alpha=1.0 (Reliev3R)
+| 0.122
+| 0.663
+| 0.018
+| 49.426
+| 0.115
+| 0.657
+| \alpha=2.0
+| 0.127
+| 0.651
+| 0.020
+| 48.566
+| 0.121
+| 0.647
+Appendix C Ablation Study
+In Eq.4 of the paper, we introduce an ambiguity-aware scale-invariant depth loss to regularize the shape of Reliev3R depth prediction while addressing the multi-view inconsistency in pseudo monocular depth labels.
+Intuitively, a large \alpha encourages the training of Reliev3R to ignore multi-view inconsistency, and ends up with the confidence learned as a constant of 2 (the confidence value is restricted within (0,2) ).
+On the other hand, a small \alpha results in degraded camera pose estimation and depth registration for disabling the depth shape regularization.
+To evaluate the sensitivity of Reliev3R to \alpha , we present ablation study on different \alpha , as shown in Tab. 4.
+The results advocate the analysis above, and demonstrate that Reliev3R is robust against a large variation in \alpha .
+Appendix D More Visualization for Reliev3R Prediction
+We show the input, output and pseudo labels of Reliev3R in Fig. 5, Fig. 6, Fig. 7 and Fig. 8.
+It’s observed that Reliev3R surpasses the pseudo monocular depth labels in case of multi-view depth consistency.
+And the learned confidence maps function well as we designed to mask out unreliable regions such as sky, contents in the far and edges of objects.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

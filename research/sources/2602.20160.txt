@@ -1,0 +1,1190 @@
+tttLRM: Test-Time Training for Long Context and Autoregressive 3D Reconstruction
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Work
+3 Method
+3.1 Preliminary: TTT and LaCT Layer
+3.2 Model Architecture
+3.3 Autoregressive Reconstruction
+3.4 Distributed Feedforward Reconstruction
+3.5 Training Objective
+4 Experiments
+4.1 Model and Training
+4.2 Datasets
+4.3 Baselines and Metrics
+4.4 Results
+4.5 Ablation Study
+4.6 Discussions and Limitations
+5 Conclusion
+References
+A Further Discussions
+B Experiment Details
+B.1 Scene-level Training
+B.2 Object-level training
+C More results and Comparison
+License: CC BY 4.0
+arXiv:2602.20160v2 [cs.CV] 02 Mar 2026
+tttLRM: Test-Time Training for Long Context
+and Autoregressive 3D Reconstruction
+Chen Wang
+Hao Tan
+Affiliation: Adobe Research
+Wang Yifan
+Affiliation: Adobe Research
+Zhiqin Chen
+Affiliation: Adobe Research
+Yuheng Liu
+Kalyan Sunkavalli
+Affiliation: Adobe Research
+Sai Bi
+Affiliation: Adobe Research
+Lingjie Liu
+Yiwei Hu
+University of Pennsylvania
+Affiliation: UCI
+https://cwchenwang.github.io/tttLRM
+Abstract
+We propose tttLRM, a novel large 3D reconstruction model that leverages a Test-Time Training (TTT) layer to enable long-context, autoregressive 3D reconstruction with linear computational complexity, further scaling the model’s capability. Our framework efficiently compresses multiple image observations into the fast weights of the TTT layer, forming an implicit 3D representation in the latent space that can be decoded into various explicit formats, such as Gaussian Splats (GS) for downstream applications. The online learning variant of our model supports progressive 3D reconstruction and refinement from streaming observations. We demonstrate that pretraining on novel view synthesis tasks effectively transfers to explicit 3D modeling, resulting in improved reconstruction quality and faster convergence. Extensive experiments show that our method achieves superior performance in feedforward 3D Gaussian reconstruction compared to state-of-the-art approaches on both objects and scenes.
+**footnotetext: Work done as interns at Adobe Research. \dagger Equal advising.$\ddagger$$\ddagger$footnotetext: To clarify, we use autoregressive to denote online, causal version.
+1 Introduction
+Reconstructing explicit 3D representations for photo-realistic rendering from streaming visual input is a central goal of 3D reconstruction. This process is similar to how humans perceive the physical world: we observe a continuous visual stream, build an abstract internal representation of the world, and decode this abstraction into explicit 3D only when needed for fine-grained tasks or to recall detailed 3D structure. In light of this human-like process, we aim to enable long-context, autoregressive reconstruction of explicit 3D from streaming visual input.
+However, existing 3D reconstruction methods are not designed for long-context scenarios with a memory mechanism.
+Traditional approaches to generating 3D representations and synthesizing novel views, including Neural Radiance Fields (NeRF) [35, 64] and 3D Gaussian Splatting (3DGS) [21] have achieved substantial progress for high-quality rendering, but they either require slow scene-specific optimization or rely on feedforward reconstruction models with limited input-view scalability.
+For example, Large Reconstruction Models (LRMs) have been proposed to rapidly reconstruct various 3D representations such as NeRFs [16], meshes [55], and 3DGS [67] from input images. However, these models are typically restricted to only a few input views (e.g., four), which limits their ability to reconstruct large-scale scenes. While Long-LRM [71] extends the number of input views to 32, its use of bidirectional attention layers hinders further scalability and prevents efficient processing of inputs with longer and streamed context, limiting its applicability in real-world scenarios.
+On the other hand, recent research [38, 12, 18, 70] on implicit latent-space 3D representations has demonstrated superior novel view synthesis quality using purely neural networks. However, despite being feedforward models for reconstruction, their rendering speed is significantly slower than that of explicit representations such as 3DGS due to repetitive network inference, and they lack controllability and interpretability, making them less suitable for many downstream applications.
+In this paper, we propose tttLRM, a novel reconstruction model that leverages neural architectures and the knowledge distilled from pretrained implicit latent-space 3D models, decoding them into explicit 3D representations. This design ensures high-quality novel view synthesis with long-context and autoregressive modeling, while maintaining real-time rendering capability via explicit 3D outputs.
+Our model builds upon Test-Time Training (TTT) [46, 70] and introduces an architecture composed of LaCT [70] blocks that has only linear computational complexity. We interpret the fast weights of TTT models, which are updated according to inputs during inference, as implicit latent-space 3D representations that can be decoded into various explicit formats such as 3DGS or NeRFs. We demonstrate that, with minimal architectural modification, our framework effectively leverages the pretrained knowledge of large novel view synthesis models [18, 70] for explicit 3D reconstruction. Specifically, our model is trained to query the fast weights for different 3D representations, such as a set of virtual view planes for 3DGS, or a triplane feature grid for NeRF-based reconstruction. This design unlocks greater flexibility in the final 3D representation. Also, by redesigning the fast-weight update and query mechanism, tttLRM enables autoregressive 3D reconstruction and refinement with streaming inputs. We further introduce sequence parallelism to enhance scalability.
+We validate our model on both object- and scene-level datasets. Across both datasets, our model achieves superior reconstruction quality compared to baseline methods, while also being highly efficient.
+We also show that our model supports autoregressive reconstruction, enabling practical real-world applications.
+The contributions of our paper can be summarized as following:
+•
+We propose tttLRM, the first large reconstruction model that leverages TTT for both feedforward long-context and autoregressive 3D modeling with linear complexity.
+•
+We design a scalable, unified 3D modeling framework that interprets TTT fast weights into observable and controllable explicit 3D representations.
+•
+We achieve state-of-the-art results on both object- and scene-level datasets, delivering superior quality and efficiency in 3D reconstruction and novel view synthesis.
+2 Related Work
+Multi-view 3D Reconstruction
+3D reconstruction from images has been extensively studied in computer vision. Traditional methods such as structure-from-motion [40] or multi-view stereo (MVS) [14] focus on recovering 3D geometry. Deep learning has enabled feed-forward 3D reconstruction [60, 61], which builds cost volumes using plane sweep for per-view depth estimation. Recently, learning-based MVS approaches [54, 58, 26, 52, 7, 24] directly estimate point clouds from input images and have been applied to camera pose estimation. Test3R [66] optimizes the network at test time in a self-supervised manner to improve 3D reconstruction. Concurrent work TTT3R [7] defines a gradient to update states for point cloud reconstruction. However, none of these methods can produce photo-realistic novel view synthesis.
+Neural representations then have emerged as a promising way for both geometry reconstruction and NVS. NeRF [35] represents the scene as a continuous field and leverages a coordinate-based MLP to predict per-point color and density, enabling differential volumetric rendering with rendering-based supervision. Original NeRF takes hours to optimize a single scene and following works improved its training and rendering efficiency using advanced representations, including voxels [28, 45], points [57], hash grids [36], and triplanes [13, 3, 5]. Recently, 3D Gaussian Splatting [21, 17] has become the state-of-the-art neural scene representation. It uses volume rendering and rendering loss for optimization similar to NeRF but represents the scene with simple Gaussian primitives which enables real-time rendering and large-scale scene reconstruction [29, 22].
+However, 3DGS still requires optimizing 3D Gaussians from scratch, taking several minutes per scene, whereas our model performs 3D reconstruction within seconds in a feed-forward way.
+Learning-based Feedforward 3D Reconstruction
+The development on learning-based methods enables 3D reconstruction and novel view synthesis by training neural networks on large-scale datasets to directly infer 3D structures without per-scene optimization. Early work utilizes Convolutional Neural Networks (CNN) to predict multi-plane images [11, 34], points [1, 63] or voxels [44].
+Large Reconstruction Models (LRM) [16] propose a transformer-based architecture without 3D inductive bias for 3D object reconstruction from multi-view images, with triplane as the 3D representation.
+GS-LRM [67] further extends LRM to predict pixel-aligned 3DGS, but the model can only take very few images as input due to the quadratic complexity of attention layers.
+Similarly, the subsequence approach [48, 4, 56, 8] also apply a feedforward framework with different neural architectures and 3D inductive bias for Gaussian prediction.
+Mamba-based models [62, 41] has attempted to reduce the complexity of attention layers, but are still limited to very few input views.
+Long-LRM [71] represents the state of the art in long-sequence Gaussian reconstruction, but it remains limited to 32 input views and relies on additional attention layers. By leveraging TTT, our model achieves longer-context and autoregressive reconstruction with improved NVS quality.
+Linear Attention and State Space Models
+To circumvent the quadratic complexity of attention [49], recent research has explored efficient alternatives that retain contextual expressivity while reducing computational cost. Linear attention models [20, 42, 39] approximate the softmax kernel with linearized feature maps to achieve linear complexity, but uniform compression of past key–value pairs often degrades the upper bound of long sequence modeling.
+State Space Models (SSMs) introduce a state variable to represent historical information, similar to classical Recurrent Neural Networks (RNNs). Recent works [47, 15, 9, 30] incorporate attenuation factors into the state updates, allowing the model to retain more recent information while gradually forgetting the distant past.
+Among them, Mamba [15, 9, 30] proposes “date-dependent decay” to model sequences as continuous-time dynamical systems governed by state transition, but it still cannot compete with transformers in long-context reasoning [51]. Jamba [25] implements a hybrid mamba attention model to improve the performance.
+Test Time Training (TTT), on the other hand, [46, 70, 2] transforms the problem into an online learning problem and applies modern optimizers to learn the states. DeltaNet [39, 59] and MesaNet [50] share the same idea but use different update rules when updating.
+Inspired by its success, we introduce Test-Time Training into 3D reconstruction tasks for high-quality long-context novel view synthesis, but with only linear complexity.
+Figure 2: Given a set of posed input images, tttLRM encodes them into tokens (green boxes) after patchifying. The input tokens are fed into the LaCT block (shown in the blue frame) where fast weights are updated accordingly. Another set of virtual tokens (blue boxes) are used to query the updated fast weights, and decoded into 3D representations like 3DGS for high-quality novel view synthesis.
+3 Method
+3.1 Preliminary: TTT and LaCT Layer
+We first briefly introduce the fundamentals of TTT and Large Chunk Test-Time Training (LaCT) layer, which form the core building blocks of our model. In sequence modeling, the input is typically represented as a sequence of tokens of length L , denoted by [\mathbf{x}_{1},\mathbf{x}_{2},...,\mathbf{x}_{L}] , where each token has dimension d : \mathbf{x}_{i}\in\mathbb{R}^{d} . In standard attention, each input token will be projected into query, key and value vectors, denoted as q_{i} , k_{i} , v_{i} . Each token attends to all others via a dot-product operation, leading to quadratic complexity in sequence length.
+TTT [46] learns a set of fast weights W that are updated at inference time according to the input to capture the relationship between input tokens. Specifically, it treats the key-value pairs ( k_{i} , v_{i} ) of input tokens as training data to update fast weights using mean-square error: W\leftarrow W-\eta\nabla\mathcal{L_{\text{MSE}}}(f_{W}(k),v) , which can be further applied to queries to obtain the final input o=f_{W}(q) . In this way, the fast weights effectively encode the key–value (KV) cache of the input sequence into a fixed-size neural memory.
+Originally, the TTT model [46] updates the fast weights using only a small minibatch (e.g. 16 tokens), which results in very low GPU FLOP utilization and difficulty in handling long sequences.
+Large Chunk Test-Time Training (LaCT) [70] instead updates fast weights with large chunk size (up to 1M tokens). Its chunk-wise update computes the gradient of the summed loss over all keys and values within the chunk.
+More details can be found in [70].
+3.2 Model Architecture
+We illustrate our model architecture in Figure 2, using 3DGS reconstruction as an example, though the same framework can be applied to other 3D representations as well. Given a set of posed images, denoted as \{\mathbf{I}_{i}\in\mathbb{R}^{H\times W\times 3}|i=1,2,..,N\} , we concatenate them channel-wise with their ray embeddings \{\mathbf{R}_{i}\in\mathbb{R}^{H\times W\times 9}|i=1,2,..,N\} as the positional embedding. After dividing each image into non-overlapping patches of size p\times p , we tokenize these image patches using a lightweight linear layer into a sequence of tokens \mathbf{T} :
+|
+| \{\mathbf{T}_{i,j}\}_{i=1}^{N}{}_{j=1}^{HW/p^{2}}=\text{Tokenize}\big(\text{Patchify}([\{\mathbf{I}_{i}\}_{i=1}^{N},\{\mathbf{R}\}_{i=1}^{N}])\big),
+|
+These visual tokens then iteratively update the fast weights W of a set of LaCT blocks using Muon [19] optimizer:
+|
+| \displaystyle\mathbf{T}_{i}
+| \displaystyle=\mathbf{T}_{i}+\text{WinAttn}(\mathbf{T}_{i}),
+|
+| (1)
+|
+| \displaystyle W
+| \displaystyle=\text{Update}(\{\mathbf{T}_{i}\}_{i=1}^{N}),
+|
+| (2)
+|
+| \displaystyle\mathbf{T}_{i}
+| \displaystyle=\text{Apply}(W,\mathbf{T}_{i})
+|
+| (3)
+Each LaCT layer includes a window attention module that captures local relationships within each view. We omit the feedforward layers in the block in the equation for simplicity. The update and apply operations are in linear complexity with respect to the sequence length.
+To retrieve information from the fast weights, we introduce a set of virtual tokens that serve as queries to our model. In 3DGS reconstruction, these virtual tokens are virtual views \{\mathbf{I}_{i}^{\text{v}}\in\mathbb{R}^{H\times W\times 3}|i=1,2,..,M\} for GS prediction, which will also be patchified and tokenized to \{\mathbf{T}_{i,j}^{\text{v}}\}_{i=1}^{N}{}_{j=1}^{HW/p^{2}} . In other 3D representations, such as triplane NeRFs, these virtual tokens are learnable triplane features. The virtual tokens are only used in the apply operation without updating the fast weights:
+|
+| \displaystyle\mathbf{T}_{i}^{\text{v}}
+| \displaystyle=\text{Apply}(W,\mathbf{T}_{i}^{\text{v}})
+|
+| (4)
+Given the updated query tokens \mathbf{T}_{i}^{\text{v}} , a linear token decoder transforms them into explicit 3D representations, such as per-patch Gaussian parameters in 3DGS reconstruction. The RGB color, scale, rotation, and opacity of each Gaussian are predicted directly. For Gaussian positions, we first decode the depth of each pixel and use a range function (object-centric for object data and linear for scene data) to convert it to real depth. After that, we convert depth to a Gaussian position with known ray locations and directions.
+3.3 Autoregressive Reconstruction
+Algorithm 1 Autoregressive 3DGS Reconstruction
+0:
+Reconstructor \mathcal{F} with initial fast weights W_{0} ; input/query view batches
+\{(\mathcal{I}_{(b)},\mathcal{I}^{v}_{(b)})\}_{b=1}^{B}
+0:
+Reconstructed GS G
+1:
+W\leftarrow W_{0}
+2:
+for b=1 to B do
+3:
+\_,W\leftarrow\mathcal{F}(W,\mathcal{I}_{(b)})
+4:
+G_{(b)},\_\leftarrow\mathcal{F}(W,\mathcal{I}^{v}_{(b)})
+5:
+end for
+6:
+return G_{(B)}
+An important feature of our architecture is its support for autoregressive modeling with streamed input images. To enable this, we modify the update and apply steps to incorporate causal dependencies among tokens.
+Unlike the standard setting where all input views are jointly processed to update the fast weights before decoding, the streaming variant performs incremental updates in a causal manner.
+As illustrated in Algorithm 1, providing our model \mathcal{F} , for each incoming mini-batch of views \mathcal{I}_{(b)} (e.g., four images at a time), the model updates the fast weights and immediately predicts the corresponding 3D Gaussian parameters for the new query views \mathcal{I}^{v}_{(b)} , returning the current reconstructed Gaussian splat results G_{(b)} .
+This design effectively transforms the model into an RNN-like inference process, where the internal state (fast weights) evolves as new observations arrive, enabling online 3D Gaussian reconstruction.
+The fast weight update can also consider historical gradients and fast weights to mitigate drifting (See Supplemental).
+3.4 Distributed Feedforward Reconstruction
+A large number of input views and high-resolution images introduce a substantial number of tokens, leading to a significant increase in both computation and memory cost. A key limitation of prior works lies in their inability to handle long input sequences efficiently, largely due to the lack of parallelism at the sequence level and most methods process all input views within a single device.
+To address this limitation, we introduce sequence parallelism for training feedforward reconstruction models, exemplified by 3DGS reconstruction as shown in Figure 3. Specifically, we partition the tokenized input views along the sequence dimension and assign each shard to a separate device. During training:
+•
+Since Gaussians can be predicted independently for each virtual view once the fast weights are synchronized, each GPU predicts pixel-aligned Gaussian primitives for its assigned views (first row).
+•
+The predicted Gaussians from all devices are gathered to form the complete scene representation (second row).
+•
+Each GPU subsequently renders its own set of novel views and computes photometric reconstruction losses against the ground truth, and gradients are all reduced to enable sequence-level backpropagation (third row).
+Thanks to the linearity of our LaCT fast-weight updates, gradients of the fast weights across devices can be easily synchronized through PyTorch Distributed Data Parallel (DDP), ensuring consistent global optimization.
+Figure 3: Illustration of distributed feedforward reconstruction training. First, image tokens are sharded across GPUs, and each GPU predicts Gaussians for its assigned virtual views after the fast weights are synchronized. The predicted Gaussians are then gathered to construct the full scene, after which each GPU renders a subset of novel views and computes its respective losses. Gradients are finally all reduced and backpropagated across all devices.
+During inference, the distributed reconstruction also allows us to accelerate the reconstruction with more GPUs.
+3.5 Training Objective
+Our training does not require explicit 3D supervision. We render the reconstructed GS on the target views for supervised training, and minimize the rendering loss that is a combination of Mean Squared Error (MSE) and perceptual loss based on VGG-19 features [43]:
+|
+| \mathcal{L}_{\text{RGB}}=\text{MSE}(\mathbf{I}_{\text{pred}},\mathbf{I}_{\text{gt}})+\lambda\>\text{Perceptual}(\mathbf{I}_{\text{pred}},\mathbf{I}_{\text{gt}})
+|
+| (5)
+For non-autoregressive training, we randomly sample unordered input–target image pairs from the dataset. For the autoregressive model, we instead sample ordered input sequences to better simulate streaming use case.
+Apart from rendering loss, for scene-level data, we use depth regularization with the scale-invariant depth loss [71] by aligning the Gaussian position along the depth direction (z axis) with ground truth depth for that Gaussian.
+We opt for using the monocular depth estimator [53] for pseudo ground truth since we found that feedforward MVS methods like VGGT [52] provide less detailed depth prediction, albeit being multi-view consistent.
+Similar to Long-LRM [71], we also use opacity regularization to reduce the number of Gaussians. Our final loss function can be written as follows:
+|
+| \mathcal{L}=\mathcal{L}_{\text{RGB}}+\lambda_{\text{depth}}\mathcal{L}_{\text{depth}}+\lambda_{\text{opacity}}\mathcal{L}_{\text{opacity}}
+|
+| (6)
+Figure 4: Qualitative comparison between our method and baseline approaches. Our model reconstructs the 3DGS scene with higher fidelity than both optimization-based and feedforward baselines, as also reflected in the PSNR metrics. Please zoom in for a better comparison.
+Figure 5: We demonstrate that our high-resolution 1024\times 1024 3DGS tttLRM can be effectively used for image-to-3D generation when combined with a multi-view generator. Our model enables the reconstruction of fine-grained, photorealistic details e.g., hair, fur, and text, from the input images. Video results are provided in the supplemental material.
+Figure 6: We show that tttLRM, as a general framework, can also interpret the latent 3D memory into formats besides 3DGS. In this experiment, we use a set of triplane tokens to query the fast weights and then fine-tune the model for triplane-based NeRF reconstruction. We visualize the resulting triplanes and present the corresponding renderings and depth maps for 4 views at a resolution of 512\times 512 .
+4 Experiments
+4.1 Model and Training
+Model Details
+Our model consists of 24 LaCT blocks with the hidden dimension of 768 . The window attention layers have 64-dimension for each head with QK-normalization for stability.
+For the feedforward layer, we use a two-layer MLP with 4 intermediate expansion ratios for the intermediate dimension.
+We use a patch size of 8\times 8 for the image tokenizer. Our architecture shares the same parameterization as TTT-LVSM [70] except for the decoding module, allowing us to effectively leverage its pretrained weights as a strong initialization for our model.
+4.2 Datasets
+Object-level Dataset
+We train our object-level reconstruction model on the Objaverse dataset [10]. Following prior works [16, 67], each 3D object is centered and normalized to fit within a bounding box of [-1,1] . We render 32 views per object, where cameras are randomly distributed around the object at distances uniformly sampled from [1.5,2.8] . All images are rendered at a resolution of 512\times 512 under uniform lighting conditions. In total, we use 730K objects for training. We evaluate our model on 100 objects sampled from the Google Scanned Objects (GSO) dataset.
+For evaluation, we select a few views as input and the same random 8 views for testing.
+Scene-level Dataset
+We train our model on the challenging DL3DV-10K [27] dataset, which consists of 10,510 high-resolution videos, each containing up to 500 keyframes with camera pose annotation obtained from COLMAP [37]. The testing set of DL3DV-140 contains 140 test scenes. We use the same input and target split from that provided by Long-LRM [71]: the testing views are evenly selected from every 8 views (around 40 images each scene) and input views are selected based on K-means clustering based on camera positions and view directions. We also tested our model on Tanks&Temples [23] dataset.
+4.3 Baselines and Metrics
+Object-level
+We compare our method with GS-LRM [67], an attention-based method. We train the model under 8 input views setting with the same iterations of our method.
+Scene-level
+Previous feedforward reconstruction methods like GS-LRM [67] cannot be directly extended to long sequence due to the high complexity of attention. Long-LRM [71] is the only available feedforward method that can handle more than 16 input views. We also include three optimization-based methods: 3DGS [21], Mip-Splatting [65] and Scaffold-GS [31].
+Metrics
+For all baselines, in addition to visual comparisons, we report three metrics to evaluate novel view synthesis quality: PSNR, SSIM, and LPIPS [69].
+4.4 Results
+Object-level
+We present quantitative comparison results under varying resolutions and numbers of input views in Table 1.
+Across all settings, our method consistently outperforms the baselines. At lower resolutions and shorter sequences, our inference speed is comparable to full attention models, as it is primarily determined by MLP operations.
+Thanks to the linear complexity of our architecture with respect to sequence length, at a resolution of 512\times 512 , our model runs twice as fast as attention-based models while achieving over a 1 dB PSNR improvement.
+Our model also demonstrates strong generalization ability—when trained with 8 input views, it can be directly applied to 16 or 24 views (last two rows in the table). With longer sequences, inference becomes substantially faster, and rendering quality further improves through test-time training.
+Moreover, our model scales seamlessly to 1024\times 1024 resolution, whereas GS-LRM encounters out-of-memory issues under high-resolution training. Results in Figure 5 show that our model can achieve high-quality 3D reconstruction of humans, animals, and texts from a single image when combined with a multi-view diffusion model.
+Table 1: Comparison between our method and GS-LRM [67] on the GSO dataset under different resolutions and numbers of input views.
+Our method consistently outperforms GS-LRM in both inference speed and reconstruction quality, and also shows strong generalization ability. V. denotes the number of virtual views used to query the fast weight, which equals input views unless noted.
+| Method
+| Resolution
+| Views
+| Time (s) \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| GS-LRM [67]
+| 256 \times 256
+| 8
+| 0.1
+| 31.55
+| 0.964
+| 0.028
+| Ours
+| 8
+| 0.1
+| 33.14
+| 0.972
+| 0.024
+| GS-LRM [67]
+| 512 \times 512
+| 8
+| 0.7
+| 32.83
+| 0.969
+| 0.029
+| Ours
+| 8
+| 0.3
+| 34.02
+| 0.974
+| 0.025
+| GS-LRM [67]
+| 16
+| 2.5
+| 33.55
+| 0.976
+| 0.023
+| Ours
+| 16 (10 V.)
+| 0.8
+| 34.67
+| 0.978
+| 0.022
+| GS-LRM [67]
+| 24
+| 5.5
+| 33.26
+| 0.976
+| 0.022
+| Ours
+| 24 (10 V.)
+| 1.1
+| 34.80
+| 0.979
+| 0.022
+Table 2: Quantitative comparison on both DL3DV-140 and Tanks&Temples datasets under different numbers of input views. Our method surpasses previous feedforward methods and is comparable with optimization-based methods. Note that Long-LRM trains a separate model for each input view, while we are a single model across all input views. Our model can be linearly accelerated with multiple GPUs, here we report time on 1 A100.
+| Views
+| Method
+| Time \downarrow
+| DL3DV-140
+| Tanks&Temples
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| 16
+| 3D GS30k
+| 13m
+| 21.20
+| 0.708
+| 0.264
+| 16.76
+| 0.598
+| 0.334
+| Mip-Splatting30k
+| 13m
+| 20.88
+| 0.712
+| 0.274
+| 16.82
+| 0.616
+| 0.332
+| Scaffold-GS30k
+| 16m
+| 22.13
+| 0.738
+| 0.250
+| 17.02
+| 0.634
+| 0.321
+| Long-LRM (16v model)
+| 0.4s
+| 22.66
+| 0.740
+| 0.292
+| 17.51
+| 0.555
+| 0.408
+| Ours (single model)
+| 3.6s
+| 23.60
+| 0.784
+| 0.255
+| 18.15
+| 0.613
+| 0.360
+| 32
+| 3D GS30k
+| 13m
+| 23.60
+| 0.779
+| 0.213
+| 18.10
+| 0.688
+| 0.269
+| Mip-Splatting30k
+| 13m
+| 23.32
+| 0.784
+| 0.217
+| 18.39
+| 0.700
+| 0.262
+| Scaffold-GS30k
+| 16m
+| 24.77
+| 0.805
+| 0.205
+| 18.41
+| 0.691
+| 0.290
+| Long-LRM (32v model)
+| 1s
+| 24.10
+| 0.783
+| 0.254
+| 18.38
+| 0.601
+| 0.363
+| Long-LRM (32v model w/ optim)
+| 12s
+| 24.99
+| 0.809
+| 0.243
+| 18.69
+| 0.623
+| 0.360
+| Ours (single model, AR)
+| 7.5s
+| 24.31
+| 0.803
+| 0.237
+| 18.96
+| 0.653
+| 0.322
+|
+| Ours (single model)
+| 7.2s
+| 25.07
+| 0.822
+| 0.215
+| 19.22
+| 0.662
+| 0.305
+| 64
+| 3D GS30k
+| 13m
+| 26.55
+| 0.852
+| 0.164
+| 20.78
+| 0.778
+| 0.205
+| Mip-Splatting30k
+| 13m
+| 26.29
+| 0.850
+| 0.166
+| 20.08
+| 0.759
+| 0.220
+| Scaffold-GS30k
+| 16m
+| 27.07
+| 0.857
+| 0.173
+| 20.96
+| 0.768
+| 0.240
+| Long-LRM (64v model)
+| 3.7s
+| 24.63
+| 0.799
+| 0.243
+| 19.11
+| 0.627
+| 0.346
+| Ours (single model, AR)
+| 15.2s
+| 24.81
+| 0.814
+| 0.225
+| 19.80
+| 0.675
+| 0.308
+|
+| Ours (single model)
+| 14.8s
+| 25.95
+| 0.844
+| 0.195
+| 20.31
+| 0.700
+| 0.274
+Scene-level
+We further evaluate our model on scene reconstruction, as shown in Table 2. Compared with optimization-based methods that tend to overfit to input views, our method achieves better results on 16 and 32 input views. With more input views, it remains competitive in reconstruction quality, while being hundreds times faster. Moreover, one single tttLRM model can be applied to different sequence lengths and effectively generalizes to new datasets like Tanks & Temples.
+Compared to the feedforward baseline Long-LRM [71], tttLRM achieves substantially better performance—approximately 1 dB PSNR improvement—across different numbers of input views. On the other hand, we show our model constantly outperforms Long-LRM even when it’s combined with additional post-optimization. Furthermore, our method can be linearly accelerated by distributing the input across multiple GPUs, as described in Section 3.4.
+Figure 4 shows visual comparisons between our method and baselines. tttLRM achieves better visual quality with fewer artifacts than optimization-based methods, thanks to the learned priors across diverse scenes. Our model also outperforms Long-LRM by reconstructing sharper and more detailed geometry (as shown in the red boxes).
+Autoregressive Reconstruction
+We demonstrate the autoregressive reconstruction capability of our model in the second row of . With only 4 input views, the model already produces reasonable 3D Gaussian reconstructions; as additional views arrive (8 and 32 views), both the rendering quality and scene coverage progressively improve. Additional examples of autoregressive reconstruction are provided on our project page.
+Table 2 also shows the quantitatively results of our autoregressive model, which constantly outperforms Long-LRM and remains competitive with, or superior to, optimization-based baselines.
+Decoding into Other 3D Formats
+Beyond using 3DGS as the output representation, our architecture can also decode the latent 3D representation into other formats, such as triplane-based NeRFs. As described in Section 3.2, replacing the virtual tokens with triplane tokens enables the fast weights to be queried as a triplane representation for NeRF reconstruction. We finetune the model with a rendering loss to enable this capability. We show the NeRF renderings and the corresponding queried triplanes in Figure 6. This demonstrates that our architecture is flexible and can generalize to different 3D output formats.
+4.5 Ablation Study
+We conduct ablation studies to analyze our design choices in LVSM pretraining and the autoregressive reconstruction strategy.
+Pretraining from TTT-LVSM
+We investigate the effectiveness of leveraging pretrained knowledge for both Gaussian Splatting and triplane training at a resolution of 256\times 256 . The GS reconstruction has 8 input views with patch size 8\times 8 , while the triplane version has 4 input views with patch size 16\times 16 .
+As shown in Figure 7, Using GS model as an example, initialization with pretrained checkpoints substantially accelerates convergence, especially in the early training stage, where models quickly reach a high PSNR compared to the one trained from scratch.
+Moreover, as reported in Table 3, pretrained initialization not only improves convergence speed but also leads to higher final quality after full training. The gains persist even when trying to adapt the pretrained weights to different 3D representations. The results suggest that pretrained knowledge of novel view synthesis serves as an effective inductive bias for 3D reconstruction, improving both training efficiency and final rendering fidelity.
+Table 3: Leveraging pretrained knowledge from novel view synthesis tasks improves the final 3D reconstruction quality across different 3D representations.
+| 3D Rep.
+| Type
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| GS
+| w/o Pretrain
+| 32.77
+| 0.026
+| 0.969
+| w Pretrain
+| 33.14
+| 0.024
+| 0.972
+| Triplane
+| w/o Pretrain
+| 26.40
+| 0.903
+| 0.093
+| w Pretrain
+| 27.87
+| 0.925
+| 0.075
+Figure 7: Our 3DGS reconstruction model leverages pretraining with LVSM on novel view synthesis tasks, which significantly accelerates learning and leads to better performance, compared to training from scratch.
+Autoregressive strategy
+In Section 3.3, we introduce our autoregressive reconstruction strategy. Here we consider a more straightforward way called “Predict & Merge”: instead of generating a new 3DGS G_{(b)}\leftarrow\mathcal{F}(W,\mathcal{I}^{v}{(b)}) for each step, we reuse the previously predicted Gaussians G_{(b-1)} and merge them with the newly predicted subset G_{(b^{\prime})}\leftarrow\mathcal{F}(W,\mathcal{I}^{v}_{(b^{\prime})}) , forming G_{(b)}=G_{(b-1)}\cup G_{(b^{\prime})} .
+Here, \mathcal{I}^{v}_{(b^{\prime})} is a subset of \mathcal{I}^{v}_{(b)} containing only new virtual views not covered in \mathcal{I}^{v}_{(b-1)} .
+However, we found that though this approach is computationally more efficient, it cannot correct the accumulated errors in G_{(b-1)} , leading to worse results than our proposed full reconstruction method, as shown in Table 4.
+Table 4: Although progressive GS prediction with merging provides more efficient computation, the reconstruction quality is degraded due to accumulated errors (compared on 32 views under 1K iterations finetuning).
+|
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Predict & Merge
+| 21.50
+| 0.891
+| 0.318
+| Ours
+| 23.63
+| 0.904
+| 0.259
+Optimizer and Losses
+We use Muon optimizer for its stabilty and robustness. Table 5 shows that use Muon as opitmizer can bring better results even on low resolution setting. It will bring better results on longer sequence (e.g. high resolution and more input views). Also, using depth and opacity as regularization can help reduce opaque Gaussians.
+Table 5: Ablation on 32 view 256\times 144 input with the same iterations across settings.
+| Muon
+| Opacity+Depth
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Opacity >0.001
+| ✗
+| ✗
+| 20.44
+| 0.649
+| 0.295
+| 96%
+| ✓
+| ✗
+| 20.68
+| 0.661
+| 0.290
+| 97%
+| ✓
+| ✓
+| 20.76
+| 0.666
+| 0.285
+| 47%
+4.6 Discussions and Limitations
+Our fast-weight memory has a fixed size, which may limit its ability to handle highly complex scenarios with extremely large numbers of input views. More discussions can be found in the supplemental. Also, we observe that, compared with the pretrained LVSM model from which we fine-tune, our quality slightly degraded but we have much faster rendering speed and explicit 3D representations for flexible downstream tasks. This might reflect the inherent trade-off between implicit and explicit representations. Future works might design a better memory mechanism, further improve the quality, and speed up the inference to enable real-time high-quality reconstruction for streaming inputs.
+5 Conclusion
+In this paper, we present tttLRM, a large reconstruction model that supports both feedforward long-context and autoregressive 3D modeling. Under the Test-Time Training framework, it produces implicit fast-weight representations and converts them into explicit 3D representations such as Gaussian splats and triplanes for efficient, high-quality novel view synthesis. Experiments on object- and scene-level datasets show that tttLRM outperforms prior feedforward methods in quality and scalability while approaching the speed of explicit representations. Our framework helps close the gap between neural network rendering and real-time explicit 3D systems.
+Acknowledgment
+The authors would like to thank Ziwen Chen for the evaluation of the baselines and Tianyuan Zhang for helpful discussions on LaCT.
+References
+[1]
+K. Aliev, A. Sevastopolsky, M. Kolos, D. Ulyanov, and V. Lempitsky (2020)
+Neural point-based graphics.
+In European conference on computer vision,
+pp. 696–712.
+Cited by: §2.
+[2]
+A. Behrouz, P. Zhong, and V. Mirrokni (2024)
+Titans: learning to memorize at test time.
+arXiv preprint arXiv:2501.00663.
+Cited by: §2.
+[3]
+E. R. Chan, C. Z. Lin, M. A. Chan, K. Nagano, B. Pan, S. De Mello, O. Gallo, L. J. Guibas, J. Tremblay, S. Khamis, et al. (2022)
+Efficient geometry-aware 3d generative adversarial networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 16123–16133.
+Cited by: §2.
+[4]
+D. Charatan, S. L. Li, A. Tagliasacchi, and V. Sitzmann (2024)
+Pixelsplat: 3d gaussian splats from image pairs for scalable generalizable 3d reconstruction.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 19457–19467.
+Cited by: §2.
+[5]
+A. Chen, Z. Xu, A. Geiger, J. Yu, and H. Su (2022)
+Tensorf: tensorial radiance fields.
+In European conference on computer vision,
+pp. 333–350.
+Cited by: §2.
+[6]
+T. Chen, B. Xu, C. Zhang, and C. Guestrin (2016)
+Training deep nets with sublinear memory cost.
+arXiv preprint arXiv:1604.06174.
+Cited by: §B.1.
+[7]
+X. Chen, Y. Chen, Y. Xiu, A. Geiger, and A. Chen (2025)
+Ttt3r: 3d reconstruction as test-time training.
+arXiv preprint arXiv:2509.26645.
+Cited by: §2.
+[8]
+Y. Chen, H. Xu, C. Zheng, B. Zhuang, M. Pollefeys, A. Geiger, T. Cham, and J. Cai (2024)
+Mvsplat: efficient 3d gaussian splatting from sparse multi-view images.
+In European Conference on Computer Vision,
+pp. 370–386.
+Cited by: §2.
+[9]
+T. Dao and A. Gu (2024)
+Transformers are ssms: generalized models and efficient algorithms through structured state space duality.
+arXiv preprint arXiv:2405.21060.
+Cited by: §2.
+[10]
+M. Deitke, D. Schwenk, J. Salvador, L. Weihs, O. Michel, E. VanderBilt, L. Schmidt, K. Ehsani, A. Kembhavi, and A. Farhadi (2023)
+Objaverse: a universe of annotated 3d objects.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 13142–13153.
+Cited by: §4.2.
+[11]
+J. Flynn, M. Broxton, P. Debevec, M. DuVall, G. Fyffe, R. Overbeck, N. Snavely, and R. Tucker (2019)
+Deepview: view synthesis with learned gradient descent.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 2367–2376.
+Cited by: §2.
+[12]
+J. Flynn, M. Broxton, L. Murmann, L. Chai, M. DuVall, C. Godard, K. Heal, S. Kaza, S. Lombardi, X. Luo, et al. (2024)
+Quark: real-time, high-resolution, and general neural view synthesis.
+ACM Transactions on Graphics (TOG) 43 (6), pp. 1–20.
+Cited by: §1.
+[13]
+Q. Gao, Q. Xu, H. Su, U. Neumann, and Z. Xu (2023)
+Strivec: sparse tri-vector radiance fields.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 17569–17579.
+Cited by: §2.
+[14]
+M. Goesele, B. Curless, and S. M. Seitz (2006)
+Multi-view stereo revisited.
+In 2006 IEEE Computer Society Conference on Computer Vision and Pattern Recognition (CVPR’06),
+Vol. 2, pp. 2402–2409.
+Cited by: §2.
+[15]
+A. Gu, K. Goel, and C. Ré (2021)
+Efficiently modeling long sequences with structured state spaces.
+arXiv preprint arXiv:2111.00396.
+Cited by: §2.
+[16]
+Y. Hong, K. Zhang, J. Gu, S. Bi, Y. Zhou, D. Liu, F. Liu, K. Sunkavalli, T. Bui, and H. Tan (2023)
+Lrm: large reconstruction model for single image to 3d.
+arXiv preprint arXiv:2311.04400.
+Cited by: §1,
+§2,
+§4.2.
+[17]
+B. Huang, Z. Yu, A. Chen, A. Geiger, and S. Gao (2024)
+2d gaussian splatting for geometrically accurate radiance fields.
+In ACM SIGGRAPH 2024 conference papers,
+pp. 1–11.
+Cited by: §2.
+[18]
+H. Jin, H. Jiang, H. Tan, K. Zhang, S. Bi, T. Zhang, F. Luan, N. Snavely, and Z. Xu (2024)
+Lvsm: a large view synthesis model with minimal 3d inductive bias.
+arXiv preprint arXiv:2410.17242.
+Cited by: §1,
+§1.
+[19]
+K. Jordan, Y. Jin, V. Boza, Y. Jiacheng, F. Cecista, L. Newhouse, and J. Bernstein
+Muon: an optimizer for hidden layers in neural networks, 2024.
+URL https://kellerjordan.github.io/posts/muon 6.
+Cited by: §3.2.
+[20]
+A. Katharopoulos, A. Vyas, N. Pappas, and F. Fleuret (2020)
+Transformers are rnns: fast autoregressive transformers with linear attention.
+In International conference on machine learning,
+pp. 5156–5165.
+Cited by: §2.
+[21]
+B. Kerbl, G. Kopanas, T. Leimkühler, and G. Drettakis (2023)
+3D gaussian splatting for real-time radiance field rendering..
+ACM Trans. Graph. 42 (4), pp. 139–1.
+Cited by: §1,
+§2,
+§4.3.
+[22]
+B. Kerbl, A. Meuleman, G. Kopanas, M. Wimmer, A. Lanvin, and G. Drettakis (2024)
+A hierarchical 3d gaussian representation for real-time rendering of very large datasets.
+ACM Transactions on Graphics (TOG) 43 (4), pp. 1–15.
+Cited by: §2.
+[23]
+A. Knapitsch, J. Park, Q. Zhou, and V. Koltun (2017)
+Tanks and temples: benchmarking large-scale scene reconstruction.
+ACM Transactions on Graphics (ToG) 36 (4), pp. 1–13.
+Cited by: §4.2.
+[24]
+Y. Lan, Y. Luo, F. Hong, S. Zhou, H. Chen, Z. Lyu, S. Yang, B. Dai, C. C. Loy, and X. Pan (2025)
+STream3R: scalable sequential 3d reconstruction with causal transformer.
+arXiv preprint arXiv:2508.10893.
+Cited by: §2.
+[25]
+B. Lenz, O. Lieber, A. Arazi, A. Bergman, A. Manevich, B. Peleg, B. Aviram, C. Almagor, C. Fridman, D. Padnos, et al. (2025)
+Jamba: hybrid transformer-mamba language models.
+In The thirteenth international conference on learning representations,
+Cited by: §2.
+[26]
+V. Leroy, Y. Cabon, and J. Revaud (2024)
+Grounding image matching in 3d with mast3r.
+In European Conference on Computer Vision,
+pp. 71–91.
+Cited by: §2.
+[27]
+L. Ling, Y. Sheng, Z. Tu, W. Zhao, C. Xin, K. Wan, L. Yu, Q. Guo, Z. Yu, Y. Lu, et al. (2024)
+Dl3dv-10k: a large-scale scene dataset for deep learning-based 3d vision.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 22160–22169.
+Cited by: §4.2.
+[28]
+L. Liu, J. Gu, K. Zaw Lin, T. Chua, and C. Theobalt (2020)
+Neural sparse voxel fields.
+Advances in Neural Information Processing Systems 33, pp. 15651–15663.
+Cited by: §2.
+[29]
+Y. Liu, C. Luo, L. Fan, N. Wang, J. Peng, and Z. Zhang (2024)
+Citygaussian: real-time high-quality large-scale scene rendering with gaussians.
+In European Conference on Computer Vision,
+pp. 265–282.
+Cited by: §2.
+[30]
+Y. Liu, Y. Tian, Y. Zhao, H. Yu, L. Xie, Y. Wang, Q. Ye, J. Jiao, and Y. Liu (2024)
+Vmamba: visual state space model.
+Advances in neural information processing systems 37, pp. 103031–103063.
+Cited by: §2.
+[31]
+T. Lu, M. Yu, L. Xu, Y. Xiangli, L. Wang, D. Lin, and B. Dai (2024)
+Scaffold-gs: structured 3d gaussians for view-adaptive rendering.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20654–20664.
+Cited by: §4.3.
+[32]
+Z. Ma, X. Yu, H. Zhen, Y. Yang, J. Chai, and C. Gan (2025)
+Fast spatial memory with scalable elastic test-time training.
+Note: https://mars-tin.github.io/blogs/posts/elastic_ttt.htmlBlog post
+Cited by: Appendix A.
+[33]
+P. Micikevicius, S. Narang, J. Alben, G. Diamos, E. Elsen, D. Garcia, B. Ginsburg, M. Houston, O. Kuchaiev, G. Venkatesh, et al. (2017)
+Mixed precision training.
+arXiv preprint arXiv:1710.03740.
+Cited by: §B.1.
+[34]
+B. Mildenhall, P. P. Srinivasan, R. Ortiz-Cayon, N. K. Kalantari, R. Ramamoorthi, R. Ng, and A. Kar (2019)
+Local light field fusion: practical view synthesis with prescriptive sampling guidelines.
+ACM Transactions on Graphics (ToG) 38 (4), pp. 1–14.
+Cited by: §2.
+[35]
+B. Mildenhall, P. P. Srinivasan, M. Tancik, J. T. Barron, R. Ramamoorthi, and R. Ng (2021)
+Nerf: representing scenes as neural radiance fields for view synthesis.
+Communications of the ACM 65 (1), pp. 99–106.
+Cited by: §1,
+§2.
+[36]
+T. Müller, A. Evans, C. Schied, and A. Keller (2022)
+Instant neural graphics primitives with a multiresolution hash encoding.
+ACM transactions on graphics (TOG) 41 (4), pp. 1–15.
+Cited by: §2.
+[37]
+L. Pan, D. Baráth, M. Pollefeys, and J. L. Schönberger (2024)
+Global structure-from-motion revisited.
+In European Conference on Computer Vision,
+pp. 58–77.
+Cited by: §4.2.
+[38]
+M. S. Sajjadi, H. Meyer, E. Pot, U. Bergmann, K. Greff, N. Radwan, S. Vora, M. Lučić, D. Duckworth, A. Dosovitskiy, et al. (2022)
+Scene representation transformer: geometry-free novel view synthesis through set-latent scene representations.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 6229–6238.
+Cited by: §1.
+[39]
+I. Schlag, K. Irie, and J. Schmidhuber (2021)
+Linear transformers are secretly fast weight programmers.
+In International conference on machine learning,
+pp. 9355–9366.
+Cited by: §2,
+§2.
+[40]
+J. L. Schonberger and J. Frahm (2016)
+Structure-from-motion revisited.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 4104–4113.
+Cited by: §2.
+[41]
+Q. Shen, Z. Wu, X. Yi, P. Zhou, H. Zhang, S. Yan, and X. Wang (2025)
+Gamba: marry gaussian splatting with mamba for single-view 3d reconstruction.
+IEEE Transactions on Pattern Analysis and Machine Intelligence.
+Cited by: §2.
+[42]
+Z. Shen, M. Zhang, H. Zhao, S. Yi, and H. Li (2021)
+Efficient attention: attention with linear complexities.
+In Proceedings of the IEEE/CVF winter conference on applications of computer vision,
+pp. 3531–3539.
+Cited by: §2.
+[43]
+K. Simonyan and A. Zisserman (2014)
+Very deep convolutional networks for large-scale image recognition.
+arXiv preprint arXiv:1409.1556.
+Cited by: §3.5.
+[44]
+V. Sitzmann, J. Thies, F. Heide, M. Nießner, G. Wetzstein, and M. Zollhofer (2019)
+Deepvoxels: learning persistent 3d feature embeddings.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 2437–2446.
+Cited by: §2.
+[45]
+C. Sun, M. Sun, and H. Chen (2022)
+Direct voxel grid optimization: super-fast convergence for radiance fields reconstruction.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 5459–5469.
+Cited by: §2.
+[46]
+Y. Sun, X. Li, K. Dalal, J. Xu, A. Vikram, G. Zhang, Y. Dubois, X. Chen, X. Wang, S. Koyejo, et al. (2024)
+Learning to (learn at test time): rnns with expressive hidden states.
+arXiv preprint arXiv:2407.04620.
+Cited by: §1,
+§2,
+§3.1,
+§3.1.
+[47]
+Y. Sun, L. Dong, S. Huang, S. Ma, Y. Xia, J. Xue, J. Wang, and F. Wei (2023)
+Retentive network: a successor to transformer for large language models.
+arXiv preprint arXiv:2307.08621.
+Cited by: §2.
+[48]
+J. Tang, Z. Chen, X. Chen, T. Wang, G. Zeng, and Z. Liu (2024)
+Lgm: large multi-view gaussian model for high-resolution 3d content creation.
+In European Conference on Computer Vision,
+pp. 1–18.
+Cited by: §2.
+[49]
+A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. Polosukhin (2017)
+Attention is all you need.
+Advances in neural information processing systems 30.
+Cited by: §2.
+[50]
+J. von Oswald, N. Scherrer, S. Kobayashi, L. Versari, S. Yang, M. Schlegel, K. Maile, Y. Schimpf, O. Sieberling, A. Meulemans, et al. (2025)
+MesaNet: sequence modeling by locally optimal test-time training.
+arXiv preprint arXiv:2506.05233.
+Cited by: §2.
+[51]
+R. Waleffe, W. Byeon, D. Riach, B. Norick, V. Korthikanti, T. Dao, A. Gu, A. Hatamizadeh, S. Singh, D. Narayanan, et al. (2024)
+An empirical study of mamba-based language models.
+arXiv preprint arXiv:2406.07887.
+Cited by: §2.
+[52]
+J. Wang, M. Chen, N. Karaev, A. Vedaldi, C. Rupprecht, and D. Novotny (2025)
+Vggt: visual geometry grounded transformer.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5294–5306.
+Cited by: §2,
+§3.5.
+[53]
+R. Wang, S. Xu, C. Dai, J. Xiang, Y. Deng, X. Tong, and J. Yang (2025)
+Moge: unlocking accurate monocular geometry estimation for open-domain images with optimal training supervision.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5261–5271.
+Cited by: §3.5.
+[54]
+S. Wang, V. Leroy, Y. Cabon, B. Chidlovskii, and J. Revaud (2024)
+Dust3r: geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20697–20709.
+Cited by: §2.
+[55]
+X. Wei, K. Zhang, S. Bi, H. Tan, F. Luan, V. Deschaintre, K. Sunkavalli, H. Su, and Z. Xu (2024)
+Meshlrm: large reconstruction model for high-quality meshes.
+arXiv preprint arXiv:2404.12385.
+Cited by: §1.
+[56]
+H. Xu, S. Peng, F. Wang, H. Blum, D. Barath, A. Geiger, and M. Pollefeys (2025)
+Depthsplat: connecting gaussian splatting and depth.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 16453–16463.
+Cited by: §2.
+[57]
+Q. Xu, Z. Xu, J. Philip, S. Bi, Z. Shu, K. Sunkavalli, and U. Neumann (2022)
+Point-nerf: point-based neural radiance fields.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 5438–5448.
+Cited by: §2.
+[58]
+J. Yang, A. Sax, K. J. Liang, M. Henaff, H. Tang, A. Cao, J. Chai, F. Meier, and M. Feiszli (2025)
+Fast3r: towards 3d reconstruction of 1000+ images in one forward pass.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 21924–21935.
+Cited by: §2.
+[59]
+S. Yang, B. Wang, Y. Zhang, Y. Shen, and Y. Kim (2024)
+Parallelizing linear transformers with the delta rule over sequence length.
+Advances in neural information processing systems 37, pp. 115491–115522.
+Cited by: §2.
+[60]
+Y. Yao, Z. Luo, S. Li, T. Fang, and L. Quan (2018)
+Mvsnet: depth inference for unstructured multi-view stereo.
+In Proceedings of the European conference on computer vision (ECCV),
+pp. 767–783.
+Cited by: §2.
+[61]
+Y. Yao, Z. Luo, S. Li, T. Shen, T. Fang, and L. Quan (2019)
+Recurrent mvsnet for high-resolution multi-view stereo depth inference.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 5525–5534.
+Cited by: §2.
+[62]
+X. Yi, Z. Wu, Q. Shen, Q. Xu, P. Zhou, J. Lim, S. Yan, X. Wang, and H. Zhang (2024)
+Mvgamba: unify 3d content generation as state space sequence modeling.
+Advances in Neural Information Processing Systems 37, pp. 7580–7607.
+Cited by: §2.
+[63]
+W. Yifan, F. Serena, S. Wu, C. Öztireli, and O. Sorkine-Hornung (2019)
+Differentiable surface splatting for point-based geometry processing.
+ACM Transactions On Graphics (TOG) 38 (6), pp. 1–14.
+Cited by: §2.
+[64]
+A. Yu, V. Ye, M. Tancik, and A. Kanazawa (2021)
+Pixelnerf: neural radiance fields from one or few images.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 4578–4587.
+Cited by: §1.
+[65]
+Z. Yu, A. Chen, B. Huang, T. Sattler, and A. Geiger (2024)
+Mip-splatting: alias-free 3d gaussian splatting.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 19447–19456.
+Cited by: §4.3.
+[66]
+Y. Yuan, Q. Shen, S. Wang, X. Yang, and X. Wang (2025)
+Test3r: learning to reconstruct 3d at test time.
+arXiv preprint arXiv:2506.13750 5.
+Cited by: §2.
+[67]
+K. Zhang, S. Bi, H. Tan, Y. Xiangli, N. Zhao, K. Sunkavalli, and Z. Xu (2024)
+Gs-lrm: large reconstruction model for 3d gaussian splatting.
+In European Conference on Computer Vision,
+pp. 1–19.
+Cited by: §1,
+§2,
+§4.2,
+§4.3,
+§4.3,
+Table 1,
+Table 1,
+Table 1,
+Table 1,
+Table 1.
+[68]
+K. Zhang, N. Kolkin, S. Bi, F. Luan, Z. Xu, E. Shechtman, and N. Snavely (2022)
+Arf: artistic radiance fields.
+In European Conference on Computer Vision,
+pp. 717–733.
+Cited by: §B.1.
+[69]
+R. Zhang, P. Isola, A. A. Efros, E. Shechtman, and O. Wang (2018)
+The unreasonable effectiveness of deep features as a perceptual metric.
+In CVPR,
+Cited by: §4.3.
+[70]
+T. Zhang, S. Bi, Y. Hong, K. Zhang, F. Luan, S. Yang, K. Sunkavalli, W. T. Freeman, and H. Tan (2025)
+Test-time training done right.
+arXiv preprint arXiv:2505.23884.
+Cited by: §B.1,
+§1,
+§1,
+§2,
+§3.1,
+§4.1.
+[71]
+C. Ziwen, H. Tan, K. Zhang, S. Bi, F. Luan, Y. Hong, L. Fuxin, and Z. Xu (2025)
+Long-lrm: long-sequence large reconstruction model for wide-coverage gaussian splats.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 4349–4359.
+Cited by: §1,
+§2,
+§3.5,
+§4.2,
+§4.3,
+§4.4.
+Supplementary Material
+Appendix A Further Discussions
+Effect of Scene Complexity on Fast Weights
+The memory of fast-weights has a fixed capacity and is bounded, especially in the autoregressive setting.
+Our empirical analysis on DL3DV scene labels indicates that higher scene complexity leads to degraded performance, as observed in outdoor vs. indoor scenes (PSNR: 24.45 vs. 24.96) and high- vs. low-frequency scenes (PSNR: 24.20 vs. 25.97).
+The memory capacity is also influenced by sequence length, where earlier inputs may be gradually forgotten as more tokens are processed.
+Selective Update of Fast Weights in AR Setting
+Instead of updating the fast weights only according to current inputs, we can further use history states for selective update to mitigate drifiting. Inspired by [32], we explore a mechanism to prevent weight drift. Specifically, we approximate the diagonal of the Fisher information using an exponential moving average of squared gradients, as an estimate of parameter importance. Meanwhile, we maintain a sliding anchor via EMA to track the historical trajectory of the fast weights. After each gradient update, we apply elastic regularization based on parameter importance. Specifically, we leverage Fisher information for selective update, where parameters with high Fisher values that are important for the current input, are left parameters with high Fisher values unconstrained, while parameters with low Fisher values are pulled back toward the anchor. This encourages adaptation to the current input and suppresses drift in unimportant parameters. This training-free strategy can further improve our autoregressive model, and we envision it to be more effective by incorporating it into training for future work.
+Table 6: Training-free selective update considering history fast weights can further enhance our AR model.
+|
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| w/o selective
+| 24.81
+| 0.814
+| 0.225
+| w selective
+| 24.95
+| 0.818
+| 0.223
+Scaling to More Input Views
+With distributed training, tttLRM can be further scaled to hundreds of views given enough compute. For example, by finetuning our full model with more iterations on 128 input views (more than 1M tokens), it can achieve 26.80 PSNR.
+Possible Usage of Attention Layers
+We deliberately avoid attention blocks in our model since it has quadratic complexity O(N^{2}d) compared to our linear FLOPS O(Nd^{2}) of LaCT blocks ( N is the number of tokens and d is hidden dimension). Therefore, attention will bottleneck the computation with growing number of tokens and be very slow in our million-level token setting.
+As shown in Figure 8, even a 3-layer attention only will be slower than our 24-layer LaCT blocks from 2M tokens (256 views). With more compute, our model can easily scale to longer sequence and remain linear complexity.
+Figure 8: Time comparison of 3 Attention layers vs 24 layers of LaCT blocks under different numbers of tokens.
+Appendix B Experiment Details
+B.1 Scene-level Training
+We adopt a curriculum training strategy that progresses from low to high resolution, motivated by two main reasons. First, fast low-res pretraining enables the model to train with a large batch size with faster iteration time. Second, we found that even with pretrained TTT-LVSM [70] checkpoints at high-resolution (i.e. 960\times 540 ), the model cannot predict reasonable Gaussians at the beginning iterations, leading to excessive GPU memory usage due to the rendering of a large number of Gaussians.
+For scene-level training, We train our model on three stages with 144\times 256 , 288\times 512 and 540\times 960 resolution.
+For each stage, we resize the images to the target resolution, which all have the same aspect ratio as the original dataset. For all stages, we first determine a continuous range based on the start and end frames from the entire video sequence from the dataset. The range is randomly sampled from 128 to 512 for each sample to ensure enough coverage of the scene. Then, we randomly sample 124 frames from this range, from which both input and target views will be further sampled. They are ensured to have overlap frames for stable training. We train the model across 16 to 64 input views. For training, we use the input views as the virtual views and found that provides the best results.
+For the first stage, we train the model with a peak learning rate of 3\mathrm{e}{-4} with 2 K warmup steps and cosine decay.
+We use AdamW optimizer with betas (0.9,0.95) and weight decay 0.05 .
+We train the model using a batch size of 128 for 80 K steps, which is around 0.3 T tokens.
+For the second stage, we finetune the model at the resolution of 288\times 512 with a peak learning rate of 5\mathrm{e}{-5} . We use a batch size of 64 to train 6 K steps. For the final stage, we enable depth loss and opacity loss, training the model with 32 input views with 5 K steps with peak learning rate 1\mathrm{e}{-5} and batch size of 64 . Finally, we train the model with 16 to 64 input views for another 1 K steps. We prune 70\% Gaussians with the smallest opacity for 64 views and 60 % otherwise.
+For autoregressive model training, we finetune our model on the final stage checkpoints for around another 3 K iterations with peak learning rate 1\mathrm{e}{-4} and batch size of 64 . We train the model on input views from 8 to 64 . Our models are trained on 64 Nvidia A100 80GB GPUs.
+Besides, we use gsplat Python library for efficient Gaussian training. We enable torch.compile to accelerate computation, achieving roughly a 30% per-iteration speedup. To further optimize memory and stability, we implement gradient checkpointing [6] and mixed-precision training [33] with the BFloat16 format. For Gaussian rendering, we utilize deferred backpropagation [68] to reduce GPU memory consumption. In addition, iterations with a gradient norm that exceeds 5.0 are skipped to improve training stability.
+B.2 Object-level training
+For the GS-based model, we use 8 views as input and another 8 views as supervision and use a patch size of 16\times 16 . We firstly sample a set of 15 images (from 32 renderings) as a data point, from which
+we randomly select 8 input views and 8 supervision views independently. This sampling strategy encourages more overlap between input views and rendering views than directly sampling from 32 rendering views. We train on the resolution of 256\times 256 with a batch size of 512 for 80 K iterations with a peak learning rate of 4\mathrm{e}{-4} . We then finetune on 512\times 512 with a batch size of 128 for another 10 K iterations with a peak learning rate of 5\mathrm{e}{-5} . We further finetune on 1024\times 1024 with a batch size of 64 for another 4 K iterations with a peak learning rate of 5\mathrm{e}{-5} .
+For the triplane-based model, we use 4 views as input and another 4 views as supervision and use a patch size of 16\times 16 . We train on the resolution of 256\times 256 with a batch size of 256 for 60 K iterations and finetune on 512\times 512 with a batch size of 64 for another 20 K iterations.
+Appendix C More results and Comparison
+In Table 7, we show results where we combine our method with a few additional optimization steps. It demonstrates that the reconstructed model can be further improved with minimal optimization cost, surpassing both purely optimization-based methods and the previous state-of-the-art feed-forward method, Long-LRM, under the same post-optimization setup.
+Notably, the quality of Long-LRM with 3-step post-optimization is still lower than our model without post-optimization, even though it requires more time to perform the optimization than our feedforward inference.
+Table 7: More quantitative comparison on both DL3DV-140 and Tanks&Temples datasets under 32/64 input views. Our method surpasses previous feedforward methods and can further surpass optimization-based methods with a few steps post-optimization. Note that Long-LRM trains a separate model for each input view, while we are a single model across all input views. Our model can be linearly accelerated with multiple GPUs, here we report time on a single Nvidia A100 80GB GPU.
+| Views
+| Method
+| Time \downarrow
+| DL3DV-140
+| Tanks&Temples
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| 32
+| 3D GS30k
+| 13m
+| 23.60
+| 0.779
+| 0.213
+| 18.10
+| 0.688
+| 0.269
+| Mip-Splatting30k
+| 13m
+| 23.32
+| 0.784
+| 0.217
+| 18.39
+| 0.700
+| 0.262
+| Scaffold-GS30k
+| 16m
+| 24.77
+| 0.805
+| 0.205
+| 18.41
+| 0.691
+| 0.290
+| Long-LRM (32v model)
+| 1s
+| 24.10
+| 0.783
+| 0.254
+| 18.38
+| 0.601
+| 0.363
+| Long-LRM (w/ 3-step optim)
+| 12s
+| 24.99
+| 0.809
+| 0.243
+| 18.69
+| 0.623
+| 0.360
+| Long-LRM (w/ 10-step optim)
+| 37s
+| 25.60
+| 0.826
+| 0.233
+| 18.90
+| 0.642
+| 0.350
+| Ours
+| 7.2s
+| 25.07
+| 0.822
+| 0.215
+| 19.22
+| 0.662
+| 0.305
+| Ours (w/ 3-step optim)
+| 18s
+| 25.86
+| 0.842
+| 0.208
+| 19.57
+| 0.687
+| 0.300
+| Ours (w/ 10-step optim)
+| 42s
+| 26.37
+| 0.854
+| 0.201
+| 19.78
+| 0.704
+| 0.291
+| 64
+| 3D GS30k
+| 13m
+| 26.55
+| 0.852
+| 0.164
+| 20.78
+| 0.778
+| 0.205
+| Mip-Splatting30k
+| 13m
+| 26.29
+| 0.850
+| 0.166
+| 20.08
+| 0.759
+| 0.220
+| Scaffold-GS30k
+| 16m
+| 27.07
+| 0.857
+| 0.173
+| 20.96
+| 0.768
+| 0.240
+| Long-LRM (64v model)
+| 3.7s
+| 24.63
+| 0.799
+| 0.243
+| 19.11
+| 0.627
+| 0.346
+| Long-LRM (w/ 3-step optim)
+| 38.9s
+| 25.74
+| 0.833
+| 0.225
+| 19.69
+| 0.659
+| 0.333
+| Long-LRM (w/ 10-step optim)
+| 114s
+| 26.72
+| 0.852
+| 0.212
+| 20.03
+| 0.681
+| 0.320
+| Ours
+| 14.8s
+| 25.95
+| 0.844
+| 0.195
+| 20.31
+| 0.700
+| 0.274
+| Ours (w/ 3-step optim)
+| 47s
+| 26.97
+| 0.866
+| 0.185
+| 20.76
+| 0.724
+| 0.269
+| Ours (w/ 10-step optim)
+| 124s
+| 27.65
+| 0.880
+| 0.177
+| 21.07
+| 0.743
+| 0.260
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

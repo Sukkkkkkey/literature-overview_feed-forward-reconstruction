@@ -1,0 +1,1505 @@
+From None to All: Self-Supervised 3D Reconstruction via Novel View Synthesis
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract
+1 Introduction
+2 Related Works
+2.1 Supervised 3D Reconstruction
+2.2 Self-Supervised 3D Reconstruction
+3 Method
+3.1 Problem Formulation
+3.2 Architecture
+3.3 Training and Inference
+4 Experiments
+4.1 Experimental Settings
+4.2 Implementation Details
+4.3 Results
+4.4 Leveraging Pretrained Priors
+4.5 Ablation Analysis
+4.6 Limitations
+5 Conclusion
+References
+License: arXiv.org perpetual non-exclusive license
+arXiv:2603.27455v2 [cs.CV] 02 Jun 2026
+From None to All: Self-Supervised 3D Reconstruction via Novel View Synthesis
+Ranran Huang
+Weixun Luo
+Ye Mao
+Krystian Mikolajczyk
+Affiliation: Imperial College London
+Affiliation: {r.huang24, weixun.luo19, ye.mao21, k.mikolajczyk}@imperial.ac.uk
+Abstract
+In this paper, we introduce NAS3R, a self-supervised feed-forward framework that jointly learns explicit 3D geometry and camera parameters with no ground-truth annotations and no pretrained priors. During training, NAS3R reconstructs 3D Gaussians from uncalibrated and unposed context views and renders target views using its self-predicted camera parameters, enabling self-supervised training from 2D photometric supervision. To ensure stable convergence, NAS3R integrates reconstruction and camera prediction within a shared transformer backbone regulated by masked attention, and adopts a depth-based Gaussian formulation that facilitates well-conditioned optimization. The framework is compatible with state-of-the-art supervised 3D reconstruction architectures and can incorporate pretrained priors or intrinsic information when available. Extensive experiments show that NAS3R achieves superior results to other self-supervised methods, establishing a scalable and geometry-aware paradigm for 3D reconstruction from unconstrained data.
+Code and models are publicly available at https://ranrhuang.github.io/nas3r/.
+Figure 1: NAS3R is a self-supervised framework that requires no ground-truth annotations and no pretrained priors during training, and jointly infers 3D Gassian parameters, camera intrinsics and extrinsics and depth maps, also enabling high-quality novel view synthesis.
+1 Introduction
+Simultaneously recovering 3D structure from 2D images and estimating camera parameters is one of the long-standing and fundamental end-goals in computer vision [17, 52, 60]. A key challenge is the chicken-and-egg optimization problem [36]: reliable reconstruction requires accurate camera parameters, while camera estimation, in turn, depends on consistent geometric correspondences from the reconstruction.
+While classical methods typically address this problem by utilizing sequential [41, 48] and complex iterative optimization pipelines such as Bundle Adjustment (BA) [17],
+recent feed-forward 3D models [63, 55, 60] directly leverage end-to-end transformer architectures to learn from large-scale labeled 3D data, eschewing geometric post-processing almost entirely. However, collecting massive and high-quality 3D data remains costly and labor-intensive, posing a major limitation to the scalability of such data-driven approaches.
+To enable more scalable and generalizable 3D reconstruction, self-supervised novel view synthesis (NVS) methods [24, 25, 28, 20, 31] jointly learn 3D scene representations and camera poses without any 3D or pose annotations. This is typically achieved by rendering novel views using self-predicted poses and enforcing photometric consistency supervision in image space.
+However, in the absence of ground-truth supervision, the inherent chicken-and-egg optimization problem becomes even more challenging, often leading to instability or convergence toward degenerate solutions.
+To address this, some approaches perform scene reconstruction and rendering entirely in latent space [28, 44], thereby circumventing explicit 3D optimization. Others, based on explicit 3D Gaussian Splatting (3DGS) [33], rely on pretrained geometric priors [34, 60, 46, 11, 38] obtained from supervised tasks, either for initialization [24, 25, 20] or as pseudo-labels [29], to ensure convergence.
+Moreover, despite being pose-free, most of the existing approaches [24, 25, 20, 31] still require ground-truth camera intrinsics to well-condition optimization, which impedes their scalability to uncalibrated, in-the-wild imagery.
+This raises a fundamental question:
+Can a deep network jointly learn explicit 3D geometry and camera poses entirely from multi-view images, without any ground-truth annotations or pretrained priors?
+In this paper, we present NAS3R, a “From None to All” Self-supervised 3D Reconstruction framework that jointly predicts 3D Gaussian primitives and camera parameters from uncalibrated, unposed multi-view images, requiring no ground-truth annotations and no pretrained priors during training.
+NAS3R builds on a standard transformer [58] architecture equipped with masked attention [25] to prevent target information leakage by regulating cross-view interactions. All 3D quantities, including depth, camera intrinsics and extrinsics, and Gaussian parameters, are inferred from a shared transformer backbone via parallel prediction heads, encouraging consistent geometric reasoning across tasks [60, 24]. Per-view depth maps are lifted into 3D points as Gaussian centers using the estimated camera parameters.
+Unlike prior methods that directly regress unconstrained 3D points and therefore rely on pretrained priors for stable optimization [24, 74], our depth-based formulation introduces stronger geometric constraints and a more well-conditioned optimization landscape.
+The entire system is trained end-to-end through photometric supervision on novel views rendered with the self-predicted camera parameters. Conceptually, the transformer backbone implicitly establishes feature correspondences through attention mechanisms, while the differentiable GS renderer performs a form of photometric BA [37, 10, 1, 36].
+In line with the principle that well-initialized parameters and calibrated intrinsics facilitate more stable and accurate BA, we further demonstrate the flexibility and compatibility of our approach: it can be seamlessly integrated with existing state-of-the-art transformer-based 3D models [60, 34, 55, 63], and can leverage available pretrained priors or calibrated intrinsics to achieve improved performance. As a result, NAS3R offers a practical route for scaling supervised 3D models to large-scale unlabeled data.
+NAS3R achieves superior performance compared to other self-supervised methods and delivers results competitive with supervised approaches in novel view synthesis.
+The gains in pose and depth estimation are even more substantial relative to prior methods, while
+incorporating priors and camera intrinsics further enhances performance.
+2 Related Works
+The output of 3D reconstruction can take various forms, including point clouds [61, 60, 63, 34, 55, 71, 17], depths [46, 32, 60, 72], latent scene representations [50, 30, 28, 45, 59, 44, 49, 59], neural radiance fields (NeRFs) [8, 67, 21, 43], and explicit 3D Gaussian splats [33, 74, 24, 25, 9, 7].
+Based on the need for ground-truth 3D annotations or camera poses during training, these methods can be broadly categorized as supervised or self-supervised.
+2.1 Supervised 3D Reconstruction
+Supervised approaches typically incorporate 3D inductive biases into network architectures by leveraging classical geometry-based principles such as structure-from-motion (SfM) [61, 5, 23], multi-view stereo [8, 67, 9], or epipolar geometry [7, 19].
+Another line of research [60, 63, 34, 55, 71, 74, 50, 45, 76, 54, 69, 30] avoid inductive biases by employing a standard transformer [13] to capture cross-view relationships through attention mechanisms.
+For example, DUSt3R [63], its extensions [34, 55, 71], and VGGT [60] employ transformers for dense 3D reconstruction from unconstrained images, trained on large-scale datasets with ground-truth depth and camera poses.
+Recent methods remove the need for ground-truth depth supervision by learning from photometric supervision for novel view synthesis. These models represent scenes as latent features [50, 45, 30], neural volumes [27, 62], or explicit 3D Gaussian primitives [74, 76, 54, 69].
+However, accurate camera poses remain indispensable during both training and/or inference through Plücker ray embeddings [76, 54, 69], image rendering losses [27, 62, 53, 74, 50, 45], pose prediction loss [21], or coarse initialization [36, 56]. Since these poses are typically obtained via SfM, this reliance incurs substantial computational cost and is often unreliable in sparse-view, low-overlap, or textureless scenarios. Consequently, dependence on ground-truth 3D data and camera annotations limits scalability to large-scale, in-the-wild datasets. To address this, our work focuses on fully self-supervised 3D reconstruction.
+2.2 Self-Supervised 3D Reconstruction
+To learn from unlabeled data, self-supervised learning leverages inherent data regularities to automatically construct surrogate supervision. In 3D vision, self-supervised monocular depth estimation [4, 78, 16] leverages photometric consistency across consecutive frames and uses view warping to provide supervisory signals without requiring ground-truth depth or camera poses.
+Another major paradigm is masked content modeling in NLP and 2D vision [12, 18, 2, 35, 3], which CroCo and its variants extend to 3D using a cross-view completion task [65, 66].
+Similarly, NVS can be viewed as a generalized masking problem in 3D space: the model reconstructs unobserved (“masked”) target views from observed context views.
+Consequently, photometric consistency on target images naturally serves as a self-supervisory signal.
+Recent feed-forward approaches pursue self-supervised NVS by eliminating any ground-truth poses involved in training by reconstructing scenes from unposed images and using self-predicted poses instead of the ground-truth ones for rendering [31, 20, 24, 25, 28].
+However, jointly optimizing scene representations and camera motion remains a longstanding challenge. Classical structure-from-motion (SfM) [17] addresses this problem through iterative optimization, alternating between local registration and global bundle adjustment (BA) of both structure and cameras.
+To bypass this optimization complexity, RayZer [28] performs scene representation and rendering entirely in latent space, using predicted camera parameters to condition a geometry-free transformer-based reconstructor. While this design achieves photorealistic renderings, it does not infer
+transferable camera poses, and are instead prone to interpolating context frames, as noted in [44]. Moreover, the lack of explicit 3D structure limits its applicability to geometry-dependent downstream tasks [70, 42]. In contrast, methods based on explicit 3D Gaussian splatting introduce explicit geometric constraints, enabling the joint optimization of scene structure and camera poses [24, 25, 20, 31, 29]. For instance, PF3plat [20] and SelfSplat [31] employ separate modules for pose prediction and Gaussian reconstruction, while SPFSplat [24, 25] unifies both within a shared backbone to enforce consistent geometric learning.
+Nevertheless, most existing methods still rely on supervised pretrained priors, either for initialization [24, 25, 20] or for generating pseudo labels [29], to ensure stable convergence. Although SelfSplat does not require supervised priors, it still depends on self-supervised CroCoV2 initialization, and also depends on ground-truth camera intrinsics during training, similar to [24, 25, 20, 31].This dependence on camera intrinsics prevents fully self-supervised learning from uncalibrated, in-the-wild images.
+Tab. 1 compares training and inference requirements of representative supervised and self-supervised 3DGS methods.
+Our NAS3R is a self-supervised approach that jointly learns 3D Gaussians and camera parameters without pretrained priors or ground-truth labels, while reconstructing 3D scenes from unconstrained images at inference.
+Table 1: Training and inference requirements of different methods. Training columns indicate the need for ground-truth camera poses and intrinsics, while inference columns indicate whether context-view camera parameters are required as model inputs.
+| Method
+| Priors
+| Training
+| Inference
+| Pose
+| Intrinsics
+| Pose
+| Intrinsics
+| Supervised
+| pixelSplat
+| DINO [6]
+| ✓
+| ✓
+| ✓
+| ✓
+| MVSplat
+| UniMatch [68]
+| ✓
+| ✓
+| ✓
+| ✓
+| NoPoSplat
+| MASt3R [34]
+| ✓
+| ✓
+| ✗
+| ✓
+| Self-Supervised
+| SelfSplat
+| CrocoV2 [66]
+| ✗
+| ✓
+| ✗
+| ✓
+| PF3plat
+| Mixed
+| ✗
+| ✓
+| ✗
+| ✓
+| SPFSplat
+| MASt3R [34]
+| ✗
+| ✓
+| ✗
+| ✓
+| SPFSplatV2
+| MASt3R [34]
+| ✗
+| ✓
+| ✗
+| ✓
+| SPFSplatV2-L
+| VGGT [60]
+| ✗
+| ✓
+| ✗
+| ✓
+| NAS3R (Ours)
+| ✗
+| ✗
+| ✗
+| ✗
+| ✗
+3 Method
+Figure 2: Training pipeline of NAS3R. Subscripts “ C ” and “ T ” denote context and target views, respectively. Unconstrained images are patchified into visual tokens and concatenated with a learnable camera token for camera prediction. A masked decoder regulates cross-view interactions and prevents target-to-context leakage. Refined context tokens are then processed by the Gaussian head to predict Gaussian parameters, while a depth head estimates depth maps that are lifted into 3D Gaussian centers using the predicted context poses. The predicted target poses are finally used to render novel views, providing photometric supervision for end-to-end training.
+Our goal is to achieve self-supervised 3D reconstruction via novel view synthesis. To this end, we employ a feed-forward network that reconstructs 3D Gaussian primitives from unconstrained images while simultaneously predicting the corresponding camera parameters. By jointly optimizing all 3D quantities through photometric consistency on target views rendered with self-predicted camera parameters, the framework eliminates the need for any ground-truth annotations and pretrained priors.
+3.1 Problem Formulation
+Following standard training protocols for novel view synthesis [7, 9, 24], a 3D scene is reconstructed from a set of context images and subsequently used to render novel target views for supervision. We denote the V_{C} context images as \mathcal{I_{C}} and the V_{T} target images as \mathcal{I_{T}} . During self-supervised learning, NAS3R takes both context and target images as input, denoted as \mathcal{I}=\mathcal{I_{C}}\cup\mathcal{I_{T}}=\{\boldsymbol{I}^{v}\}_{v=1}^{V} , where the total number of input images V=V_{C}+V_{T} .
+3D Gaussian Reconstruction. The Gaussians are reconstructed from the context images through the model f_{\boldsymbol{\theta}} , expressed in the camera coordinate frame of the first view \boldsymbol{I}^{1} :
+|
+| f_{\boldsymbol{\theta}}:\mathcal{I_{C}}\mapsto\{\boldsymbol{\mathcal{G}}^{v}\}_{v=1}^{V_{C}},
+|
+| (1)
+where \boldsymbol{\mathcal{G}}^{v} represents the pixel-aligned Gaussians reconstructed from each context view.
+Camera Prediction. For all views, a camera predictor f_{\boldsymbol{\phi}} estimates both the intrinsics \boldsymbol{K}^{v}\in\mathbb{R}^{3\times 3} and the relative extrinsics \boldsymbol{P}^{v}=[\boldsymbol{R}^{v}|\boldsymbol{T}^{v}] from each view to the reference view, where \boldsymbol{R}^{v}\in\mathbb{R}^{3\times 3} represents the rotation matrix, and \boldsymbol{T}^{v}\in\mathbb{R}^{3\times 1} represents the translation vector.
+|
+| f_{\boldsymbol{\phi}}:\mathcal{I}\mapsto\{\boldsymbol{K}^{v},\boldsymbol{P}^{v}\}_{v=1}^{V}.
+|
+| (2)
+Self-Supervised NVS.
+Novel target views are then rendered from the reconstructed Gaussians using the predicted camera parameters of the target views:
+|
+| \displaystyle\mathcal{R}:\{\boldsymbol{\mathcal{G}}^{v}\}_{v=1}^{V_{C}},\{\boldsymbol{K}^{v},\boldsymbol{P}^{v}\}_{v=1+V_{C}}^{V}\mapsto\hat{\mathcal{I_{T}}},
+|
+| (3)
+where \mathcal{R} denotes the rendering function and \hat{\mathcal{I_{T}}} represents the rendered target views.
+The model is trained by supervising the rendered images with the ground-truth target images \mathcal{I_{T}} . The training objective combines MSE and LPIPS [77] losses, defined as:
+|
+| \mathcal{L}_{\text{render}}=\frac{1}{V_{T}}\sum\|\boldsymbol{I}-\hat{\boldsymbol{I}}\|_{2}+\gamma\text{LPIPS}(\boldsymbol{I},\hat{\boldsymbol{I}}),
+|
+| (4)
+where \boldsymbol{I}\in\mathcal{I_{T}} , \hat{\boldsymbol{I}}\in\hat{\mathcal{I_{T}}} , and \gamma is a weighting coefficient that balances pixel-level fidelity and perceptual similarity.
+3.2 Architecture
+Our self-supervised learning pipeline is built upon an standard transformer architecture comprising an encoder, decoder, and multiple parallel prediction heads.
+Encoder.
+For each input view v\in[1,V] , the corresponding image \boldsymbol{I}^{v} is patchfied and projected into a sequence of visual tokens. These per-view tokens are processed by a shared-weight ViT [13] encoder to produce feature embeddings \boldsymbol{F}^{v}\in\mathbb{R}^{L\times C} , where L and C denote the number of tokens and feature dimensions, respectively. \boldsymbol{F}^{v} are then concatenated with a learnable camera token \boldsymbol{g}^{v}\in\mathbb{R}^{1\times C} , forming the decoder input \boldsymbol{F}^{v}:=[\boldsymbol{g}^{v},\boldsymbol{F}^{v}] .
+Masked Decoder. A ViT decoder equipped with cross-attention is used to enable cross-view information exchange and aggregation.
+Inspired by [25], we adopt masked attention to explicitly regulate cross-view interactions and prevent unintended target information leakage. Specifically, context tokens are restricted to attend only to context tokens, ensuring that Gaussian reconstruction remains independent of target-view information. Conversely, target tokens can attend to both context and target tokens, allowing the model to leverage global scene cues for more accurate pose estimation. For each view v , this can be formulated as:
+|
+| \boldsymbol{G}^{v}=\mathrm{MaskedDecoder}(\boldsymbol{F}^{v},\boldsymbol{F}^{1:K}),
+|
+| (5)
+where \boldsymbol{F}^{1:K} denotes the set of feature tokens from all accessible views for \boldsymbol{F}^{v} in cross-attention, i.e., K=V_{C} if view v is from context views and K=V for v from target views. The output refined tokens \boldsymbol{G}^{v} are further decomposed into refined image tokens \hat{\boldsymbol{F}^{v}} and a refined camera token \hat{\boldsymbol{g}^{v}} .
+Camera Predictor. The camera head predicts the per-view camera extrinsics \boldsymbol{P}^{v} and intrinsics \boldsymbol{K}^{v} from the refined camera tokens \hat{\boldsymbol{g}^{v}} .
+The predicted poses are normalized such that the first input view is assigned as the canonical reference frame.
+Camera intrinsics are parameterized by the field of view (FOV), assuming identical FOV along the x and y axes and a principal point located at the image center.
+Gaussian Predictor.
+To regress the center \boldsymbol{\mu}\in\mathbb{R}^{3} for each Gaussian primitive, existing methods typically adopt either a canonical-space paradigm [74, 24, 25], which directly predicts canonical 3D points as Gaussian centers, or a local-to-global paradigm [9, 7, 31, 20], which lifts per-view depth predictions into global 3D coordinates.
+However, canonical-space formulations [74, 24] struggle to learn canonical 3D point locations without explicit 3D point initialization or supervision. This is because canonical 3D points implicitly encode scene geometry, camera poses, and camera intrinsics, yet these quantities are not explicitly constrained during training, leading to an ill-conditioned optimization problem. Consequently, these methods rely on either initialization from pretrained priors or distillation from pretrained DUSt3R [63] point predictions to provide a warm-up phase during early training when training from random initialization.
+Therefore, to enable training without pretrained priors, we adopt a local-to-global paradigm that derives 3D Gaussian centers from normalized camera poses, valid camera intrinsics, and positive depth values. This results in a physically grounded and well-conditioned formulation that promotes stable and consistent convergence. Moreover, by construction, the Gaussian centers are constrained to lie along the corresponding viewing rays, providing stronger geometric guidance than direct canonical-point regression.
+Specifically, we employ a DPT-based [47] depth head to predict per-pixel depths from the refined context image tokens \hat{\boldsymbol{F}}^{v} . The predicted depths are passed through a sigmoid function, interpolated between near and far planes, and subsequently lifted into 3D space using the predicted poses \boldsymbol{P}^{v} and intrinsics \boldsymbol{K}^{v} to obtain the Gaussian centers.
+The Gaussian parameter head follows a similar DPT-style architecture. It takes as input both the refined context image tokens and the original context images to preserve fine-grained spatial details, and predicts each Gaussian’s rotation quaternion \boldsymbol{r}\in\mathbb{R}^{4} , scale \boldsymbol{s}\in\mathbb{R}^{3} , opacity \alpha\in\mathbb{R} , and spherical harmonics (SH) coefficients \boldsymbol{c}\in\mathbb{R}^{k} , where k denotes the number of degrees of freedom.
+Model Compatibility.
+Since NAS3R shares a similar architecture with recent reconstruction models, including 3R-based frameworks [63, 34, 55] and VGGT [60], we adopt their designs to ensure compatibility. Specifically, we equip their decoders with masked attention to regulate cross-view information flow.
+For VGGT, we add a Gaussian parameter head while retaining all other components. For 3R-based models, we build upon the multi-view extension of MASt3R [34], following [24, 25, 74], and add depth, Gaussian parameter, and camera prediction heads. The camera head is implemented as a lightweight three-layer MLP that predicts rotation using a 6D representation [80] and translation using four homogeneous coordinates.
+Since camera intrinsics are often available from sensor metadata, we also study a variant with known intrinsics in Sec. 4.4 to reduce scale ambiguity. In this variant, intrinsics are embedded through a linear layer and concatenated with the camera and encoder tokens before decoding.
+3.3 Training and Inference
+During training, the entire pipeline is optimized end-to-end using the photometric consistency loss defined in Eq. 4.
+The optimization is enabled by CUDA-based 3D Gaussian Splatting renderer that supports gradient computation with respect to camera poses, intrinsics, and Gaussian parameters. Conceptually, the renderer performs a form of photometric bundle adjustment, where each Gaussian primitive must explain consistent image observations across multiple views. Consequently, rendering errors are propagated back to both the scene representation and camera parameters, driving the model to jointly infer geometrically consistent cameras, and reconstruct a coherent 3D scene that best explains the observed images.
+At inference time, the model requires only the context images as input to predict their corresponding camera parameters and reconstruct the scene.
+4 Experiments
+4.1 Experimental Settings
+Dataset. We train our method on RealEstate10K (RE10K) [79] and DL3DV [39]. To evaluate generalization across diverse scenes, we additionally test on the object-centric DTU dataset [26], the outdoor ACID dataset [40], and ScanNet++ [75]. For downstream finetuning, we further train and evaluate on BlendedMVS [73].
+Baselines.
+For NVS methods, we first compare against approaches that do not rely on supervised 3D reconstruction priors (Sec. 4.3). Although the original NoPoSplat and SPFSplat are typically initialized from the supervised MASt3R model, their papers show that a brief warm-up stage using a DUSt3R-based point cloud distillation loss enables training from random initialization. Since this distillation is used only during early training, we denote the resulting variants with a superscript ∗. SelfSplat employs self-supervised CroCoV2[66] features, pixelSplat adopts DINO [6] features, and MVSplat uses the supervised UniMatch [68] feature extractor. However, these methods do not leverage supervised 3D predictions (e.g., depth or pointmaps) for initialization or supervision. Accordingly, we compare against pixelSplat [7], MVSplat [9], NoPoSplat∗[74], SelfSplat[31], and SPFSplat∗ [24].
+In Sec. 4.4, we further compare against methods that leverage supervised 3D reconstruction priors, including the original MASt3R-initialized NoPoSplat and SPFSplat, as well as PF3plat [20] and SPFSplatV2/V2-L [25].
+For camera pose estimation in Sec. 4.3 and Sec. 4.4, we compare against (1) SfM-based approaches, including SuperPoint [11] + SuperGlue [51], DUSt3R [63], MASt3R [34], and VGGT [60]; and (2) NVS-based approaches, including NoPoSplat, SelfSplat, PF3plat, SPFSplat, and SPFSplatV2/V2-L. For depth estimation, we compare against MVSplat, NoPoSplat∗ and SPFSplat∗.
+Table 2: Performance comparison of in-domain and out-of-domain two-view novel view synthesis for models trained with no supervised 3D priors. The best results among self-supervised methods are highlighted. \ast indicates the variants with random initialization.
+| Method
+| Training Data
+| RE10K
+| ACID
+| DL3DV
+| DTU
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Supervised
+| pixelSplat
+| RE10K
+| 23.859
+| 0.808
+| 0.184
+| 25.477
+| 0.770
+| 0.207
+| 21.370
+| 0.713
+| 0.250
+| 15.067
+| 0.539
+| 0.341
+| MVSplat
+| 24.012
+| 0.812
+| 0.175
+| 25.525
+| 0.773
+| 0.199
+| 20.344
+| 0.673
+| 0.258
+| 14.542
+| 0.537
+| 0.324
+| NoPoSplat∗
+| 21.382
+| 0.709
+| 0.266
+| 23.193
+| 0.667
+| 0.274
+| 18.235
+| 0.518
+| 0.364
+| 15.113
+| 0.455
+| 0.450
+| Self-Supervised
+| SelfSplat
+| RE10K
+| 19.152
+| 0.680
+| 0.328
+| 22.204
+| 0.686
+| 0.316
+| 17.159
+| 0.538
+| 0.400
+| 13.249
+| 0.434
+| 0.441
+| SPFSplat∗
+| 21.306
+| 0.693
+| 0.248
+| 23.354
+| 0.662
+| 0.260
+| 18.091
+| 0.480
+| 0.358
+| 14.042
+| 0.432
+| 0.426
+| NAS3R (Ours)
+| 23.130
+| 0.764
+| 0.193
+| 25.030
+| 0.734
+| 0.209
+| 19.507
+| 0.573
+| 0.293
+| 15.229
+| 0.524
+| 0.317
+| Self-Supervised
+| SelfSplat
+| DL3DV
+| 19.371
+| 0.682
+| 0.379
+| 22.410
+| 0.678
+| 0.348
+| 18.685
+| 0.585
+| 0.417
+| 12.765
+| 0.442
+| 0.500
+| NAS3R (Ours)
+| 21.351
+| 0.693
+| 0.245
+| 24.178
+| 0.697
+| 0.229
+| 20.069
+| 0.588
+| 0.281
+| 15.511
+| 0.519
+| 0.319
+Evaluation Protocol.
+For novel view synthesis, we report pixel-level PSNR, patch-level SSIM [64], and feature-level LPIPS [77]. Unless otherwise specified, target images are rendered using predicted poses, jointly evaluating Gaussian reconstruction and pose estimation. For pose estimation, following prior work [51, 74], we report the area under the cumulative pose error curve (AUC) at different thresholds, where the pose error is defined as the maximum of the rotation and translation angular errors. For depth estimation, we report Absolute Relative Error (rel) and Inlier Ratio ( \tau ) at a threshold of 1.25 [14, 57].
+Figure 3: Comparison of NVS results across different methods. The leftmost column shows the two-view context images. From top to bottom, the settings are RE10K, RE10K \rightarrow ACID, RE10K \rightarrow DTU, and RE10K \rightarrow DL3DV.
+4.2 Implementation Details
+NAS3R is implemented in PyTorch and all models are trained on a single NVIDIA A100 GPU. Each training sample corresponds to a scene comprising context and target views, where the frame interval between context frames is progressively increased during training. To ensure stable convergence, the camera prediction head is initialized to output identity poses and a focal length equal to the input image size. We assume that all views within a scene share the same camera intrinsics, with identical field of view (FOV) along the x and y axes. Training is performed at resolutions of 224\times 224 and 256\times 256 for the VGGT-based and MASt3R-based variants, respectively. Unless stated otherwise, we use a VGGT-based architecture as the default backbone, with the default input consisting of two views.
+Figure 4: Visual comparison of pose trajectories on RE10K. Camera frustums for ground-truth and predicted poses are shown in black and orange, respectively. The top two examples correspond to 5-view reconstruction, while the bottom example corresponds to 10-view reconstruction.
+Table 3: Performance comparison of two-view pose estimation (AUC, %) on RE10K, ACID and DL3DV datasets. All NVS models are trained on RE10K with no supervised 3D priors. \ast indicates the SPFSplat variant trained with random initialization.
+| Method
+| RE10K
+| ACID
+| DL3DV
+| Rotation
+| Translation
+| Overall
+| Rotation
+| Translation
+| Overall
+| Rotation
+| Translation
+| Overall
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| SfM-based
+| SP + SG
+| 62.7
+| 73.3
+| 42.0
+| 58.5
+| 40.6
+| 56.9
+| 62.3
+| 72.4
+| 38.0
+| 51.6
+| 36.3
+| 50.0
+| 47.8
+| 56.1
+| 40.2
+| 52.6
+| 37.2
+| 49.2
+| NVS-based
+| SelfSplat
+| 48.7
+| 62.7
+| 19.2
+| 32.8
+| 18.4
+| 31.8
+| 64.5
+| 75.2
+| 26.4
+| 40.5
+| 25.8
+| 39.6
+| 21.0
+| 34.4
+| 8.9
+| 22.4
+| 6.1
+| 16.8
+| SPFSplat∗
+| 54.9
+| 67.7
+| 24.8
+| 40.9
+| 23.9
+| 39.8
+| 50.6
+| 65.3
+| 19.5
+| 36.3
+| 18.2
+| 34.4
+| 16.6
+| 32.7
+| 8.8
+| 12.2
+| 7.1
+| 15.2
+| NAS3R
+| 69.9
+| 78.4
+| 52.7
+| 66.3
+| 51.0
+| 64.9
+| 66.0
+| 76.6
+| 37.9
+| 51.9
+| 36.4
+| 50.1
+| 38.5
+| 51.8
+| 25.1
+| 42.1
+| 20.5
+| 34.2
+| Method
+| rel \downarrow
+| \tau \uparrow
+| Supervised
+| MVSplat
+| 0.405
+| 54.0
+| NoPoSplat
+| 0.508
+| 34.1
+| Self-Supervised
+| SPFSplat∗
+| 0.255
+| 60.3
+| NAS3R (Ours)
+| 0.206
+| 71.4
+Table 4: Comparison of two-view depth estimation results on BlendedMVS dataset.
+Figure 5: Examples of 3D Gaussians and rendered RGB and depth results on RE10K.
+4.3 Results
+In this section, we compare NAS3R with other NVS approaches trained with no supervised 3D priors. Baseline settings for all methods are detailed in Sec. 4.1.
+Novel View Synthesis.
+We present in-domain and out-of-domain quantitative NVS results in Tab. 2. Our approach, despite not using any ground-truth poses or intrinsics during training, still outperforms other self-supervised methods, and is comparable and in some cases superior to supervised methods. Notably, it provides higher quality output even under wide viewpoint changes, as illustrated in Fig. 3.
+Relative Pose Estimation.
+We evaluate 2-view relative pose estimation on the RE10K, ACID, and DL3DV datasets, as shown in Tab. 3. To assess generalization, all NVS methods are trained on RE10K and evaluated in a zero-shot manner on the other datasets. For all NVS-based methods, predicted poses are obtained from their respective pose heads.
+Despite being trained without intrinsics information, our method consistently outperforms recent self-supervised approaches, particularly on the more challenging DL3DV dataset, demonstrating its ability to learn camera poses purely from image-level signals. Remarkably, NAS3R approaches or even surpasses SuperPoint + SuperGlue, which is trained in a fully supervised manner for feature matching, which might indicate s strong capability in establishing feature correspondences in a self-supervised setting.
+We also provide a qualitative comparison with SelfSplat in Fig. 4, showing more accurate pose trajectories under both 5-view and 10-view settings.
+Depth Estimation.
+As shown in Tab. 4.2, we evaluate the quality of the predicted depth maps on BlendedMVS using RE10K-trained models. Our method achieves the best performance, even surpassing the supervised NVS method MVSplat, which explicitly leverages ground-truth camera parameters and incorporates cost volumes into its backbone. This result highlights the strong capability of a standard transformer, without any built-in 3D inductive bias, to learn accurate geometry purely from image-level supervision.
+Geometry Reconstruction.
+As shown in Fig. 5, MVSplat produces irregular and noisy Gaussian geometry, leading to smeared surfaces and inconsistent depth.
+In contrast, our NAS3R reconstruction yields significantly more coherent Gaussian distributions with cleaner spatial organization. This improved structure translates into sharper, more accurate depth renderings that better preserve planar surfaces and fine details, highlighting the ability of our approach to generate stable geometry and depth.
+4.4 Leveraging Pretrained Priors
+Our self-supervised learning paradigm can be seamlessly applied to state-of-the-art 3D models and incorporate their pretrained priors through weight initialization. Following previous works [74, 24, 25, 60], we integrate two representative 3D priors, MASt3R and VGGT. For MASt3R initialization, the encoder and decoder are initialized with pretrained MASt3R weights, while the depth head is initialized using the z -dimension of the pointmap head. For VGGT initialization, all components are intialized from the pretrained weights except for the Gaussian parameter head.
+Table 5: Performance comparison of two-view NVS when using supervised priors. Best and second-best results are highlighted.
+| Method
+| RE10K
+| RE10K \rightarrow ACID
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Supervised
+| NoPoSplat
+| 25.061
+| 0.839
+| 0.161
+| 25.765
+| 0.776
+| 0.199
+| Self-Supervised
+| PF3plat
+| 21.042
+| 0.739
+| 0.233
+| 20.726
+| 0.610
+| 0.308
+| SPFSplat
+| 25.484
+| 0.847
+| 0.153
+| 25.965
+| 0.781
+| 0.190
+| SPFSplatV2
+| 25.693
+| 0.853
+| 0.149
+| 26.220
+| 0.789
+| 0.185
+| SPFSplatV2-L
+| 25.668
+| 0.855
+| 0.137
+| 26.361
+| 0.796
+| 0.169
+| NAS3R(MASt3R)
+| 25.814
+| 0.856
+| 0.149
+| 26.492
+| 0.800
+| 0.183
+| NAS3R(VGGT)
+| 25.888
+| 0.861
+| 0.136
+| 26.663
+| 0.807
+| 0.166
+As shown in Tab. 5, incorporating pretrained priors further boosts NVS performance, allowing our method to outperform competing approaches despite using only self-supervised photometric supervision. Similarly, Tab. 6 shows notable gains in pose estimation, where NAS3R consistently matches or surpasses other NVS-based methods and even exceeds the performance of MASt3R and VGGT themselves. When ground-truth intrinsics are additionally provided (denoted as NAS3R-I), performance improves further, indicating that explicit calibration information helps reduce scale ambiguity and facilitates optimization.
+Comparing these results with Tab.2 and Tab.3, the consistent gains in both NVS and pose estimation confirm the value of pretrained priors as a strong geometric initialization, guiding photometric bundle adjustment toward better geometric solutions. More importantly, the improvements over the pretrained models used for initialization, particularly in pose estimation, highlight the potential of self-supervised photometric optimization to further adapt supervised 3D priors to large-scale unlabeled data.
+Table 6: Performance comparison of two-view pose estimation when using supervised priors. “-I” indicates using GT intrinsics.
+| Method
+| RE10K
+| RE10K \rightarrow ACID
+| 5∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 5∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| SfM-based
+| DUSt3R
+| 33.6
+| 54.1
+| 70.2
+| 11.8
+| 27.9
+| 47.0
+| MASt3R
+| 28.1
+| 49.4
+| 67.1
+| 13.8
+| 31.2
+| 50.7
+| VGGT
+| 25.7
+| 47.4
+| 65.8
+| 14.2
+| 30.4
+| 48.6
+| NVS-based
+| NoPoSplat
+| 57.2
+| 72.8
+| 83.3
+| 33.5
+| 49.7
+| 64.5
+| PF3plat
+| 18.7
+| 39.8
+| 61.3
+| 6.0
+| 16.5
+| 34.0
+| SPFSplat
+| 61.7
+| 75.5
+| 84.5
+| 36.4
+| 52.0
+| 66.2
+| SPFSplatV2
+| 63.8
+| 77.6
+| 86.3
+| 38.7
+| 54.1
+| 67.2
+| SPFSplatV2-L
+| 64.5
+| 78.0
+| 86.4
+| 37.9
+| 53.9
+| 67.1
+| NAS3R(MASt3R)
+| 63.8
+| 77.6
+| 86.4
+| 35.8
+| 53.3
+| 67.7
+| NAS3R(VGGT)
+| 62.4
+| 77.2
+| 86.6
+| 33.6
+| 52.2
+| 67.1
+| NAS3R-I (MASt3R)
+| 68.3
+| 80.3
+| 87.8
+| 43.8
+| 58.4
+| 70.7
+| NAS3R-I (VGGT)
+| 67.7
+| 80.3
+| 88.1
+| 44.0
+| 58.4
+| 70.4
+Table 7: Performance on NVS and pose estimation (ScanNet++) and depth estimation (BlendedMVS) with increasing training data.
+| Training Data
+| NVS
+| Pose
+| Depth
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| rel \downarrow
+| \tau \uparrow
+| RE10K
+| 15.146
+| 0.520
+| 0.442
+| 19.2
+| 34.1
+| 0.206
+| 71.4
+| DL3DV
+| 16.171
+| 0.542
+| 0.431
+| 19.1
+| 33.2
+| 0.175
+| 71.9
+| RE10K+DL3DV
+| 16.316
+| 0.552
+| 0.420
+| 24.5
+| 41.6
+| 0.145
+| 79.1
+4.5 Ablation Analysis
+Scaling with Larger Training Sets.
+Because NAS3R does not require ground-truth labels, it naturally scales to large, unconstrained datasets. To study the effect of data scale, we train on the combined RE10K+DL3DV dataset and evaluate NVS and pose estimation on ScanNet++, as well as depth estimation on BlendedMVS. As shown in Tab. 7, increasing the amount of training data consistently improves performance across all three tasks. These results demonstrate the strong scalability of our self-supervised framework and its potential to leverage large-scale unlabeled datasets.
+More Input Views.
+As shown in Tab. 8, quantitative results on RE10K indicate that both NVS and pose estimation performance improve consistently as the number of context views increases. This demonstrates that our method effectively leverages additional multi-view information to produce more reliable renderings and more accurate camera pose predictions.
+Self-supervised Pretraining.
+To evaluate the effectiveness of our model as a self-supervised pretraining strategy for downstream finetuning with ground-truth supervision, we compare three settings on the BlendedMVS dataset: (1) NAS3R’s self-supervised training on RE10K and DL3DV using only photometric supervision, evaluated in a zero-shot setting on BlendedMVS; (2) supervised training on BlendedMVS from scratch using ground-truth depth and pose losses (following MapAnything [32]); and (3) supervised training on BlendedMVS with the same losses, but initialized from the RE10K+DL3DV pretrained weights in (1). As shown in Tab. 9, NAS3R trained solely on RE10K+DL3DV achieves depth performance slightly better than the same architecture trained from scratch with ground-truth supervision, and significantly surpasses it in pose estimation. Furthermore, initializing from the self-supervised RE10K+DL3DV weights significantly outperforms random initialization when fine-tuning with supervised depth and pose losses. These results highlight the model’s ability to learn meaningful geometry purely from self-supervision and demonstrate that large-scale self-supervised pretraining provides a strong and broadly generalizable initialization for downstream supervised tasks.
+Table 8: Performance on novel view synthesis and pose estimation with varying number of input views.
+| Num of Views
+| NVS
+| Pose
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| 5∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| 2 views
+| 23.130
+| 0.764
+| 0.193
+| 32.6
+| 51.0
+| 64.9
+| 3 views
+| 25.384
+| 0.829
+| 0.141
+| 37.9
+| 57.6
+| 72.0
+| 5 views
+| 25.983
+| 0.844
+| 0.131
+| 38.9
+| 58.5
+| 72.8
+| 10 views
+| 27.093
+| 0.872
+| 0.113
+| 41.0
+| 61.0
+| 75.5
+Table 9: Self-supervised pretraining improves downstream finetuning. Supervised finetuning from self-supervised pretrained weights (3) outperforms both self-supervised learning (1) and supervised training from scratch (2) on BlendedMVS.
+| Method
+| Depth
+| Pose
+| rel \downarrow
+| \tau \uparrow
+| 5∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| (1) Self-Supervised (NAS3R)
+| 0.145
+| 79.1
+| 29.8
+| 49.5
+| 66.8
+| (2) Supervised from scratch
+| 0.177
+| 76.6
+| 10.7
+| 23.5
+| 39.4
+| (3) Supervised from weights in (1)
+| 0.119
+| 90.0
+| 33.9
+| 54.3
+| 71.3
+4.6 Limitations
+As our method can be trained without any ground-truth annotations and scales naturally to large datasets, future work could explore training on larger and more diverse data to further improve generalization. Moreover, due to the absence of ground-truth supervision and the inherent limitations of 3DGS in recovering precise surface geometry [22], additional finetuning with ground-truth depth is still beneficial for high-quality depth reconstruction.
+5 Conclusion
+In this paper we presente NAS3R, a self-supervised feed-forward approach that jointly predicts 3D Gaussian primitives and camera parameters from uncalibrated and unposed multi-view images. Extensive evaluations demonstrate state-of-the-art performance across multiple standard benchmarks, underscoring the potential of self-supervised models to make use of vast unlabeled data, and approach or even exceed the performance of their supervised counterparts in various 3D reconstruction tasks.
+References
+[1]
+H. Alismail, B. Browning, and S. Lucey (2016)
+Photometric bundle adjustment for vision-based slam.
+In Asian Conference on Computer Vision,
+pp. 324–341.
+Cited by: §1.
+[2]
+R. Bachmann, D. Mizrahi, A. Atanov, and A. Zamir (2022)
+Multimae: multi-modal multi-task masked autoencoders.
+In European Conference on Computer Vision,
+pp. 348–367.
+Cited by: §2.2.
+[3]
+H. Bao, L. Dong, S. Piao, and F. Wei (2021)
+Beit: bert pre-training of image transformers.
+arXiv preprint arXiv:2106.08254.
+Cited by: §2.2.
+[4]
+J. Bian, Z. Li, N. Wang, H. Zhan, C. Shen, M. Cheng, and I. Reid (2019)
+Unsupervised scale-consistent depth and ego-motion learning from monocular video.
+Advances in neural information processing systems 32.
+Cited by: §2.2.
+[5]
+E. Brachmann, J. Wynn, S. Chen, T. Cavallari, Á. Monszpart, D. Turmukhambetov, and V. A. Prisacariu (2024)
+Scene coordinate reconstruction: posing of image collections via incremental learning of a relocalizer.
+In European Conference on Computer Vision,
+pp. 421–440.
+Cited by: §2.1.
+[6]
+M. Caron, H. Touvron, I. Misra, H. Jégou, J. Mairal, P. Bojanowski, and A. Joulin (2021)
+Emerging properties in self-supervised vision transformers.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 9650–9660.
+Cited by: Table 1,
+§4.1.
+[7]
+D. Charatan, S. L. Li, A. Tagliasacchi, and V. Sitzmann (2024)
+Pixelsplat: 3d gaussian splats from image pairs for scalable generalizable 3d reconstruction.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 19457–19467.
+Cited by: §2.1,
+§2,
+§3.1,
+§3.2,
+§4.1.
+[8]
+A. Chen, Z. Xu, F. Zhao, X. Zhang, F. Xiang, J. Yu, and H. Su (2021)
+Mvsnerf: fast generalizable radiance field reconstruction from multi-view stereo.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 14124–14133.
+Cited by: §2.1,
+§2.
+[9]
+Y. Chen, H. Xu, C. Zheng, B. Zhuang, M. Pollefeys, A. Geiger, T. Cham, and J. Cai (2024)
+Mvsplat: efficient 3d gaussian splatting from sparse multi-view images.
+In European Conference on Computer Vision,
+pp. 370–386.
+Cited by: §2.1,
+§2,
+§3.1,
+§3.2,
+§4.1,
+B. More Experimental Analysis.
+[10]
+A. Delaunoy and M. Pollefeys (2014)
+Photometric bundle adjustment for dense multi-view 3d modeling.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition,
+pp. 1486–1493.
+Cited by: §1.
+[11]
+D. DeTone, T. Malisiewicz, and A. Rabinovich (2018)
+Superpoint: self-supervised interest point detection and description.
+In Proceedings of the IEEE conference on computer vision and pattern recognition workshops,
+pp. 224–236.
+Cited by: §1,
+§4.1.
+[12]
+J. Devlin, M. Chang, K. Lee, and K. Toutanova (2019)
+Bert: pre-training of deep bidirectional transformers for language understanding.
+In Proceedings of the 2019 conference of the North American chapter of the association for computational linguistics: human language technologies, volume 1 (long and short papers),
+pp. 4171–4186.
+Cited by: §2.2.
+[13]
+A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, J. Uszkoreit, and N. Houlsby (2021)
+An image is worth 16x16 words: transformers for image recognition at scale.
+In International Conference on Learning Representations,
+External Links: Link
+Cited by: §2.1,
+§3.2.
+[14]
+D. Eigen, C. Puhrsch, and R. Fergus (2014)
+Depth map prediction from a single image using a multi-scale deep network.
+Advances in neural information processing systems 27.
+Cited by: §4.1.
+[15]
+FISCHLER and M. (1981)
+Random sample consensus: a paradigm for model fitting with applications to image analysis and automated cartography.
+Commun. ACM 24 (6), pp. 381–395.
+Cited by: A. More Implementation Details.
+[16]
+C. Godard, O. Mac Aodha, M. Firman, and G. J. Brostow (2019)
+Digging into self-supervised monocular depth estimation.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 3828–3838.
+Cited by: §2.2.
+[17]
+R. Hartley and A. Zisserman (2003)
+Multiple view geometry in computer vision.
+Cambridge university press.
+Cited by: §1,
+§2.2,
+§2,
+A. More Implementation Details.
+[18]
+K. He, X. Chen, S. Xie, Y. Li, P. Dollár, and R. Girshick (2022)
+Masked autoencoders are scalable vision learners.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 16000–16009.
+Cited by: §2.2.
+[19]
+Y. He, R. Yan, K. Fragkiadaki, and S. Yu (2020)
+Epipolar transformers.
+In Proceedings of the ieee/cvf conference on computer vision and pattern recognition,
+pp. 7779–7788.
+Cited by: §2.1.
+[20]
+S. Hong, J. Jung, H. Shin, J. Han, J. Yang, C. Luo, and S. Kim (2024)
+Pf3plat: pose-free feed-forward 3d gaussian splatting.
+arXiv preprint arXiv:2410.22128.
+Cited by: §1,
+§2.2,
+§2.2,
+§3.2,
+§4.1.
+[21]
+S. Hong, J. Jung, H. Shin, J. Yang, S. Kim, and C. Luo (2024)
+Unifying correspondence pose and nerf for generalized pose-free novel view synthesis.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20196–20206.
+Cited by: §2.1,
+§2,
+A. More Implementation Details.
+[22]
+B. Huang, Z. Yu, A. Chen, A. Geiger, and S. Gao (2024)
+2d gaussian splatting for geometrically accurate radiance fields.
+In ACM SIGGRAPH 2024 conference papers,
+pp. 1–11.
+Cited by: §4.6.
+[23]
+R. Huang, J. Cai, C. Li, Z. Wu, X. Liu, and Z. Chai (2023)
+DRKF: distilled rotated kernel fusion for efficient rotation invariant descriptors in local feature matching.
+In 2023 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS),
+pp. 1885–1892.
+Cited by: §2.1.
+[24]
+R. Huang and K. Mikolajczyk (2025)
+No pose at all: self-supervised pose-free 3d gaussian splatting from sparse views.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+Cited by: §1,
+§1,
+§2.2,
+§2.2,
+§2,
+§3.1,
+§3.2,
+§3.2,
+§4.1,
+§4.4,
+A. More Implementation Details.
+[25]
+R. Huang and K. Mikolajczyk (2025)
+SPFSplatV2: efficient self-supervised pose-free 3d gaussian splatting from sparse views.
+arXiv preprint arXiv:2509.17246.
+Cited by: §1,
+§1,
+§2.2,
+§2.2,
+§2,
+§3.2,
+§3.2,
+§3.2,
+§4.1,
+§4.4,
+A. More Implementation Details.
+[26]
+R. Jensen, A. Dahl, G. Vogiatzis, E. Tola, and H. Aanæs (2014)
+Large scale multi-view stereopsis evaluation.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 406–413.
+Cited by: §4.1.
+[27]
+H. Jiang, Z. Jiang, Y. Zhao, and Q. Huang (2024)
+LEAP: liberate sparse-view 3d modeling from camera poses.
+In The Twelfth International Conference on Learning Representations,
+External Links: Link
+Cited by: §2.1.
+[28]
+H. Jiang, H. Tan, P. Wang, H. Jin, Y. Zhao, S. Bi, K. Zhang, F. Luan, K. Sunkavalli, Q. Huang, et al. (2025)
+Rayzer: a self-supervised large view synthesis model.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 4918–4929.
+Cited by: §1,
+§2.2,
+§2.2,
+§2.
+[29]
+L. Jiang, Y. Mao, L. Xu, T. Lu, K. Ren, Y. Jin, X. Xu, M. Yu, J. Pang, F. Zhao, et al. (2025)
+AnySplat: feed-forward 3d gaussian splatting from unconstrained views.
+arXiv preprint arXiv:2505.23716.
+Cited by: §1,
+§2.2,
+B. More Experimental Analysis.
+[30]
+H. Jin, H. Jiang, H. Tan, K. Zhang, S. Bi, T. Zhang, F. Luan, N. Snavely, and Z. Xu (2024)
+Lvsm: a large view synthesis model with minimal 3d inductive bias.
+arXiv preprint arXiv:2410.17242.
+Cited by: §2.1,
+§2.1,
+§2.
+[31]
+G. Kang, J. Yoo, J. Park, S. Nam, H. Im, S. Shin, S. Kim, and E. Park (2025)
+SelfSplat: pose-free and 3d prior-free generalizable 3d gaussian splatting.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 22012–22022.
+Cited by: §1,
+§2.2,
+§2.2,
+§3.2,
+§4.1.
+[32]
+N. Keetha, N. Müller, J. Schönberger, L. Porzi, Y. Zhang, T. Fischer, A. Knapitsch, D. Zauss, E. Weber, N. Antunes, et al. (2025)
+MapAnything: universal feed-forward metric 3d reconstruction.
+arXiv preprint arXiv:2509.13414.
+Cited by: §2,
+§4.5,
+A. More Implementation Details.
+[33]
+B. Kerbl, G. Kopanas, T. Leimkühler, and G. Drettakis (2023)
+3D gaussian splatting for real-time radiance field rendering..
+ACM Trans. Graph. 42 (4), pp. 139–1.
+Cited by: §1,
+§2.
+[34]
+V. Leroy, Y. Cabon, and J. Revaud (2024)
+Grounding image matching in 3d with mast3r.
+In European Conference on Computer Vision,
+pp. 71–91.
+Cited by: §1,
+§1,
+§2.1,
+Table 1,
+Table 1,
+Table 1,
+§2,
+§3.2,
+§4.1.
+[35]
+Z. Li, Z. Chen, F. Yang, W. Li, Y. Zhu, C. Zhao, R. Deng, L. Wu, R. Zhao, M. Tang, et al. (2021)
+Mst: masked self-supervised transformer for visual representation.
+Advances in Neural Information Processing Systems 34, pp. 13165–13176.
+Cited by: §2.2.
+[36]
+C. Lin, W. Ma, A. Torralba, and S. Lucey (2021)
+Barf: bundle-adjusting neural radiance fields.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 5741–5751.
+Cited by: §1,
+§1,
+§2.1.
+[37]
+C. Lin, O. Wang, B. C. Russell, E. Shechtman, V. G. Kim, M. Fisher, and S. Lucey (2019)
+Photometric mesh optimization for video-aligned 3d object reconstruction.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 969–978.
+Cited by: §1.
+[38]
+P. Lindenberger, P. Sarlin, and M. Pollefeys (2023)
+Lightglue: local feature matching at light speed.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 17627–17638.
+Cited by: §1.
+[39]
+L. Ling, Y. Sheng, Z. Tu, W. Zhao, C. Xin, K. Wan, L. Yu, Q. Guo, Z. Yu, Y. Lu, et al. (2024)
+Dl3dv-10k: a large-scale scene dataset for deep learning-based 3d vision.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 22160–22169.
+Cited by: §4.1.
+[40]
+A. Liu, R. Tucker, V. Jampani, A. Makadia, N. Snavely, and A. Kanazawa (2021)
+Infinite nature: perpetual view generation of natural scenes from a single image.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 14458–14467.
+Cited by: §4.1.
+[41]
+D. G. Lowe (2004)
+Distinctive image features from scale-invariant keypoints.
+International journal of computer vision 60, pp. 91–110.
+Cited by: §1.
+[42]
+Y. Mao, W. Luo, R. Huang, J. Jing, and K. Mikolajczyk (2025)
+POMA-3d: the point map way to 3d scene understanding.
+arXiv preprint arXiv:2511.16567.
+Cited by: §2.2.
+[43]
+B. Mildenhall, P. P. Srinivasan, M. Tancik, J. T. Barron, R. Ramamoorthi, and R. Ng (2021)
+Nerf: representing scenes as neural radiance fields for view synthesis.
+Communications of the ACM 65 (1), pp. 99–106.
+Cited by: §2.
+[44]
+T. W. Mitchel, H. Ryu, and V. Sitzmann (2025)
+True self-supervised novel view synthesis is transferable.
+arXiv preprint arXiv:2510.13063.
+Cited by: §1,
+§2.2,
+§2.
+[45]
+B. R. Nagoor Kani, H. Lee, S. Tulyakov, and S. Tulsiani (2024)
+UpFusion: novel view diffusion from unposed sparse view observations.
+In European Conference on Computer Vision (ECCV),
+Cited by: §2.1,
+§2.1,
+§2.
+[46]
+L. Piccinelli, Y. Yang, C. Sakaridis, M. Segu, S. Li, L. Van Gool, and F. Yu (2024)
+UniDepth: universal monocular metric depth estimation.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 10106–10116.
+Cited by: §1,
+§2.
+[47]
+R. Ranftl, A. Bochkovskiy, and V. Koltun (2021)
+Vision transformers for dense prediction.
+In Proceedings of the IEEE/CVF international conference on computer vision,
+pp. 12179–12188.
+Cited by: §3.2.
+[48]
+E. Rublee, V. Rabaud, K. Konolige, and G. Bradski (2011)
+ORB: an efficient alternative to sift or surf.
+In Proc. IEEE Int. Conf. Comput. Vision. (ICCV),
+pp. 2564–2571.
+Cited by: §1.
+[49]
+M. S. Sajjadi, A. Mahendran, T. Kipf, E. Pot, D. Duckworth, M. Lučić, and K. Greff (2023)
+Rust: latent neural scene representations from unposed imagery.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 17297–17306.
+Cited by: §2.
+[50]
+M. S. Sajjadi, H. Meyer, E. Pot, U. Bergmann, K. Greff, N. Radwan, S. Vora, M. Lučić, D. Duckworth, A. Dosovitskiy, et al. (2022)
+Scene representation transformer: geometry-free novel view synthesis through set-latent scene representations.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 6229–6238.
+Cited by: §2.1,
+§2.1,
+§2.
+[51]
+P. Sarlin, D. DeTone, T. Malisiewicz, and A. Rabinovich (2020)
+Superglue: learning feature matching with graph neural networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 4938–4947.
+Cited by: §4.1,
+§4.1.
+[52]
+J. L. Schonberger and J. Frahm (2016)
+Structure-from-motion revisited.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 4104–4113.
+Cited by: §1.
+[53]
+B. Smart, C. Zheng, I. Laina, and V. A. Prisacariu (2024)
+Splatt3r: zero-shot gaussian splatting from uncalibrated image pairs.
+arXiv preprint arXiv:2408.13912.
+Cited by: §2.1.
+[54]
+J. Tang, Z. Chen, X. Chen, T. Wang, G. Zeng, and Z. Liu (2024)
+Lgm: large multi-view gaussian model for high-resolution 3d content creation.
+In European Conference on Computer Vision,
+pp. 1–18.
+Cited by: §2.1,
+§2.1.
+[55]
+Z. Tang, Y. Fan, D. Wang, H. Xu, R. Ranjan, A. Schwing, and Z. Yan (2025)
+Mv-dust3r+: single-stage scene reconstruction from sparse views in 2 seconds.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5283–5293.
+Cited by: §1,
+§1,
+§2.1,
+§2,
+§3.2.
+[56]
+P. Truong, M. Rakotosaona, F. Manhardt, and F. Tombari (2023)
+Sparf: neural radiance fields from sparse and noisy poses.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 4190–4200.
+Cited by: §2.1.
+[57]
+J. Uhrig, N. Schneider, L. Schneider, U. Franke, T. Brox, and A. Geiger (2017)
+Sparsity invariant cnns.
+In 2017 international conference on 3D Vision (3DV),
+pp. 11–20.
+Cited by: §4.1.
+[58]
+A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. Polosukhin (2017)
+Attention is all you need.
+Advances in neural information processing systems 30.
+Cited by: §1.
+[59]
+H. Wang, K. Ye, Y. Li, W. Chen, and B. Chen (2025)
+The less you depend, the more you learn: synthesizing novel views from sparse, unposed images without any 3d knowledge.
+arXiv preprint arXiv:2506.09885.
+Cited by: §2.
+[60]
+J. Wang, M. Chen, N. Karaev, A. Vedaldi, C. Rupprecht, and D. Novotny (2025)
+Vggt: visual geometry grounded transformer.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 5294–5306.
+Cited by: §1,
+§1,
+§1,
+§1,
+§2.1,
+Table 1,
+§2,
+§3.2,
+§4.1,
+§4.4.
+[61]
+J. Wang, N. Karaev, C. Rupprecht, and D. Novotny (2024)
+Vggsfm: visual geometry grounded deep structure from motion.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 21686–21697.
+Cited by: §2.1,
+§2.
+[62]
+P. Wang, H. Tan, S. Bi, Y. Xu, F. Luan, K. Sunkavalli, W. Wang, Z. Xu, and K. Zhang (2024)
+PF-LRM: pose-free large reconstruction model for joint pose and shape prediction.
+In The Twelfth International Conference on Learning Representations,
+External Links: Link
+Cited by: §2.1.
+[63]
+S. Wang, V. Leroy, Y. Cabon, B. Chidlovskii, and J. Revaud (2024)
+Dust3r: geometric 3d vision made easy.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20697–20709.
+Cited by: §1,
+§1,
+§2.1,
+§2,
+§3.2,
+§3.2,
+§4.1.
+[64]
+Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli (2004)
+Image quality assessment: from error visibility to structural similarity.
+IEEE transactions on image processing 13 (4), pp. 600–612.
+Cited by: §4.1.
+[65]
+P. Weinzaepfel, V. Leroy, T. Lucas, R. Brégier, Y. Cabon, V. Arora, L. Antsfeld, B. Chidlovskii, G. Csurka, and J. Revaud (2022)
+Croco: self-supervised pre-training for 3d vision tasks by cross-view completion.
+Advances in Neural Information Processing Systems 35, pp. 3502–3516.
+Cited by: §2.2.
+[66]
+P. Weinzaepfel, T. Lucas, V. Leroy, Y. Cabon, V. Arora, R. Brégier, G. Csurka, L. Antsfeld, B. Chidlovskii, and J. Revaud (2023)
+Croco v2: improved cross-view completion pre-training for stereo matching and optical flow.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 17969–17980.
+Cited by: §2.2,
+Table 1,
+§4.1.
+[67]
+H. Xu, A. Chen, Y. Chen, C. Sakaridis, Y. Zhang, M. Pollefeys, A. Geiger, and F. Yu (2024)
+MuRF: multi-baseline radiance fields.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 20041–20050.
+Cited by: §2.1,
+§2.
+[68]
+H. Xu, J. Zhang, J. Cai, H. Rezatofighi, F. Yu, D. Tao, and A. Geiger (2023)
+Unifying flow, stereo and depth estimation.
+IEEE Transactions on Pattern Analysis and Machine Intelligence 45 (11), pp. 13941–13958.
+Cited by: Table 1,
+§4.1.
+[69]
+Y. Xu, Z. Shi, W. Yifan, H. Chen, C. Yang, S. Peng, Y. Shen, and G. Wetzstein (2024)
+Grm: large gaussian reconstruction model for efficient 3d reconstruction and generation.
+In European Conference on Computer Vision,
+pp. 1–20.
+Cited by: §2.1,
+§2.1.
+[70]
+C. Yan, D. Qu, D. Xu, B. Zhao, Z. Wang, D. Wang, and X. Li (2024)
+Gs-slam: dense visual slam with 3d gaussian splatting.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,
+pp. 19595–19604.
+Cited by: §2.2.
+[71]
+J. Yang, A. Sax, K. J. Liang, M. Henaff, H. Tang, A. Cao, J. Chai, F. Meier, and M. Feiszli (2025)
+Fast3r: towards 3d reconstruction of 1000+ images in one forward pass.
+In Proceedings of the Computer Vision and Pattern Recognition Conference,
+pp. 21924–21935.
+Cited by: §2.1,
+§2.
+[72]
+L. Yang, B. Kang, Z. Huang, X. Xu, J. Feng, and H. Zhao (2024)
+Depth anything: unleashing the power of large-scale unlabeled data.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 10371–10381.
+Cited by: §2.
+[73]
+Y. Yao, Z. Luo, S. Li, J. Zhang, Y. Ren, L. Zhou, T. Fang, and L. Quan (2020)
+Blendedmvs: a large-scale dataset for generalized multi-view stereo networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 1790–1799.
+Cited by: §4.1.
+[74]
+B. Ye, S. Liu, H. Xu, X. Li, M. Pollefeys, M. Yang, and S. Peng (2025)
+No pose, no problem: surprisingly simple 3d gaussian splats from sparse unposed images.
+In The Thirteenth International Conference on Learning Representations,
+External Links: Link
+Cited by: §1,
+§2.1,
+§2.1,
+§2,
+§3.2,
+§3.2,
+§4.1,
+§4.1,
+§4.4,
+A. More Implementation Details,
+B. More Experimental Analysis.
+[75]
+C. Yeshwanth, Y. Liu, M. Nießner, and A. Dai (2023)
+Scannet++: a high-fidelity dataset of 3d indoor scenes.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 12–22.
+Cited by: §4.1.
+[76]
+K. Zhang, S. Bi, H. Tan, Y. Xiangli, N. Zhao, K. Sunkavalli, and Z. Xu (2024)
+Gs-lrm: large reconstruction model for 3d gaussian splatting.
+In European Conference on Computer Vision,
+pp. 1–19.
+Cited by: §2.1,
+§2.1.
+[77]
+R. Zhang, P. Isola, A. A. Efros, E. Shechtman, and O. Wang (2018)
+The unreasonable effectiveness of deep features as a perceptual metric.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 586–595.
+Cited by: §3.1,
+§4.1.
+[78]
+T. Zhou, M. Brown, N. Snavely, and D. G. Lowe (2017)
+Unsupervised learning of depth and ego-motion from video.
+In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pp. 1851–1858.
+Cited by: §2.2.
+[79]
+T. Zhou, R. Tucker, J. Flynn, G. Fyffe, and N. Snavely (2018)
+Stereo magnification: learning view synthesis using multiplane images.
+ACM Transactions on Graphics (TOG) 37 (4), pp. 1–12.
+Cited by: §4.1.
+[80]
+Y. Zhou, C. Barnes, J. Lu, J. Yang, and H. Li (2019)
+On the continuity of rotation representations in neural networks.
+In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 5745–5753.
+Cited by: §3.2.
+Supplementary Material
+A. More Implementation Details
+More Architecture and Training Details.
+In our experiments, we apply NAS3R to two representative 3D models, MASt3R and VGGT. In Sec. 4.3, NAS3R is trained from random initialization based on VGGT architecture, while in Sec. 4.4, we train NAS3R on both VGGT and MASt3R architectures and utilize their respective pretrained weights for initialization.
+Across all experiments, we use an initial learning rate of 1\times 10^{-4} and set the LPIPS loss weight to 0.05. The batch size is 10 for VGGT-based models and 16 for MASt3R-based models.
+For the VGGT-based variant, we add a DPT-based Gaussian head while keeping other components as in the original VGGT: ViT-Large encoder (patch 14), alternating frame/global self-attention decoder, DPT depth head, and a camera head with self-attention layers and linear projection.
+For the MASt3R-based variant, we use the original MASt3R ViT-Large encoder (patch 16) and extend the pairwise ViT-Base decoder to multi-view. We add DPT-based depth and Gaussian heads, and use a 3-layer MLP camera head that predicts rotation (6D), translation (4D homogeneous coordinates), and intrinsics (FOV).
+For both variants, the decoder’s cross-attention is modified for masked context-to-target attention, and the camera head assumes shared intrinsics for all images within the same scene to ensure stable convergence.
+More Details on Baselines.
+All baselines use an input resolution of 256 \times 256, except those based on the VGGT architecture (SPFSplatV2-L and the NAS3R VGGT variant), which operate at 224 \times 224.
+For the prior-free comparison in Sec. 4.3, we retrain NoPoSplat and SPFSplatV2/V2-L with a 10k-step warm-up stage using the DUSt3R point-cloud distillation loss, following [74, 24, 25].
+In Tab. 3, SuperPoint + SuperGlue computes feature correspondences to estimate Essential Matrices and derive relative poses.
+Since SelfSplat defines the target image as the reference frame, we evaluate relative poses between each pair of context images by setting the frist context image as the target image. For Fig. 4, the multi-view inference is decomposed to several two-view inference for SelfSplat.
+In Tab. 6, DUSt3R, MASt3R, and NoPoSplat estimate poses via PnP [17] with RANSAC [15], whereas PF3Splat, VGGT, and all SPFSplat variants directly regress camera poses.
+More Details on Downstream Finetuning.
+For Tab. 9, following MapAnything [32], we first compute the ground-truth pointmaps from the ground-truth poses and depth maps, as well as predicted pointmaps from the predicted poses and depth maps. Using the ground-truth validity masks, we compute scaling factors for both the ground-truth and up-to-scale predicted pointmaps, which are then used to normalize the depth maps and translations. The depth loss is adopted directly from MapAnything [32].
+For pose supervision, following [21], we combine a geodesic rotation loss and an L_{2} translation loss. The rotation and translation terms are weighted by 0.1 and 0.01, respectively.
+More Details on Multi-View Experiments.
+For the multi-view experiments in Tab. 8, we fix the first and last views and gradually increase the intermediate input views.
+B. More Experimental Analysis
+Figure 6: Examples of 3D Gaussians and rendered RGB and depth results on RE10K.
+Figure 7: More novel view synthesis qualitative comparisons on DL3DV.
+Progressive Interval Curriculum.
+We adopt a simple frame-interval-based strategy for view selection, a common practice in prior work [9, 74], in which the interval between context frames is progressively increased during training. We also evaluate a no-curriculum variant that samples from a fixed frame-interval range throughout training (Tab. 10). Results show that, although performance is slightly lower without the curriculum, NAS3R still converges stably, demonstrating the robustness of our method.
+Table 10: Ablation on progressive interval curriculum on RE10K.
+| Method
+| NVS
+| Pose
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| 5∘ \uparrow
+| 10∘ \uparrow
+| 20∘ \uparrow
+| No Curriculum
+| 21.020
+| 0.650
+| 0.255
+| 20.3
+| 35.8
+| 50.2
+| Progressive Interval Curriculum
+| 23.130
+| 0.764
+| 0.193
+| 32.6
+| 51.0
+| 64.9
+Table 11: Ablation on ground-truth intrinsics on RE10K.
+| Methods
+| w/o priors
+| w/ VGGT priors
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| NAS3R
+| 23.130
+| 0.764
+| 0.193
+| 25.888
+| 0.861
+| 0.136
+| NAS3R-I
+| 23.144
+| 0.758
+| 0.196
+| 25.872
+| 0.861
+| 0.135
+Ground-truth Intrinsics.
+Tab. 6 show that ground-truth intrinsics improve pose estimation. Ablation results in Tab. 11 indicates intrinsics have minimal impact on NVS quality, which is mainly because photometric supervision adjusts other 3D attributes to to be consistent with the self-learned intrinsics to achieve better rendering quality.
+Comparison with AnySplat.
+Although both of our method and AnySplat [29] adopt a local-to-global paradigm and VGGT-like architecture, there are two key differences.
+(1) Depth Activation: AnySplat follows the exponential depth activation used in VGGT, whereas our method predicts depth using a sigmoid activation followed by linear interpolation between near and far planes. This bounded formulation avoids an unbounded or explosive depth space, enabling stable training from random initialization.
+(2) View Supervision: AnySplat enforces the rendering loss only on the input context views, which leads overfitting to those views and frequent failures in depth and camera prediction. Consequently, it relies on pretrained VGGT weights and pseudo labels for stabilization.
+In contrast, our method processes novel target views via masked attention and enforces photometric supervision on these unseen views, encouraging better generalization and stable training without any pretrained priors.
+As shown in Tab. 12, despite being trained with much less data and no pretrained priors, NAS3R outperforms AnySplat in the 2-view setting and achieves comparable performance with more views.
+Table 12: Comparison with AnySplat on DL3DV dataset.
+| Method
+| Training Data
+| 2 View
+| 5 Views
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| (a) AnySplat
+| DL3DV+8 datasets
+| 16.905
+| 0.514
+| 0.249
+| 21.680
+| 0.694
+| 0.218
+| (b) NAS3R
+| DL3DV
+| 20.069
+| 0.588
+| 0.281
+| 21.307
+| 0.646
+| 0.240
+Inference Efficiency.
+In Tab. 13, we report the inference efficiency of the VGGT-based and MASt3R-based NAS3R variants, measured on an A6000 GPU for reconstructing 3D Gaussians and predicting camera poses from two input images.
+Table 13: Inference efficiency on an NVIDIA A6000 GPU.
+| Methods
+| Params (M)
+| FLOPs (GMac)
+| Time (s)
+| NAS3R (MASt3R)
+| 613.47
+| 404.52
+| 0.042
+| NAS3R (VGGT)
+| 1223.2
+| 607.65
+| 0.073
+C. More Visualizations
+Gaussian Reconstruction.
+Fig. 6 shows reconstructed Gaussians from two or three context views, along with the rendered RGB and depth maps, illustrating our model’s ability to perform multi-view reconstruction and produce high-quality renderings.
+Novel View Synthesis.
+We provide additional NVS qualitative comparisons with baselines on DL3DV (Fig. 7), RE10K ( Fig. 8) and ACID ( Fig. 9).
+Across all cases, our method delivers strong NVS performance, even for image pairs with very small or no viewpoint overlap.
+Figure 8: More novel view synthesis qualitative comparisons on RE10K.
+Figure 9: More novel view synthesis qualitative comparisons on ACID.
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

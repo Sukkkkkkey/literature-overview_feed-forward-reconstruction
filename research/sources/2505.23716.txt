@@ -1,0 +1,1133 @@
+AnySplat: Feed-forward 3D Gaussian Splatting from Unconstrained Views
+Report GitHub Issue
+×
+Title:
+Content selection saved. Describe the issue below:
+Description:
+Submit without GitHub
+Submit in GitHub
+arXiv is now an independent nonprofit!
+Learn more
+×
+Back to arXiv
+Why HTML?
+Report Issue
+Back to Abstract
+Download PDF
+Abstract.
+1 Introduction
+2 Related Work
+2.1 Optimization-based Novel View Synthesis Methods.
+2.2 Generalizable 3D Reconstruction Methods.
+Pose-aware generalizable methods.
+Pose-free generalizable methods.
+3 Method
+3.1 Problem Setup
+3.2 Pipeline
+Geometry Transformer
+Camera Pose Prediction
+Pixel-wise Gaussian Parameter Prediction
+Differentiable Voxelization
+3.3 Training and Inference
+Geometry Consistency Enhancement
+Training Objective
+Test-Time Camera Pose Alignment (Only for calculating the rendering metrics.)
+Post Optimization (Optional)
+4 Experiments
+4.1 Experimental Setup
+Datasets
+Training View Sampling Strategy
+Implementation details
+Baselines
+Metrics
+4.2 Novel-view Synthesis
+Post Optimization
+4.3 Pose Estimation and Multi-view Geometry Consistency
+4.4 Ablation Study
+Distill Loss
+Geometry Consistency Loss
+Differentiable Voxelization
+Training strategy
+5 Conclusion and Future Works
+Acknowledgements
+References
+A Experiment Details
+Training Setting
+Model Initialization
+Evaluation Setting
+B More Results
+Same Test Views.
+Failure Case.
+More Comparisons.
+License: CC BY 4.0
+arXiv:2505.23716v2 [cs.CV] 15 Sep 2025
+AnySplat: Feed-forward 3D Gaussian Splatting from Unconstrained Views
+1712Journal: TOGVolume: 44612DOI: 10.1145/3763326CCS: Computing methodologies RenderingCCS: Computing methodologies ReconstructionCCS: Computing methodologies Neural networks
+Lihan Jiang
+Note: Equal Contribution, Alphabetical Order.
+Affiliation: University of Science and Technology of China, Anhui, China
+Affiliation: Shanghai Artificial Intelligence Laboratory, Shanghai, China
+email: mr.lhjiang@gmail.com
+,
+Yucheng Mao
+Affiliation: Shanghai Artificial Intelligence Laboratory, Shanghai, China
+email: yucheng.mao.cs@gmail.com
+,
+Linning Xu
+Affiliation: The Chinese University of Hong Kong, Hong Kong, China
+email: linningxu@link.cuhk.edu.hk
+,
+Tao Lu
+Affiliation: Brown University, Rhode Island, United States of America
+email: tao_lu@brown.edu
+,
+Kerui Ren
+Affiliation: Shanghai Jiao Tong University, Shanghai, China
+Affiliation: Shanghai Artificial Intelligence Laboratory, Shanghai, China
+email: renkerui@sjtu.edu.cn
+,
+Yichen Jin
+Affiliation: Shanghai Artificial Intelligence Laboratory, Shanghai, China
+email: 13905152060@163.com
+,
+Xudong Xu
+Affiliation: Shanghai Artificial Intelligence Laboratory, Shanghai, China
+email: xuxudong@pjlab.org.cn
+,
+Mulin Yu
+Affiliation: Shanghai Artificial Intelligence Laboratory, Shanghai, China
+email: yumulin@pjlab.org.cn
+,
+Jiangmiao Pang
+Affiliation: Shanghai Artificial Intelligence Laboratory, Shanghai, China
+email: pangjiangmiao@gmail.com
+,
+Feng Zhao
+Affiliation: University of Science and Technology of China, Anhui, China
+Note: Corresponding Author
+email: fzhao956@ustc.edu.cn
+,
+Dahua Lin
+Affiliation: The Chinese University of Hong Kong, Hong Kong, China
+email: dhlin@ie.cuhk.edu.hk
+and
+Bo Dai
+Affiliation: The University of Hong Kong, Hong Kong, China
+email: bdai@hku.hk
+2025
+Figure 1.
+AnySplat lifts multi-view captures, from sparse to dense, into ready-to-view 3D scenes represented with 3D Gaussians (Kerbl et al., 2023). Unlike previous multi-view reconstruction and neural rendering methods, which rely on precise camera calibration, tedious per-scene optimization, and are often sensitive to input noise, AnySplat robustly handles a wide variety of capture scenarios in just seconds.
+teaser
+Abstract.
+We introduce AnySplat, a feed-forward network for novel-view synthesis from uncalibrated image collections. In contrast to traditional neural-rendering pipelines that demand known camera poses and per-scene optimization, or recent feed-forward methods that buckle under the computational weight of dense views—our model predicts everything in one shot. A single forward pass yields a set of 3D Gaussian primitives encoding both scene geometry and appearance, and the corresponding camera intrinsics and extrinsics for each input image. This unified design scales effortlessly to casually captured, multi-view datasets without any pose annotations. In extensive zero-shot evaluations, AnySplat matches the quality of pose-aware baselines in both sparse- and dense-view scenarios while surpassing existing pose-free approaches. Moreover, it greatly reduces rendering latency compared to optimization-based neural fields, bringing real-time novel-view synthesis within reach for unconstrained capture settings.
+Project page:
+https://city-super.github.io/anysplat/.
+Keywords:
+Multi-View Capture, 3D Gaussian Splatting, Novel-View Synthesis, Feed-Forward Models
+1. Introduction
+Recent advances in 3D foundation models (Wang et al., 2024c; Yang et al., 2025a; Wang et al., 2025a) have reshaped how we view the problem of reconstructing 3D scenes from 2D images. By inferring dense point clouds from a single view to thousands within seconds, these methods streamline or even eliminate traditional multi-stage reconstruction pipelines, making 3D scene reconstruction more accessible across a wider range of applications.
+Despite their powerful geometry priors, current foundation models often struggle to capture fine detail, photorealism, and geometric consistency—especially when processing highly overlapping inputs, which can yield misaligned or noisy reconstructions. By contrast, novel-view synthesis (NVS) methods such as NeRF (Mildenhall et al., 2021) and its recent extensions (Kerbl et al., 2023) deliver exceptional rendering fidelity, but only by offloading the hard work to a costly preprocessing stage. These pipelines first estimate camera poses via structure-from-motion and then perform per-scene neural field optimization.
+This delay between capture and usable output, along with computation costs that grow with the number of input frames, limits their practical applicability in many real-world scenarios.
+Witnessing this paradigm shift brought by feed-forward architectures like ViT (Dosovitskiy et al., 2020) in 3D modeling, we ask: can novel-view synthesis (NVS) from multiview captures naturally benefit? To bridge the gap between geometry priors and “ready-to-see” output, as exemplified in Fig. 1, we augment the foundation model with a lightweight rendering head. During training, this head refines and synthesizes appearance via a pseudo-label distillation training strategy, no ground-truth 3D annotations required, thereby injecting texture priors and enforcing geometric coherence in a single, end-to-end pass.
+This training strategy paves the way for extending the reach of 3D foundation models (Wang et al., 2024c; Yang et al., 2025a; Wang et al., 2025a) far beyond finite, annotated datasets—enabling seamless generalization to unbounded new scenes with minimal overhead.
+Specifically, we propose AnySplat, a feed-forward network for novel view synthesis trained on unconstrained and unposed multi-view images. AnySplat employs a geometry transformer to encode these images into high-dimensional features, which are then decoded into Gaussian parameters and camera poses. To improve efficiency, we introduce a differentiable voxelization module that merges pixel-wise Gaussian primitives into voxel-wise Gaussians, eliminating 30–70% of redundant primitives while maintaining comparable rendering quality.
+Since 3D annotations in real-world scenarios are often noisy, we design a novel pseudo-label knowledge distillation pipeline. In this framework, we distill camera and geometry priors from pretrained VGGT (Wang et al., 2025a) backbone as external supervision. As a result, AnySplat can be trained without any 3D SfM or MVS supervision, relying solely on uncalibrated images, making it promising to scale up to unconstrained capture with readily usable input.
+We train AnySplat on nine diverse and large-scale datasets, exposing the model to a wide range of geometric and appearance variations. As a result, our method demonstrates superior zero-shot generalization performance on unseen datasets. Experimental results show that AnySplat achieves excellent novel view synthesis quality, more consistent geometry, more accurate pose estimation, and faster inference times compared to both state-of-the-art feed-forward and optimization-based methods.
+In summary, our key contributions are:
+•
+Feed-forward reconstruction and rendering. Our model takes uncalibrated multi-view inputs and simultaneously predicts 3D Gaussian primitives and their camera intrinsics/extrinsics, delivering higher-quality reconstructions than prior feed-forward methods—and even outperforming optimization-based pipelines in challenging scenarios.
+•
+Efficient pseudo-label knowledge distillation. We distill geometry and texture priors from a pretrained VGGT model via a novel, end-to-end training pipeline—with only RGB images—unlocking high-fidelity rendering and enhanced multi-view consistency in under one day on 8–16 GPUs.
+•
+Differentiable voxel-guided Gaussian pruning.
+Our custom voxelization strategy eliminates 30–70 % of Gaussian primitives while preserving rendering quality, yielding a unified, compute-efficient model that gracefully handles both sparse and dense capture setups.
+2. Related Work
+2.1. Optimization-based Novel View Synthesis Methods.
+Neural Radiance Fields (NeRF) (Mildenhall et al., 2021; Barron et al., 2022; Müller et al., 2022) pioneered high-quality novel view synthesis by learning continuous volumetric density and radiance fields via coordinate-based networks, but its reliance on expensive volume rendering precludes real-time performance.
+In contrast, 3D Gaussian Splatting (3DGS) (Kerbl et al., 2023; Yu et al., 2024a; Lu et al., 2024b; Ren et al., 2024; Jiang et al., 2024; Yang et al., 2025b; Yu et al., 2024b; Feng et al., 2025; Lu et al., 2024a) explicitly represents scenes with millions of anisotropic Gaussians and exploits differentiable rasterization to render photorealistic views at over 30 FPS (1080p). Its core advances—adaptive density control for geometry refinement and spherical harmonics for view-dependent shading—enable real-time playback.
+Despite these advances, most NeRF and 3DGS methods assume access to accurate camera poses, typically obtained via classical Structure-from-Motion tools such as COLMAP (Schonberger and Frahm, 2016) or other relevant methods (Brachmann et al., 2024; Wang et al., 2024b; Pan et al., 2024). This requirement introduces an implicit preprocessing step that conceals the significant time and logistical costs of large-scale, multi-view data acquisition and registration.
+To address these limitations, recent approaches attempt to jointly optimize camera poses and scene representation. However, they either require incremental image sequences and intrinsics (Matsuki et al., 2024; Keetha et al., 2024; Yan et al., 2024; Fu et al., 2024; Meuleman et al., 2025) as input or are limited to scenarios with minimal motion (Meng et al., 2021; Wang et al., 2021b) or sparse view coverage (Fan et al., 2024). Furthermore, these methods still involve redundant optimization processes. In contrast, AnySplat can directly predict 3D Gaussians and camera parameters within seconds, significantly accelerating the 3D reconstruction process.
+2.2. Generalizable 3D Reconstruction Methods.
+Most view synthesis methods require tens of minutes or even hours to optimize on densely captured data. Recently, several generalizable 3D reconstruction methods have been proposed,
+which can be broadly categorized into two types: pose-aware methods, which assume known camera parameters, and pose-free methods, which jointly infer both geometry and camera poses.
+Pose-aware generalizable methods.
+Pose-aware generalizable methods rapidly reconstructed 3D models from calibrated images and their corresponding poses.
+These approaches can be broadly categorized into three methodological strands: (1) 3D Gaussian Splatting based techniques (Charatan et al., 2024; Chen et al., 2024a; Chen et al., 2024c; Wang et al., 2024a; Xu et al., 2024a) which directly predict 3D Gaussian primitive as the scene representation, (2) neural network based frameworks (Yu et al., 2021; Wang et al., 2021a; Chen et al., 2021; Flynn et al., 2024; Jin et al., 2024; Jiang et al., 2025) employing neural network to infer the appearance of the novel view image without any 3D representation, and (3) the emerging LRM architecture family (Hong et al., 2023; Zhang et al., 2024; Xu et al., 2024b; Ziwen et al., 2024). Despite these pose-aware reconstruction methods significantly reducing optimization time and improving performance under sparse-view conditions, their broader applicability remains limited due to the necessity for accurate image poses as input.
+Pose-free generalizable methods.
+To achieve truly end-to-end 3D reconstruction, pose-free generalizable methods rely solely on images as input, and most of them simultaneously predict image poses alongside the reconstructed 3D model. Among them, Dust3R (Wang et al., 2024c) and extended by MASt3R (Leroy et al., 2024), replace traditional multi-stage pipelines with a single large-scale model that jointly predicts depth and fuses it into a dense scene. More recent methods (Wang and Agapito, 2024; Liu et al., 2025; Murai et al., 2025; Wang et al., 2025b; Wang et al., 2025a; Yang et al., 2025a; Tang et al., 2025), cascade transformer blocks to jointly infer camera poses, point trajectories, and scene geometry in a single forward pass, achieving substantial improvements in both accuracy and runtime. While these methods highlight the potential for efficiently scaling up 3D asset reconstruction, they generally struggle in poor texture representation and multi-view misalignment problem, which significantly hinder their novel view synthesis performance. Another line of work (Jiang et al., 2023; Wang et al., 2023; Hong et al., 2024; Ye et al., 2024; Zhang et al., 2025; Smart et al., 2024; Chen et al., 2024b) targets novel view synthesis from unposed images, but these methods only work in sparse-view settings.
+3. Method
+Figure 2. Overview of AnySplat. Starting from a set of uncalibrated images, a transformer-based geometry encoder is followed by three decoder heads: \mathrm{F}_{G} , \mathrm{F}_{D} , and \mathrm{F}_{C} , which respectively predict the Gaussian parameters ( \boldsymbol{\mu},\sigma,\boldsymbol{r},\boldsymbol{s},\boldsymbol{c} ), the depth map D , and the camera poses p .
+These outputs are used to construct a set of pixel-wise 3D Gaussians, which is then voxelized into pre-voxel 3D Gaussians with the proposed Differentiable Voxelization module. From the voxelized 3D Gaussians, multi-view images and depth maps are subsequently rendered. The rendered images are supervised using an RGB loss against the ground truth image, while the rendered depth maps, along with the decoded depth D and camera poses p , are used to compute geometry losses. The geometries are supervised by pseudo-geometry priors ( \tilde{D},\tilde{p} ) obtained by the pretrained VGGT (Wang et al., 2025a).
+We propose AnySplat, a transformer-based neural network designed for rapid 3D scene reconstruction tailored for novel-view synthesis. Given uncalibrated images, from a single view up to hundreds, AnySplat directly predicts a set of 3D Gaussian primitives that compactly represent the reconstructed scene.
+In the following sections, we first formalize our problem setup in Sec. 3.1,
+detail the model’s architecture and pipeline in Sec. 3.2, and finally present our training and inference strategies in Sec. 3.3.
+3.1. Problem Setup
+Consider N uncalibrated views of a single 3D scene, given as images
+\{I_{i}\}_{i=1}^{N} , where I_{i}\in\mathbb{R}^{H\times W\times 3} , AnySplat aims to jointly reconstruct the scene geometry and appearance by predicting a) a collection of G anisotropic 3D Gaussians
+| (1)
+|
+| \bigl\{(\boldsymbol{\mu}_{g},\sigma_{g},\boldsymbol{r}_{g},\boldsymbol{s}_{g},\boldsymbol{c}_{g})\bigr\}_{g=1}^{G},
+|
+where each Gaussian is parameterized by a center position \boldsymbol{\mu}\in\mathbb{R}^{3} , a positive opacity \sigma\in\mathbb{R}^{+} , an orientation quaternion \boldsymbol{r}\in\mathbb{R}^{4} , an anisotropic scale \boldsymbol{s}\in\mathbb{R}^{3} , and a color embedding \boldsymbol{c}\in\mathbb{R}^{3\times(k+1)^{2}} represented via spherical-harmonic coefficients of degree k , following practice of (Kerbl et al., 2023);
+and 2) the camera parameters for each view
+| (2)
+|
+| \{p_{i}\in\mathbb{R}^{9}\}_{i=1}^{N},
+|
+with p_{i} encoding the intrinsics and extrinsics of image I_{i} .
+Formally, our model implements the mapping:
+| (3)
+|
+| f_{\boldsymbol{\theta}}\!:\;\{I_{i}\}_{i=1}^{N}\;\longmapsto\;\Bigl\{(\boldsymbol{\mu}_{g},\sigma_{g},\boldsymbol{r}_{g},\boldsymbol{s}_{g},\boldsymbol{c}_{g})\Bigr\}_{g=1}^{G}\;\cup\;\{p_{i}\}_{i=1}^{N}.
+|
+We evaluate our model on two core tasks: novel view synthesis and multi-view camera pose estimation.
+Notably, this pipeline also produces several useful by-products—such as a global point map, per-frame depth maps, and associated confidence scores—that can support a variety of downstream applications.
+3.2. Pipeline
+Fig. 2 illustrates the overall pipeline of framework. In a nutshell, our model begins by encoding a set of uncalibrated multi-view images into high-dimensional feature representations, which are then decoded into both 3D Gaussian parameters and their corresponding camera poses.
+To manage the linear growth in per-pixel Gaussians under dense views,
+we introduce a differentiable voxelization module that clusters primitives into voxels, significantly reducing computational cost and facilitating smoother gradient flow.
+Geometry Transformer
+Following VGGT (Wang et al., 2025a), we begin by patchifying each image I_{i} into l_{I}=\tfrac{H\,W}{p^{2}} tokens of dimension d using DINOv2 (Oquab et al., 2023), where p=14 and d=1024 . To each image’s token sequence t_{i}^{I}\in\mathbb{R}^{l_{I}\times d} , we prepend a learnable camera token t_{i}^{g}\in\mathbb{R}^{1\times d} and four register tokens t_{i}^{R}\in\mathbb{R}^{4\times d} ; for the first view only, we omit positional encodings on these tokens. The combined tokens \bigl[t_{i}^{I};t_{i}^{g};t_{i}^{R}\bigr] from all N views are processed by an L -layer Alternating-Attention transformer: each layer applies a frame attention over tokens of shape \mathbb{R}^{N\times(l_{I}+5)\times d} , then a global attention over all views jointly as \mathbb{R}^{1\times N(l_{I}+5)\times d} .
+Camera Pose Prediction
+Camera pose estimation is essential for geometry reconstruction via novel-view rendering. The refined camera tokens \hat{t}_{i}^{g} are passed through the camera decoder F_{C} , which consists of four additional self-attention layers followed by a linear projection head, to predict each camera parameters p_{i} . As in prior work, we set the first camera pose to the identity transformation and express all remaining poses in that shared local coordinate frame.
+Pixel-wise Gaussian Parameter Prediction
+As shown in Fig. 2, we adopt a dual-head design based on the DPT decoder (Ranftl et al., 2021) to predict all Gaussian parameters. The depth head, \mathrm{F}_{D} , ingests the image tokens \hat{t}_{i}^{I} and outputs per-pixel depth maps D_{i} (with associated confidence C_{i}^{D} ); these depths are then back-projected through the predicted camera poses p_{i} to yield each Gaussian’s center \{\boldsymbol{\mu}_{g}\}_{g=1}^{G} . The Gaussian head F_{G} combines DPT features via \mathrm{F}_{d}(\hat{t}^{I}) with shallow CNN–extracted appearance features \mathrm{F}_{a}(I) , and feeds their sum into a final regression CNN \mathrm{F}_{b} to predict opacity \sigma_{g} , orientation \boldsymbol{r}_{g} , scale \boldsymbol{s}_{g} , SH color coefficients \boldsymbol{c}_{g} , and per-Gaussian confidence C_{g} . Formally:
+| (4)
+|
+| \displaystyle(D_{i},\,C_{i}^{D})
+| \displaystyle=\mathrm{F}_{D}(\hat{t}_{i}^{I}),
+|
+|
+| \displaystyle\{\boldsymbol{\mu}_{g}\}
+| \displaystyle=\mathrm{proj}\bigl(\{p_{i}\},\,\{D_{i}\}\bigr),
+|
+|
+| \displaystyle\{\,\sigma_{g},\boldsymbol{r}_{g},\boldsymbol{s}_{g},\boldsymbol{c}_{g},C_{g}\}
+| \displaystyle=\mathrm{F}_{b}\bigl(\mathrm{F}_{d}^{2}(\{\hat{t}_{i}^{I}\})+\mathrm{F}_{a}(\{I_{i}\})\bigr).
+|
+Differentiable Voxelization
+Existing feed-forward 3DGS methods typically assign one Gaussian per pixel, which works for sparse-view inputs (2–16 images) but struggles with scaled-up complexity once more than 32 views are used. To address this, building upon (Lu et al., 2024b), we introduce a differentiable voxelization module that clusters the G Gaussian centers \{\boldsymbol{\mu}_{g}\} into S voxels of size \epsilon :
+| (5)
+|
+| \{\boldsymbol{V}_{s}\}_{s=1}^{S}\;=\;\left\lfloor\frac{\{\boldsymbol{\mu}_{g}\}_{g=1}^{G}}{\epsilon}\right\rceil,
+|
+where \boldsymbol{V}_{s}\in\{1,\dots,S\} denotes the voxel index of Gaussian g .
+To keep voxelization differentiable, each Gaussian also predicts a confidence C_{g} . We convert these scores into intra-voxel weights via softmax:
+| (6)
+|
+| w_{g\to s}=\frac{\exp(C_{g})}{\sum_{h:\boldsymbol{V}^{h}=s}\exp(C_{h})}.
+|
+Finally, any per-pixel Gaussian attribute a_{g} (e.g., opacity or color) is aggregated into its voxel by
+| (7)
+|
+| \bar{a}_{s}=\sum_{g:\boldsymbol{V}^{g}=s}w_{g\to s}\,a_{g}.
+|
+The output of our pipeline is parameterized by the Gaussian attribute \left\{\left(\boldsymbol{\mu}_{v},\sigma_{v},\boldsymbol{r}_{v},\boldsymbol{s}_{v},\boldsymbol{c}_{v}\right)\right\}_{s} of each voxel \boldsymbol{V}_{s}\in\{1,\dots,S\} . We can efficiently
+render the Gaussians predicted by our model using differentiable Gaussian rasterization (Kerbl et al., 2023; Ye et al., 2025).
+This strategy dramatically reduces the number of primitives to process and enables end-to-end learning.
+3.3. Training and Inference
+Geometry Consistency Enhancement
+Predicting depth maps and camera poses simultaneously introduces subtle ambiguities that stem from multiview alignment and aggregation: when lifting per-image predictions to 3D, these inconsistencies manifest as layered sheets in the reconstructed point cloud, which may go unnoticed in raw point-cloud form but become glaringly obvious in rendered views. Such layering not only degrades visual fidelity but also prevents our outputs from meeting human-perceptual quality standards. To mitigate this, we introduce a geometry consistency loss that enforces agreement between rendered appearances and the underlying depth predictions, effectively smoothing out these layers and restoring coherent surface geometry.
+Specifically, we enforce alignment between the depth maps D_{i} obtained from the DPT head \mathrm{F}_{D} and the rendered depth maps \hat{D}_{i} from 3D Gaussians.
+Since D_{i} can be unreliable in challenging regions, e.g., the sky or reflective surfaces, we utilize the jointly learned confidence map C^{D}_{i} and apply supervision only to the top N\% of pixels with the confidence, ensuring that supervision focuses on the most trustworthy predictions. We align two depth maps as:
+| (8)
+|
+| \mathcal{L}_{g}=\frac{1}{N}\sum_{i=1}^{n}(D_{i}[M]-\hat{D}_{i}[M])^{2},
+|
+where M is a geometry mask corresponding to the top N -quantile of the confidence map, we set N=30\% in our experiments.
+Furthermore, we observed that, in the absence of supervision from novel views, the model tends to overfit to context views in an attempt to avoid interference from varying viewpoints. This results in poor generalization and leads to failures in depth and camera prediction. To mitigate this, we leverage a powerful pre-trained transformer network (Wang et al., 2025a) to distill both camera parameters and scene geometry for stable training. Specifically, we regularize the camera parameters using the following loss function:
+| (9)
+|
+| \mathcal{L}_{p}=\frac{1}{N}\sum_{i=1}^{N}\left\|\tilde{p}_{i}-p_{i}\right\|_{\epsilon},
+|
+where \tilde{p}_{i} represents the pseudo ground-truth pose encoding, and \left\|\cdot\right\|_{\epsilon} denotes the Huber loss. We then distill geometric information using:
+| (10)
+|
+| \mathcal{L}_{d}=\frac{1}{N}\sum_{i=1}^{n}(\tilde{D}_{i}[M]-\hat{D}_{i}[M])^{2},
+|
+where \tilde{D} is the pseudo depth map obtained from the pre-trained model (Wang et al., 2025a).
+Experimental results show that this distillation loss significantly improves training stability and helps avoid convergence to poor local minima.
+Training Objective
+To avoid noises in the input data and better scale up data, AnySplat is trained without any 3D supervision, using a pseudo-label training approach. Specifically, given a set of unposed and uncalibrated multi-view images \{I_{i}\}_{i=1}^{N} as input, our method first predicts their camera intrinsics and extrinsics. These predicted parameters are first used to project the positions of Gaussian primitives, and then rendered to produce the final outputs \{\hat{I}_{i}\}_{i=1}^{N} .
+Note that, although our model trains with only context views without novel views, AnySplat presents great performance in novel view rendering due to the distill functions and great scene modeling capacity.
+Finally, we optimize our model using a set of unposed images. We minimize the following loss function:
+| (11)
+|
+| \displaystyle\mathcal{L}
+| \displaystyle=\mathcal{L}_{\text{rgb}}+\lambda_{2}\cdot\mathcal{L}_{g}+\lambda_{3}\cdot\mathcal{L}_{p}+\lambda_{4}\cdot\mathcal{L}_{d}
+|
+|
+| \displaystyle\mathcal{L}_{\text{rgb}}
+| \displaystyle=\operatorname{MSE}(I,\hat{I})+\lambda_{1}\cdot\operatorname{Perceptual}(I,\hat{I})
+|
+Test-Time Camera Pose Alignment (Only for calculating the rendering metrics.)
+During inference, both the context views \mathcal{I}_{c} and target views \mathcal{I}_{t} are provided as inputs, where \mathcal{I}_{c}\cap\mathcal{I}_{t}=\emptyset . We assume the first frame of \mathcal{I}_{c} is identical to the first frame of \mathcal{I}_{c}\cup\mathcal{I}_{t} . Consequently, the rotation of \mathcal{I}_{c} and the context portion of \mathcal{I}_{c}\cup\mathcal{I}_{t} remains the same; the only distinction lies in their scale.
+To address this, we compute the average context scale factor s from \mathcal{I}_{c} and the average scale factor \hat{s} from \mathcal{I}_{c}\cup\mathcal{I}_{t} . The target scale is then normalized by multiplying it by the ratio s/\hat{s} .
+Post Optimization (Optional)
+We also include an optional post-optimization stage to further refine reconstructions, especially when inputs are dense.
+After AnySplat predicts the initial set of Gaussians and camera parameters, we first prune Gaussians with low opacity value (less than 0.01), and then render images from the input camera views and compute the MSE loss and the SSIM loss between the rendered and input images.
+We back-propagate the gradients through the Gaussian and camera parameters. The learning rates are set as follows: 1.6e-4 for position, 5e-3 for scale, 1e-3 for rotation, 5e-2 for opacity, 2.5e-3 for color, and 5e-3 for camera pose.
+4. Experiments
+4.1. Experimental Setup
+Datasets
+Following the common practice of CUT3R (Wang et al., 2025b) and DUST3R (Wang et al., 2024c), we train our model using images from nine public datasets: Hypersim (Roberts et al., 2021), ARKitScenes (Baruch et al., 2021), BlendedMVS (Yao et al., 2020), ScanNet++ (Yeshwanth et al., 2023), CO3D-v2 (Reizenstein et al., 2021), Objaverse (Deitke et al., 2023), Unreal4K (Tosi et al., 2021), WildRGBD (Xia et al., 2024), and DL3DV (Ling et al., 2024).
+These datasets collectively span synthetic and real-world content, indoor and outdoor scenes, and object- to city-scale settings. This diverse data composition exposes the model to wide-ranging geometric and appearance variations, enhancing its generalization to unseen scenarios.
+Table 1. Quantitative Comparison on both sparse-view NVS setting (the number of input images is fewer than 16) and dense-view NVS setting (the number of input images is more than 32) on Mip-NeRF360 (Barron et al., 2022) and VR-NeRF (Xu et al., 2023) dataset. We report both 3D scene reconstruction time and rendering quality metrics. We omit reporting the times for VR-NeRF, as its timings are consistent with the input values.
+| Sparse
+| 3 Views
+| 6 Views
+| 16 Views
+| Dense
+| 32 Views
+| 48 Views
+| 64 Views
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Time(s) \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Time(s) \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Time(s) \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Time \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Time \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Time \downarrow
+| Mip-NeRF360 (Barron et al., 2022) Dataset
+| NoPoSplat (Ye et al., 2024)
+| 16.36
+| 0.430
+| 0.453
+| 0.119
+| 15.92
+| 0.416
+| 0.541
+| 0.290
+| 15.47
+| 0.361
+| 0.606
+| 1.198
+| 3D-GS (Kerbl et al., 2023)
+| 22.19
+| 0.640
+| 0.248
+| 10min
+| 21.86
+| 0.636
+| 0.274
+| 10min
+| 21.71
+| 0.626
+| 0.300
+| 10min
+| Flare (Zhang et al., 2025)
+| 13.52
+| 0.350
+| 0.601
+| 0.271
+| 15.35
+| 0.407
+| 0.573
+| 0.415
+| 13.21
+| 0.348
+| 0.695
+| 1.201
+| Mip-Splatting (Yu et al., 2024a)
+| 22.07
+| 0.643
+| 0.256
+| 11min
+| 21.79
+| 0.625
+| 0.275
+| 11min
+| 21.78
+| 0.638
+| 0.299
+| 11min
+| Ours
+| 16.20
+| 0.550
+| 0.349
+| 0.171
+| 18.32
+| 0.524
+| 0.329
+| 0.297
+| 21.85
+| 0.670
+| 0.250
+| 0.767
+| Ours
+| 22.31
+| 0.688
+| 0.247
+| 1.4s
+| 21.90
+| 0.652
+| 0.273
+| 2.7s
+| 21.15
+| 0.589
+| 0.272
+| 4.1s
+| VR-NeRF (Xu et al., 2023) Dataset
+| NoPoSplat (Ye et al., 2024)
+| 18.37
+| 0.707
+| 0.437
+|
+| 17.57
+| 0.704
+| 0.466
+|
+| 17.66
+| 0.720
+| 0.472
+|
+| 3D-GS (Kerbl et al., 2023)
+| 22.37
+| 0.774
+| 0.302
+|
+| 22.86
+| 0.780
+| 0.306
+|
+| 22.10
+| 0.770
+| 0.315
+|
+| Flare (Zhang et al., 2025)
+| 18.58
+| 0.717
+| 0.470
+| –
+| 18.26
+| 0.717
+| 0.477
+| –
+| 17.02
+| 0.709
+| 0.510
+| –
+| Mip-Splatting (Yu et al., 2024a)
+| 22.41
+| 0.768
+| 0.316
+| –
+| 22.55
+| 0.772
+| 0.314
+| –
+| 21.75
+| 0.760
+| 0.326
+| –
+| Ours
+| 20.63
+| 0.738
+| 0.339
+|
+| 21.57
+| 0.729
+| 0.356
+|
+| 22.32
+| 0.784
+| 0.304
+|
+| Ours
+| 23.09
+| 0.781
+| 0.230
+|
+| 22.58
+| 0.785
+| 0.238
+|
+| 22.13
+| 0.779
+| 0.250
+|
+Training View Sampling Strategy
+View-sampling strategy is crucial for ensuring model robustness. We apply three different strategies depending on the dataset type. For object-centric datasets such as CO3D-v2 (Reizenstein et al., 2021), Objaverse (Deitke et al., 2023), and WildRGBD (Xia et al., 2024), we randomly sample views within a selected capture sequence.
+For sequential datasets like ARKitScenes (Baruch et al., 2021) and DL3DV (Ling et al., 2024), we first define minimum and maximum temporal gaps, then randomly select a value within this range to determine the interval between the first and last frames; views are then randomly sampled from within this interval.
+For unordered datasets like Hypersim (Roberts et al., 2021), BlendedMVS (Yao et al., 2020), ScanNet++ (Yeshwanth et al., 2023), and Unreal4K (Tosi et al., 2021), we sample views based on pose distances. Specifically, we randomly choose a reference frame, compute the pose distance from all other frames to this reference, and sample views based on a predefined distance threshold.
+Implementation details
+We set layer number L=24 for the Alternating-Attention Transformer and initialize the geometry transformer and depth DPT head with weights from VGGT (Wang et al., 2025a), while the remaining layers are initialized randomly. During training, we freeze the patch embedding weights. The model has approximately 886 million parameters in total. For differentiable voxelization, we set the voxel size \epsilon to 0.002.
+We train the model using the AdamW optimizer for 15K iterations. A cosine learning rate scheduler is employed, with a peak learning rate of 2e-4 and a warmup phase of 1K iterations. For layers initialized from VGGT, the learning rate is scaled by a factor of 0.1.
+We train AnySplat on 16 NVIDIA A800 GPUs for approximately two days. To save GPU memory and accelerate training, we use FlashAttention, bfloat16 precision, and gradient checkpointing. For stable training, we also skip optimization steps where the total loss exceeds 0.2 after the first 1K iterations.
+In each iteration, we first select a training dataset at random, where each dataset is sampled according to a predefined weight (Fig. 6).
+From the chosen dataset, we randomly sample between 2 and 24 frames, while maintaining a constant total of 24 frames per GPU.
+The maximum input resolution is set to 448 pixels on the longer side. The aspect ratio is randomized between 0.5 and 1.0. Additionally, we apply intrinsic augmentation by randomly center-cropping each image to between 77% and 100% of its original size. Images are also augmented via random flipping.
+For the training objective, we set \lambda_{1}=0.05 , \lambda_{2} =0.1, \lambda_{3} =10.0, and \lambda_{4} =1.0.
+Baselines
+We establish our sparse-view novel view synthesis baseline using previous state-of-the-art pose-free feed-forward methods, including Flare (Zhang et al., 2025) and NoPoSplat (Ye et al., 2024). For each evaluation dataset, we select three sparse-view subsets per scene; details of the view selection policy are provided in the appendix. Notably, prior methods require a post-optimization step during evaluation to align predicted camera poses with ground truth. However, we observe that this often fails—especially when there is limited overlap between training views—and can even degrade performance by overfitting to regions not visible during training. To ensure a fair comparison, we propose a more robust alignment strategy: we fix the first predicted camera as the identity and transform all other predicted rotations into this reference coordinate system. For translation alignment, we compute the median camera distance and estimate a relative scale factor to align the predicted and ground truth translations.
+For our dense-view novel view synthesis baseline, we compare against 3D Gaussian Splatting (Kerbl et al., 2023) and Mip-Splatting (Yu et al., 2024a), which both train on 30K iterations. We use 32, 48, and 64 views for training, and select 4, 6, and 8 views for evaluation, respectively. Training and testing views are jointly sampled based on camera distance. Since COLMAP (Schönberger and Frahm, 2016) is often unreliable under sparse-view conditions, we use VGGT to calibrate the input images and generate a point cloud for initialization.
+Metrics
+To evaluate the quality of novel view synthesis, we compute PSNR, SSIM (Wang et al., 2004), and LPIPS (Zhang et al., 2018) between the predicted images and the ground truth. Additionally, to assess the accuracy of the predicted relative image poses, we use the AUC metric, which measures the area under the accuracy curve across various angular thresholds. In our evaluation, we set thresholds as 5, 10, 20, and 30. Furthermore, to evaluate multi-view geometric consistency, we report two widely used depth consistency metrics: the Absolute Mean Relative Error (AbsRel), defined as:
+| (12)
+|
+| \text{AbsRel}=\frac{1}{M}\sum_{i=1}^{M}\frac{|\hat{D}_{i}-D_{i}|}{D_{i}},
+|
+and the \delta_{1} accuracy, which measures the percentage of pixels where
+| (13)
+|
+| \max\left(\frac{\hat{D}_{i}}{D_{i}},\frac{D_{i}}{\hat{D}_{i}}\right)<1.25.
+|
+Figure 3. Visual comparisons between our method, NoPoSplat (Ye et al., 2024) and Flare (Zhang et al., 2025) in the sparse view setting; 3D-GS (Kerbl et al., 2023) and Mip-Splatting (Yu et al., 2024a) in the dense view setting from two real-world datasets (Barron et al., 2022; Xu et al., 2023). Our method shows excellent zero-shot performance, outperforming baselines in capturing sharp edges and intricate details.
+4.2. Novel-view Synthesis
+Compared to prior pose-free feed-forward methods, which are typically limited to sparse-view inputs (e.g., 2–24 images), and optimization-based approaches that require up to 10 minutes per scene for dense-view reconstruction, our model generalizes to hundreds of input views and reconstructs 3D Gaussian primitives within just a few seconds on unseen scenes. We quantitatively evaluate our method against previous approaches on two zero-shot novel view synthesis datasets: MipNeRF-360 (Barron et al., 2022) and VR-NeRF (Xu et al., 2023), under both sparse-view and dense-view settings.
+As shown in Tab. 1, Fig. 3 and Fig. 9, AnySplat achieves improved rendering performance on sparse-view zero-shot datasets compared to recent feed-forward methods such as NoPoSplat (Ye et al., 2024) and Flare (Zhang et al., 2025).
+There are two main reasons for this performance:
+1) AnySplat is trained on a diverse set of datasets and incorporates a random input view selection strategy, which contributes to its superior zero-shot generalization;
+2) it achieves more accurate geometry and pose estimation, and since rendering quality strongly depends on pose accuracy, this leads to better visual results.
+Moreover, with an increasing number of input views, our approach demonstrates faster inference times, which is important for real-world application.
+In the dense-view setting (more than 32 views), AnySplat continues to outperform optimization-based methods such as 3D-GS (Kerbl et al., 2023) and Mip-Splatting (Yu et al., 2024a) (with VGGT initialization), as shown in Tab. 1, Fig. 3 and Fig. 9. These optimization-based methods tend to overfit the training views, often resulting in artifacts in novel views. In contrast, our method reconstructs finer, cleaner geometry and delivers more detailed rendering results. Furthermore, AnySplat achieves reconstruction times that are an order of magnitude faster than those of 3D-GS and Mip-Splatting.
+Post Optimization
+Although AnySplat can efficiently perform end-to-end reconstruction of high-quality Gaussian models, further improvements can be achieved through an optional post-optimization step.
+As shown in Fig. 7 and Tab. 2, we conduct a 200 input views experiment on the Matricity dataset (Li et al., 2023). We demonstrate that even with 200 input, applying just 1000 steps of post-optimization (taking less than two minutes) yields improved results and 3000 steps can achieve much better results. Additionally, we conduct a 16-view experiment on the Mip-NeRF360 dataset (Barron et al., 2022), comparing our method with the InstantSplat-style (Fan et al., 2024) model, which is initialized using VGGT geometry predictions and optimized per scene with rendering losses over 1,000 iterations. As shown in Fig. 4 and Tab. 3, our feed-forward approach achieves results comparable to InstantSplat-VGGT, and that post-optimization significantly improves performance.
+Table 2. Quantitative comparison with 200 views on Matrixcity dataset (Li et al., 2023). We compare our method, as well as its variants with 1K and 3K iters of post-optimization (Ours_1000 and Ours_3000), against 3D-GS and Mip-Splatting.
+| Method
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Time \downarrow
+| 3D-GS (Kerbl et al., 2023)
+| 19.10
+| 0.614
+| 0.450
+| 10min
+| Mip-Splatting (Yu et al., 2024a)
+| 18.20
+| 0.556
+| 0.485
+| 11min
+| Ours
+| 19.46
+| 0.574
+| 0.446
+| 33s
+| Ours_1000
+| 20.81
+| 0.635
+| 0.519
+| 2min
+| Ours_3000
+| 21.64
+| 0.671
+| 0.421
+| 7min
+Table 3. Quantitative comparison with 16 views on Mip-NeRF360 dataset (Barron et al., 2022). We compare our method, as well as 1K post-optimization (Ours_1000), against InstantSplat-VGGT (Fan et al., 2024) style.
+| Method
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| Time \downarrow
+| InstantSplat-VGGT (Fan et al., 2024)
+| 23.38
+| 0.677
+| 0.268
+| 3min
+| Ours
+| 21.85
+| 0.670
+| 0.250
+| 0.767s
+| Ours_1000
+| 25.51
+| 0.813
+| 0.115
+| 2min
+Figure 4. Qualitative comparison of our method with InstantSplat-VGGT (Fan et al., 2024) style on Mip-NeRF360 dataset (Barron et al., 2022) (room).
+4.3. Pose Estimation and Multi-view Geometry Consistency
+AnySplat can be applied to relative pose estimation task. We evaluate it in a feed-forward setting on the RealEstate10K (Zhou et al., 2018) and CO3Dv2 (Reizenstein et al., 2021) dataset with 10 randomly selected frames using a fixed seed for reproducibility, and compare its performance with VGGT, as shown in Tab. 4. Both two methods used Co3Dv2 samples in training, while RealEstate10K is excluded from the training set.
+These results highlight the benefits of our rendering-based supervision, which slightly outperforms VGGT by enforcing stronger multi-view consistency constraints.
+In addition to pose estimation, we assess the multi-view geometric consistency of our approach. While VGGT (Wang et al., 2025a) demonstrates strong performance in monocular depth prediction, it often suffers from poor consistency across views due to the lack of explicit 3D geometry constraints and its sensitivity to low-confidence regions, particularly around object boundaries. In contrast, our method leverages 3D rendering supervision to significantly enhance multi-view consistency. To evaluate this effect, we compare the depth maps rendered from Gaussians ( \hat{D}_{i} ) with those predicted by the DPT head ( D_{i} ) at both the beginning and end of training on the Hypersim dataset. As illustrated in Fig. 8, the alignment between the two depth sources improves notably over training iterations, highlighting the effectiveness of our training strategy.
+Table 4. Camera Pose Estimation on RealEstate10K (Zhou et al., 2018) and CO3Dv2 (Reizenstein et al., 2021) with 10 random frames against VGGT (Wang et al., 2025a).
+| Method
+| RealEstate10K (unseen)
+| Co3Dv2
+| AUC@30 \uparrow
+| AUC@20 \uparrow
+| AUC@10 \uparrow
+| AUC@5 \uparrow
+| AUC@30 \uparrow
+| AUC@20 \uparrow
+| AUC@10 \uparrow
+| AUC@5 \uparrow
+| VGGT
+| 89.1
+| 84.9
+| 74.1
+| 56.9
+| 74.9
+| 67.2
+| 50.4
+| 31.2
+| Ours
+| 89.2
+| 85.1
+| 74.6
+| 57.9
+| 78.3
+| 71.6
+| 56.9
+| 39.2
+4.4. Ablation Study
+In this section, we ablate each individual module to validate their effectiveness. We conduct all the experiments based on the Hypersim Dataset. Quantitative and qualitative results can be found in Tab. 5.
+Table 5. Ablation Study. We evaluate the ablated variants of AnySplat, discussed in Sec. 4.4, by recording their rendering quality, geometric accuracy, and the size of the resulting Gaussian models.
+| Method
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| \delta 1 \uparrow
+| AbsRel \downarrow
+| #GS (M)
+| Ours w/o Distill Loss
+| 7.28
+| 0.217
+| 0.832
+| 75.5
+| 14.7
+| 4.80
+| Ours w/o Geo. Loss
+| 18.20
+| 0.635
+| 0.285
+| 94.7
+| 7.6
+| 3.52
+| Ours w/o Diff. Voxel
+| 17.77
+| 0.609
+| 0.303
+| 95.8
+| 5.7
+| 4.82
+| Ours frozen AA transformer layers
+| 17.90
+| 0.616
+| 0.306
+| 96.5
+| 5.3
+| 3.51
+| Ours frozen all transformer layers
+| 17.84
+| 0.621
+| 0.330
+| 95.3
+| 6.6
+| 3.40
+| Ours
+| 18.25
+| 0.648
+| 0.279
+| 96.3
+| 5.9
+| 3.45
+Distill Loss
+To evaluate the impact of the distillation losses defined in Eq. 9 and 10, we perform an ablation study by removing them from training. As shown in Table 5, this leads to a significant drop in both rendering quality and geometric consistency. The results suggest that, in the absence of external supervision and when trained solely on unposed images, the model tends to overfit the input views with plausible renderings without preserving accurate 3D geometry. In our experiments, the absence of a distillation loss results in incorrect depth and pose predictions, leading to degraded performance in novel view renderings. The distillation loss mitigates this by reinforcing geometric consistency during training.
+Geometry Consistency Loss
+We further demonstrate the effectiveness of our geometry consistency loss, defined in Eq. 8, by comparing it against a variant of our model trained with only the rendering and distillation losses. As shown in the second and last rows of Table 5, incorporating the consistency loss encourages the model to produce more coherent multi-view geometry, resulting in a 1.7% reduction in AbsRel and a 1.6% improvement in \delta_{1} accuracy.
+Differentiable Voxelization
+To evaluate the impact of the differentiable voxelization module introduced in Sec. 3.2, we conduct an experiment in which this component is removed. Interestingly, the model achieves slightly better performance despite using fewer Gaussian primitives. This improvement can be attributed to the voxelization module’s ability to reduce redundancy among Gaussians and alleviate artifacts caused by overlapping primitives.
+Furthermore, as illustrated in Fig. 5, when differentiable voxelization is used, the number of Gaussians increases more slowly with the number of context views and eventually reaches saturation. This leads to lower GPU memory consumption during rendering compared to pixel-wise rendering approaches.
+Figure 5.
+Growth of Gaussian Primitives and GPU Memory Usage.
+As the number of input views increases, the count of Gaussian primitives grows sublinearly and eventually plateaus when using the differentiable voxelization module. In contrast, without this module, the number of Gaussians increases approximately linearly. The GPU memory consumption for rendering mirrors this saturation behavior.
+Training strategy
+We investigate different training strategies by exploring the following three experimental configurations:
+1)
+Frozen All Transformer: All transformer layers initialized from VGGT are frozen during training, while the remaining parameters are trainable.
+2)
+Frozen AA Transformer: Only the Alternating-Attention layers are frozen, while the vision tokenizer is fine-tuned.
+3)
+Frozen Vision Tokenizer: The vision tokenizer is frozen, and only the Alternating-Attention layers are fine-tuned.
+Our empirical results show that the third configuration yields the best performance, achieving PSNR gains of 0.41 dB and 0.35 dB over configuration 1 and 2, respectively. These findings suggest that preserving pre-trained visual representations while adapting the attention mechanism provides an effective balance between stability and adaptability during training.
+5. Conclusion and Future Works
+In this work, we introduce AnySplat, a feed-forward 3D reconstruction model that integrates a lightweight rendering head with our geometry-consistency enhancement, augmented by a pseudo-label knowledge distillation training strategy. We view this as a novel way to fully unlock the potential of 3D foundation models and elevate their scalability to a broader scope.
+Our experiments demonstrate AnySplat’s robust and competitive results on both sparse and dense multiview reconstruction and rendering benchmarks using unconstrained, uncalibrated inputs.
+Additionally, the model training remains efficient, requiring minimal time and compute, enabling feed-forward 3D Gaussian Splatting reconstructions and high-fidelity renderings in just seconds at inference time.
+We expect this low-latency pipeline to open new possibilities for future interactive and real-time 3D applications.
+Despite its improvements, AnySplat still observes artifacts in challenging regions, such as skies, specular highlights, and thin structures; its reconstruction-based rendering loss may be less stable under dynamic scenes or varying illumination, and the compute–resolution trade-off (i.e., number of Gaussians scaling alongside input and voxel resolution) can slow performance when handling very high resolution or large numbers of views.
+We see enhancing patch size flexibility, improving robustness to repetitive texture patterns, and streamlining scaling to thousands of high-resolution inputs as promising directions for future work.
+Acknowledgements.
+This work was funded in part by the National Key R&D Program of China (2022ZD0160201), Shanghai Artificial Intelligence Laboratory, the HKU Startup Fund, the HKU Shanghai Intelligent Computing Research Center, and the Anhui Provincial Natural Science Foundation under Grant 2108085UD12.
+References
+Barron et al. (2022)
+Jonathan T Barron, Ben Mildenhall, Dor Verbin, Pratul P Srinivasan, and Peter Hedman. 2022.
+Mip-nerf 360: Unbounded anti-aliased neural radiance fields. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 5470–5479.
+Baruch et al. (2021)
+Gilad Baruch, Zhuoyuan Chen, Afshin Dehghan, Tal Dimry, Yuri Feigin, Peter Fu, Thomas Gebauer, Brandon Joffe, Daniel Kurz, Arik Schwartz, et al. 2021.
+Arkitscenes: A diverse real-world dataset for 3d indoor scene understanding using mobile rgb-d data.
+arXiv preprint arXiv:2111.08897 (2021).
+Brachmann et al. (2024)
+Eric Brachmann, Jamie Wynn, Shuai Chen, Tommaso Cavallari, Aron Monszpart, Daniyar Turmukhambetov, and Victor Adrian Prisacariu. 2024.
+Scene coordinate reconstruction: Posing of image collections via incremental learning of a relocalizer. In European Conference on Computer Vision. Springer, 421–440.
+Charatan et al. (2024)
+David Charatan, Sizhe Lester Li, Andrea Tagliasacchi, and Vincent Sitzmann. 2024.
+pixelsplat: 3d gaussian splats from image pairs for scalable generalizable 3d reconstruction. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 19457–19467.
+Chen et al. (2021)
+Anpei Chen, Zexiang Xu, Fuqiang Zhao, Xiaoshuai Zhang, Fanbo Xiang, Jingyi Yu, and Hao Su. 2021.
+Mvsnerf: Fast generalizable radiance field reconstruction from multi-view stereo. In Proceedings of the IEEE/CVF international conference on computer vision. 14124–14133.
+Chen et al. (2024a)
+Yuedong Chen, Haofei Xu, Chuanxia Zheng, Bohan Zhuang, Marc Pollefeys, Andreas Geiger, Tat-Jen Cham, and Jianfei Cai. 2024a.
+Mvsplat: Efficient 3d gaussian splatting from sparse multi-view images. In European Conference on Computer Vision. Springer, 370–386.
+Chen et al. (2024c)
+Yuedong Chen, Chuanxia Zheng, Haofei Xu, Bohan Zhuang, Andrea Vedaldi, Tat-Jen Cham, and Jianfei Cai. 2024c.
+Mvsplat360: Feed-forward 360 scene synthesis from sparse views.
+arXiv preprint arXiv:2411.04924 (2024).
+Chen et al. (2024b)
+Zequn Chen, Jiezhi Yang, and Heng Yang. 2024b.
+PreF3R: Pose-Free Feed-Forward 3D Gaussian Splatting from Variable-length Image Sequence.
+arXiv preprint arXiv:2411.16877 (2024).
+Deitke et al. (2023)
+Matt Deitke, Dustin Schwenk, Jordi Salvador, Luca Weihs, Oscar Michel, Eli VanderBilt, Ludwig Schmidt, Kiana Ehsani, Aniruddha Kembhavi, and Ali Farhadi. 2023.
+Objaverse: A universe of annotated 3d objects. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 13142–13153.
+Dosovitskiy et al. (2020)
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, et al. 2020.
+An image is worth 16x16 words: Transformers for image recognition at scale.
+arXiv preprint arXiv:2010.11929 (2020).
+Fan et al. (2024)
+Zhiwen Fan, Wenyan Cong, Kairun Wen, Kevin Wang, Jian Zhang, Xinghao Ding, Danfei Xu, Boris Ivanovic, Marco Pavone, Georgios Pavlakos, et al. 2024.
+Instantsplat: Unbounded sparse-view pose-free gaussian splatting in 40 seconds.
+arXiv preprint arXiv:2403.20309 2, 3 (2024), 4.
+Feng et al. (2025)
+Guofeng Feng, Siyan Chen, Rong Fu, Zimu Liao, Yi Wang, Tao Liu, Boni Hu, Linning Xu, Zhilin Pei, Hengjie Li, et al. 2025.
+Flashgs: Efficient 3d gaussian splatting for large-scale and high-resolution rendering. In Proceedings of the Computer Vision and Pattern Recognition Conference. 26652–26662.
+Flynn et al. (2024)
+John Flynn, Michael Broxton, Lukas Murmann, Lucy Chai, Matthew DuVall, Clément Godard, Kathryn Heal, Srinivas Kaza, Stephen Lombardi, Xuan Luo, et al. 2024.
+Quark: Real-time, High-resolution, and General Neural View Synthesis.
+ACM Transactions on Graphics (TOG) 43, 6 (2024), 1–20.
+Fu et al. (2024)
+Yang Fu, Sifei Liu, Amey Kulkarni, Jan Kautz, Alexei A Efros, and Xiaolong Wang. 2024.
+Colmap-free 3d gaussian splatting. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 20796–20805.
+Hong et al. (2024)
+Sunghwan Hong, Jaewoo Jung, Heeseong Shin, Jisang Han, Jiaolong Yang, Chong Luo, and Seungryong Kim. 2024.
+PF3plat: Pose-Free Feed-Forward 3D Gaussian Splatting.
+arXiv preprint arXiv:2410.22128 (2024).
+Hong et al. (2023)
+Yicong Hong, Kai Zhang, Jiuxiang Gu, Sai Bi, Yang Zhou, Difan Liu, Feng Liu, Kalyan Sunkavalli, Trung Bui, and Hao Tan. 2023.
+Lrm: Large reconstruction model for single image to 3d.
+arXiv preprint arXiv:2311.04400 (2023).
+Jensen et al. (2014)
+Rasmus Jensen, Anders Dahl, George Vogiatzis, Engin Tola, and Henrik Aanæs. 2014.
+Large scale multi-view stereopsis evaluation. In Proceedings of the IEEE conference on computer vision and pattern recognition. 406–413.
+Jiang et al. (2023)
+Hanwen Jiang, Zhenyu Jiang, Yue Zhao, and Qixing Huang. 2023.
+Leap: Liberate sparse-view 3d modeling from camera poses.
+arXiv preprint arXiv:2310.01410 (2023).
+Jiang et al. (2025)
+Hanwen Jiang, Hao Tan, Peng Wang, Haian Jin, Yue Zhao, Sai Bi, Kai Zhang, Fujun Luan, Kalyan Sunkavalli, Qixing Huang, et al. 2025.
+RayZer: A Self-supervised Large View Synthesis Model.
+arXiv preprint arXiv:2505.00702 (2025).
+Jiang et al. (2024)
+Lihan Jiang, Kerui Ren, Mulin Yu, Linning Xu, Junting Dong, Tao Lu, Feng Zhao, Dahua Lin, and Bo Dai. 2024.
+Horizon-GS: Unified 3D Gaussian Splatting for Large-Scale Aerial-to-Ground Scenes.
+arXiv preprint arXiv:2412.01745 (2024).
+Jin et al. (2024)
+Haian Jin, Hanwen Jiang, Hao Tan, Kai Zhang, Sai Bi, Tianyuan Zhang, Fujun Luan, Noah Snavely, and Zexiang Xu. 2024.
+Lvsm: A large view synthesis model with minimal 3d inductive bias.
+arXiv preprint arXiv:2410.17242 (2024).
+Jin et al. (2021)
+Yuhe Jin, Dmytro Mishkin, Anastasiia Mishchuk, Jiri Matas, Pascal Fua, Kwang Moo Yi, and Eduard Trulls. 2021.
+Image matching across wide baselines: From paper to practice.
+International Journal of Computer Vision 129, 2 (2021), 517–547.
+Keetha et al. (2024)
+Nikhil Keetha, Jay Karhade, Krishna Murthy Jatavallabhula, Gengshan Yang, Sebastian Scherer, Deva Ramanan, and Jonathon Luiten. 2024.
+Splatam: Splat track & map 3d gaussians for dense rgb-d slam. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 21357–21366.
+Kerbl et al. (2023)
+Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and George Drettakis. 2023.
+3d gaussian splatting for real-time radiance field rendering.
+ACM Trans. Graph. 42, 4 (2023), 139–1.
+Kerr et al. (2023)
+Justin Kerr, Chung Min Kim, Ken Goldberg, Angjoo Kanazawa, and Matthew Tancik. 2023.
+Lerf: Language embedded radiance fields. In Proceedings of the IEEE/CVF International Conference on Computer Vision. 19729–19739.
+Leroy et al. (2024)
+Vincent Leroy, Yohann Cabon, and Jérôme Revaud. 2024.
+Grounding image matching in 3d with mast3r. In European Conference on Computer Vision. Springer, 71–91.
+Li et al. (2023)
+Yixuan Li, Lihan Jiang, Linning Xu, Yuanbo Xiangli, Zhenzhi Wang, Dahua Lin, and Bo Dai. 2023.
+Matrixcity: A large-scale city dataset for city-scale neural rendering and beyond. In Proceedings of the IEEE/CVF International Conference on Computer Vision. 3205–3215.
+Ling et al. (2024)
+Lu Ling, Yichen Sheng, Zhi Tu, Wentian Zhao, Cheng Xin, Kun Wan, Lantao Yu, Qianyu Guo, Zixun Yu, Yawen Lu, et al. 2024.
+Dl3dv-10k: A large-scale scene dataset for deep learning-based 3d vision. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 22160–22169.
+Liu et al. (2025)
+Yuzheng Liu, Siyan Dong, Shuzhe Wang, Yingda Yin, Yanchao Yang, Qingnan Fan, and Baoquan Chen. 2025.
+Slam3r: Real-time dense scene reconstruction from monocular rgb videos. In Proceedings of the Computer Vision and Pattern Recognition Conference. 16651–16662.
+Lu et al. (2024a)
+Tao Lu, Ankit Dhiman, R Srinath, Emre Arslan, Angela Xing, Yuanbo Xiangli, R Venkatesh Babu, and Srinath Sridhar. 2024a.
+Turbo-gs: Accelerating 3d gaussian fitting for high-quality radiance fields.
+arXiv preprint arXiv:2412.13547 (2024).
+Lu et al. (2024b)
+Tao Lu, Mulin Yu, Linning Xu, Yuanbo Xiangli, Limin Wang, Dahua Lin, and Bo Dai. 2024b.
+Scaffold-gs: Structured 3d gaussians for view-adaptive rendering. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 20654–20664.
+Matsuki et al. (2024)
+Hidenobu Matsuki, Riku Murai, Paul H. J. Kelly, and Andrew J. Davison. 2024.
+Gaussian Splatting SLAM.
+(2024).
+Meng et al. (2021)
+Quan Meng, Anpei Chen, Haimin Luo, Minye Wu, Hao Su, Lan Xu, Xuming He, and Jingyi Yu. 2021.
+Gnerf: Gan-based neural radiance field without posed camera. In Proceedings of the IEEE/CVF International Conference on Computer Vision. 6351–6361.
+Meuleman et al. (2025)
+Andreas Meuleman, Ishaan Shah, Alexandre Lanvin, Bernhard Kerbl, and George Drettakis. 2025.
+On-the-fly Reconstruction for Large-Scale Novel View Synthesis from Unposed Images.
+ACM Transactions on Graphics 44, 4 (2025).
+Mildenhall et al. (2019)
+Ben Mildenhall, Pratul P Srinivasan, Rodrigo Ortiz-Cayon, Nima Khademi Kalantari, Ravi Ramamoorthi, Ren Ng, and Abhishek Kar. 2019.
+Local light field fusion: Practical view synthesis with prescriptive sampling guidelines.
+ACM Transactions on Graphics (ToG) 38, 4 (2019), 1–14.
+Mildenhall et al. (2021)
+Ben Mildenhall, Pratul P Srinivasan, Matthew Tancik, Jonathan T Barron, Ravi Ramamoorthi, and Ren Ng. 2021.
+Nerf: Representing scenes as neural radiance fields for view synthesis.
+Commun. ACM 65, 1 (2021), 99–106.
+Müller et al. (2022)
+Thomas Müller, Alex Evans, Christoph Schied, and Alexander Keller. 2022.
+Instant neural graphics primitives with a multiresolution hash encoding.
+ACM transactions on graphics (TOG) 41, 4 (2022), 1–15.
+Murai et al. (2025)
+Riku Murai, Eric Dexheimer, and Andrew J Davison. 2025.
+MASt3R-SLAM: Real-time dense SLAM with 3D reconstruction priors. In Proceedings of the Computer Vision and Pattern Recognition Conference. 16695–16705.
+Oquab et al. (2023)
+Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al. 2023.
+Dinov2: Learning robust visual features without supervision.
+arXiv preprint arXiv:2304.07193 (2023).
+Pan et al. (2024)
+Linfei Pan, Dániel Baráth, Marc Pollefeys, and Johannes L Schönberger. 2024.
+Global structure-from-motion revisited. In European Conference on Computer Vision. Springer, 58–77.
+Perazzi et al. (2016)
+Federico Perazzi, Jordi Pont-Tuset, Brian McWilliams, Luc Van Gool, Markus Gross, and Alexander Sorkine-Hornung. 2016.
+A benchmark dataset and evaluation methodology for video object segmentation. In Proceedings of the IEEE conference on computer vision and pattern recognition. 724–732.
+Ranftl et al. (2021)
+René Ranftl, Alexey Bochkovskiy, and Vladlen Koltun. 2021.
+Vision transformers for dense prediction. In Proceedings of the IEEE/CVF international conference on computer vision. 12179–12188.
+Reizenstein et al. (2021)
+Jeremy Reizenstein, Roman Shapovalov, Philipp Henzler, Luca Sbordone, Patrick Labatut, and David Novotny. 2021.
+Common objects in 3d: Large-scale learning and evaluation of real-life 3d category reconstruction. In Proceedings of the IEEE/CVF international conference on computer vision. 10901–10911.
+Ren et al. (2024)
+Kerui Ren, Lihan Jiang, Tao Lu, Mulin Yu, Linning Xu, Zhangkai Ni, and Bo Dai. 2024.
+Octree-gs: Towards consistent real-time rendering with lod-structured 3d gaussians.
+arXiv preprint arXiv:2403.17898 (2024).
+Roberts et al. (2021)
+Mike Roberts, Jason Ramapuram, Anurag Ranjan, Atulit Kumar, Miguel Angel Bautista, Nathan Paczan, Russ Webb, and Joshua M Susskind. 2021.
+Hypersim: A photorealistic synthetic dataset for holistic indoor scene understanding. In Proceedings of the IEEE/CVF international conference on computer vision. 10912–10922.
+Schonberger and Frahm (2016)
+Johannes L Schonberger and Jan-Michael Frahm. 2016.
+Structure-from-motion revisited. In Proceedings of the IEEE conference on computer vision and pattern recognition. 4104–4113.
+Schönberger and Frahm (2016)
+Johannes Lutz Schönberger and Jan-Michael Frahm. 2016.
+Structure-from-Motion Revisited. In Conference on Computer Vision and Pattern Recognition (CVPR).
+Smart et al. (2024)
+Brandon Smart, Chuanxia Zheng, Iro Laina, and Victor Adrian Prisacariu. 2024.
+Splatt3r: Zero-shot gaussian splatting from uncalibrated image pairs.
+arXiv preprint arXiv:2408.13912 (2024).
+Sun et al. (2020)
+Pei Sun, Henrik Kretzschmar, Xerxes Dotiwalla, Aurelien Chouard, Vijaysai Patnaik, Paul Tsui, James Guo, Yin Zhou, Yuning Chai, Benjamin Caine, et al. 2020.
+Scalability in perception for autonomous driving: Waymo open dataset. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 2446–2454.
+Tang et al. (2025)
+Zhenggang Tang, Yuchen Fan, Dilin Wang, Hongyu Xu, Rakesh Ranjan, Alexander Schwing, and Zhicheng Yan. 2025.
+Mv-dust3r+: Single-stage scene reconstruction from sparse views in 2 seconds. In Proceedings of the Computer Vision and Pattern Recognition Conference. 5283–5293.
+Tosi et al. (2021)
+Fabio Tosi, Yiyi Liao, Carolin Schmitt, and Andreas Geiger. 2021.
+Smd-nets: Stereo mixture density networks. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 8942–8952.
+Turki et al. (2022)
+Haithem Turki, Deva Ramanan, and Mahadev Satyanarayanan. 2022.
+Mega-nerf: Scalable construction of large-scale nerfs for virtual fly-throughs. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 12922–12931.
+Verbin et al. (2022)
+Dor Verbin, Peter Hedman, Ben Mildenhall, Todd Zickler, Jonathan T Barron, and Pratul P Srinivasan. 2022.
+Ref-nerf: Structured view-dependent appearance for neural radiance fields. In 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR). IEEE, 5481–5490.
+Wang and Agapito (2024)
+Hengyi Wang and Lourdes Agapito. 2024.
+3d reconstruction with spatial memory.
+arXiv preprint arXiv:2408.16061 (2024).
+Wang et al. (2025a)
+Jianyuan Wang, Minghao Chen, Nikita Karaev, Andrea Vedaldi, Christian Rupprecht, and David Novotny. 2025a.
+Vggt: Visual geometry grounded transformer.
+arXiv preprint arXiv:2503.11651 (2025).
+Wang et al. (2024b)
+Jianyuan Wang, Nikita Karaev, Christian Rupprecht, and David Novotny. 2024b.
+Vggsfm: Visual geometry grounded deep structure from motion. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 21686–21697.
+Wang et al. (2023)
+Peng Wang, Hao Tan, Sai Bi, Yinghao Xu, Fujun Luan, Kalyan Sunkavalli, Wenping Wang, Zexiang Xu, and Kai Zhang. 2023.
+Pf-lrm: Pose-free large reconstruction model for joint pose and shape prediction.
+arXiv preprint arXiv:2311.12024 (2023).
+Wang et al. (2021a)
+Qianqian Wang, Zhicheng Wang, Kyle Genova, Pratul P Srinivasan, Howard Zhou, Jonathan T Barron, Ricardo Martin-Brualla, Noah Snavely, and Thomas Funkhouser. 2021a.
+Ibrnet: Learning multi-view image-based rendering. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 4690–4699.
+Wang et al. (2025b)
+Qianqian Wang, Yifei Zhang, Aleksander Holynski, Alexei A Efros, and Angjoo Kanazawa. 2025b.
+Continuous 3D Perception Model with Persistent State.
+arXiv preprint arXiv:2501.12387 (2025).
+Wang et al. (2024c)
+Shuzhe Wang, Vincent Leroy, Yohann Cabon, Boris Chidlovskii, and Jerome Revaud. 2024c.
+Dust3r: Geometric 3d vision made easy. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 20697–20709.
+Wang et al. (2024a)
+Yunsong Wang, Tianxin Huang, Hanlin Chen, and Gim Hee Lee. 2024a.
+Freesplat: Generalizable 3d gaussian splatting towards free view synthesis of indoor scenes.
+Advances in Neural Information Processing Systems 37 (2024), 107326–107349.
+Wang et al. (2004)
+Zhou Wang, Alan C Bovik, Hamid R Sheikh, and Eero P Simoncelli. 2004.
+Image quality assessment: from error visibility to structural similarity.
+IEEE transactions on image processing 13, 4 (2004), 600–612.
+Wang et al. (2021b)
+Zirui Wang, Shangzhe Wu, Weidi Xie, Min Chen, and Victor Adrian Prisacariu. 2021b.
+NeRF–: Neural radiance fields without known camera parameters.
+(2021).
+Xia et al. (2024)
+Hongchi Xia, Yang Fu, Sifei Liu, and Xiaolong Wang. 2024.
+RGBD objects in the wild: scaling real-world 3D object learning from RGB-D videos. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 22378–22389.
+Xu et al. (2024a)
+Haofei Xu, Songyou Peng, Fangjinhua Wang, Hermann Blum, Daniel Barath, Andreas Geiger, and Marc Pollefeys. 2024a.
+Depthsplat: Connecting gaussian splatting and depth.
+arXiv preprint arXiv:2410.13862 (2024).
+Xu et al. (2023)
+Linning Xu, Vasu Agrawal, William Laney, Tony Garcia, Aayush Bansal, Changil Kim, Samuel Rota Bulò, Lorenzo Porzi, Peter Kontschieder, Aljaž Božič, et al. 2023.
+VR-NeRF: High-fidelity virtualized walkable spaces. In SIGGRAPH Asia 2023 Conference Papers. 1–12.
+Xu et al. (2024b)
+Yinghao Xu, Zifan Shi, Wang Yifan, Hansheng Chen, Ceyuan Yang, Sida Peng, Yujun Shen, and Gordon Wetzstein. 2024b.
+Grm: Large gaussian reconstruction model for efficient 3d reconstruction and generation. In European Conference on Computer Vision. Springer, 1–20.
+Yan et al. (2024)
+Chi Yan, Delin Qu, Dan Xu, Bin Zhao, Zhigang Wang, Dong Wang, and Xuelong Li. 2024.
+Gs-slam: Dense visual slam with 3d gaussian splatting. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 19595–19604.
+Yang et al. (2025a)
+Jianing Yang, Alexander Sax, Kevin J Liang, Mikael Henaff, Hao Tang, Ang Cao, Joyce Chai, Franziska Meier, and Matt Feiszli. 2025a.
+Fast3R: Towards 3D Reconstruction of 1000+ Images in One Forward Pass.
+arXiv preprint arXiv:2501.13928 (2025).
+Yang et al. (2025b)
+Xijie Yang, Linning Xu, Lihan Jiang, Dahua Lin, and Bo Dai. 2025b.
+Virtualized 3D Gaussians: Flexible Cluster-based Level-of-Detail System for Real-Time Rendering of Composed Scenes. In Proceedings of the Special Interest Group on Computer Graphics and Interactive Techniques Conference Conference Papers. 1–11.
+Yao et al. (2020)
+Yao Yao, Zixin Luo, Shiwei Li, Jingyang Zhang, Yufan Ren, Lei Zhou, Tian Fang, and Long Quan. 2020.
+Blendedmvs: A large-scale dataset for generalized multi-view stereo networks. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 1790–1799.
+Ye et al. (2024)
+Botao Ye, Sifei Liu, Haofei Xu, Xueting Li, Marc Pollefeys, Ming-Hsuan Yang, and Songyou Peng. 2024.
+No pose, no problem: Surprisingly simple 3d gaussian splats from sparse unposed images.
+arXiv preprint arXiv:2410.24207 (2024).
+Ye et al. (2025)
+Vickie Ye, Ruilong Li, Justin Kerr, Matias Turkulainen, Brent Yi, Zhuoyang Pan, Otto Seiskari, Jianbo Ye, Jeffrey Hu, Matthew Tancik, and Angjoo Kanazawa. 2025.
+gsplat: An open-source library for Gaussian splatting.
+Journal of Machine Learning Research 26, 34 (2025), 1–17.
+Yeshwanth et al. (2023)
+Chandan Yeshwanth, Yueh-Cheng Liu, Matthias Nießner, and Angela Dai. 2023.
+Scannet++: A high-fidelity dataset of 3d indoor scenes. In Proceedings of the IEEE/CVF International Conference on Computer Vision. 12–22.
+Yu et al. (2021)
+Alex Yu, Vickie Ye, Matthew Tancik, and Angjoo Kanazawa. 2021.
+pixelnerf: Neural radiance fields from one or few images. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 4578–4587.
+Yu et al. (2024b)
+Mulin Yu, Tao Lu, Linning Xu, Lihan Jiang, Yuanbo Xiangli, and Bo Dai. 2024b.
+Gsdf: 3dgs meets sdf for improved neural rendering and reconstruction.
+Advances in Neural Information Processing Systems 37 (2024), 129507–129530.
+Yu et al. (2024a)
+Zehao Yu, Anpei Chen, Binbin Huang, Torsten Sattler, and Andreas Geiger. 2024a.
+Mip-splatting: Alias-free 3d gaussian splatting. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 19447–19456.
+Zhang et al. (2024)
+Kai Zhang, Sai Bi, Hao Tan, Yuanbo Xiangli, Nanxuan Zhao, Kalyan Sunkavalli, and Zexiang Xu. 2024.
+Gs-lrm: Large reconstruction model for 3d gaussian splatting. In European Conference on Computer Vision. Springer, 1–19.
+Zhang et al. (2018)
+Richard Zhang, Phillip Isola, Alexei A Efros, Eli Shechtman, and Oliver Wang. 2018.
+The unreasonable effectiveness of deep features as a perceptual metric. In Proceedings of the IEEE conference on computer vision and pattern recognition. 586–595.
+Zhang et al. (2025)
+Shangzhan Zhang, Jianyuan Wang, Yinghao Xu, Nan Xue, Christian Rupprecht, Xiaowei Zhou, Yujun Shen, and Gordon Wetzstein. 2025.
+Flare: Feed-forward geometry, appearance and camera estimation from uncalibrated sparse views.
+arXiv preprint arXiv:2502.12138 (2025).
+Zhou et al. (2018)
+Tinghui Zhou, Richard Tucker, John Flynn, Graham Fyffe, and Noah Snavely. 2018.
+Stereo magnification: Learning view synthesis using multiplane images.
+arXiv preprint arXiv:1805.09817 (2018).
+Ziwen et al. (2024)
+Chen Ziwen, Hao Tan, Kai Zhang, Sai Bi, Fujun Luan, Yicong Hong, Li Fuxin, and Zexiang Xu. 2024.
+Long-lrm: Long-sequence large reconstruction model for wide-coverage gaussian splats.
+arXiv preprint arXiv:2410.12781 (2024).
+Figure 6. Example visualization of our AnySplat reconstruction and novel-view synthesis across a spectrum of scene complexities and input frames densities.
+From top to bottom, the number of input images increases—from extremely sparse to medium and dense captures, while the scene scale grows from object-centric setups (LLFF (Mildenhall et al., 2019), DTU (Jensen et al., 2014)) through mid-scale trajectories (MegaNeRF (Turki et al., 2022), LERF (Kerr et al., 2023), HorizonGS (Jiang et al., 2024)) to large-scale indoor and outdoor environments (VR-NeRF (Xu et al., 2023), Waymo (Sun et al., 2020)). For each setting, we display the input views, the reconstructed 3D Gaussians, the corresponding ground-truth renderings, and example novel-view renderings.
+Figure 7. Improved Rendering with Post-Optimization. In our experiments using 200 input views, an optional post-optimization stage yields noticeably higher rendering fidelity, particularly in dense-view scenarios.
+Figure 8. Improvements of Multiview Consistency.
+From the initial iteration to 10k training steps, we observe a marked enhancement in multiview geometry consistency, clearly visible in the depth renderings, across both the model’s outputs and the 3D Gaussian Splatting renderings. This confirms the effectiveness of our geometry consistency enhancement design.
+Figure 9. Qualitative comparisons against baseline methods: for sparse-view inputs, we benchmark against the state-of-the-art FLARE (Zhang et al., 2025) and NoPoSplat (Ye et al., 2024); for dense-view inputs, we include 3DGS (Kerbl et al., 2023) and MipSplatting (Yu et al., 2024a) as representative comparisons.
+The slight misalignment between the rendered novel-views and the ground-truth is likely caused by pose-free reconstruction method’s estimated pose not perfectly matching the annotated ground-truth camera poses.
+The following appendices provide additional technical details and experimental results that support the main findings of this work.
+Appendix A Experiment Details
+In this section, we provide additional details of our training protocol, model initialization, and experiments.
+Training Setting
+We train on a heterogeneous mix of nine datasets spanning synthetic indoor scenes (Hypersim (Roberts et al., 2021), ARKitScenes (Baruch et al., 2021), BlendedMVS (Yao et al., 2020), ScanNet++ (Yeshwanth et al., 2023), CO3D-v2 (Reizenstein et al., 2021), Objaverse (Deitke et al., 2023), Unreal4K (Tosi et al., 2021), WildRGBD (Xia et al., 2024), and DL3DV (Ling et al., 2024)).
+During each iteration we randomly sample one dataset according to the distribution shown in Tab. 6, ensuring balanced exposure to both synthetic and real environments. This mixture stabilizes convergence and improves generalization across diverse scene types.
+In future work, we plan to incorporate additional high-fidelity datasets, particularly from open-world simulators such as game engines that provide accurate 3D geometry and scene consistency—to further empower our model’s scalability. We also intend to include a wider variety of camera trajectories.
+Table 6.
+Training Datasets Statistics.
+We report the sampling distribution over our nine training datasets: at each iteration, we randomly select one dataset according to the probabilities listed in the Prob column, which reflects the relative frequency with which each dataset is drawn during training.
+| Dataset
+| Scene Type
+| Real/Synthetic
+| # of Frames
+| # of Scenes
+| Training Prob. (%)
+| ARKitScenes (Baruch et al., 2021)
+| Indoor
+| Real
+| 9.2M
+| 4406
+| 16.7
+| ScanNet++ (Yeshwanth et al., 2023)
+| Indoor
+| Real
+| 1.0M
+| 935
+| 16.7
+| BlendedMVS (Yao et al., 2020)
+| Mixed
+| Real
+| 114K
+| 467
+| 8.3
+| Unreal4K (Tosi et al., 2021)
+| Mixed
+| Synthetic
+| 16K
+| 18
+| 8.3
+| CO3Dv2 (Reizenstein et al., 2021)
+| Object
+| Real
+| 5.5M
+| 27520
+| 8.3
+| DL3DV (Ling et al., 2024)
+| Mixed
+| Real
+| 3.4M
+| 9894
+| 16.7
+| WildRGBD (Xia et al., 2024)
+| Object
+| Real
+| 3.9M
+| 11050
+| 8.3
+| Hypersim (Roberts et al., 2021)
+| Indoor
+| Synthetic
+| 73K
+| 744
+| 8.3
+| Objaverse (Deitke et al., 2023)
+| Object
+| Synthetic
+| 8M
+| 199K
+| 8.3
+Model Initialization
+To leverage prior geometric structure, we initialize our geometry-transformer backbone with weights pretrained on the VGGT dataset. All parameters in the Gaussian-prediction head are drawn from a zero-mean Gaussian distribution with standard deviation 0.02, while all biases are set to zero. This strategy allows the geometry branch to start from a strong prior, accelerating convergence, while the Gaussian head learns scene appearance and density from scratch.
+Evaluation Setting
+We evaluate our approach on two widely used benchmarks: the VR-NeRF dataset (Xu et al., 2023) and the Mip-NeRF360 dataset (Barron et al., 2022). From VR-NeRF, which offers richly textured indoor environments with varied layouts, we randomly select four representative scenes—apartment, kitchen, raf-furnishedroom, and workshop—ensuring a mix of both compact and spacious rooms. From Mip-NeRF360, a dataset known for its challenging viewpoint diversity and complex lighting, we include all available scenes: bonsai, counter, kitchen and room. Together, these seven scenes cover a broad spectrum of indoor settings, camera densities, and appearance variations, allowing us to stress-test both sparse- and dense-view reconstruction scenarios.
+In the dense-view setting, we select one out of every eight images as the test view. We first choose 72 images from the dataset, either randomly or based on spatial distribution. From these 72 images, we further sample subsets of 54 and 36 images. After excluding the test views, the numbers of input images for these three cases are 64, 48, and 32, respectively. In the sparse-view setting, we select one out of every two images as the test view. The view-selection procedure is the same as in the dense-view setting.
+Figure 10. Example failure cases. AnySplat exhibits visible artifacts under (a) variable illumination or transient occluders for the Brandenburg Gate (Phototourism (Jin et al., 2021)); (b) specular highlights on the sedan (Ref-NeRF (Verbin et al., 2022)); (c) a dynamic bus scene (DAVIS (Perazzi et al., 2016)); and (d) the bicycle’s thin structures (Mip-NeRF360 (Barron et al., 2022)).
+Appendix B More Results
+Same Test Views.
+In Table 1, we use the view-selection strategy described in sec. A. However, those results do not isolate how rendering performance depends on the number of input views. To make this dependence explicit, we compare 3D-GS (Kerbl et al., 2023) and Mip-Splatting (Yu et al., 2024a) using the same fixed test views in the dense-view setting (Table 7). Specifically, we sample 72 images and hold out 8 as test views; keeping these test views fixed, we then construct training sets of 64, 48, and 32 input images by randomly selecting from the remaining 64 images. This setup not only reveals the relationship between input count and performance but also rigorously evaluates our model’s sensitivity to view sampling and its robustness across arbitrary camera configurations.
+These results lead to two conclusions: (1) in 3D scene reconstruction, more input views yield higher rendering quality for both feed-forward and per-scene optimization methods; and (2) AnySplat’s rendering quality is consistently competitive with per-scene optimization methods, underscoring the promise of feed-forward approaches.
+Table 7. Quantitative Comparison on dense-view NVS setting on Mip-NeRF360 (Barron et al., 2022) dataset with same test view images.
+| Method
+| 32 Views
+| 48 Views
+| 64 Views
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| PSNR \uparrow
+| SSIM \uparrow
+| LPIPS \downarrow
+| 3D-GS (Kerbl et al., 2023)
+| 17.25
+| 0.416
+| 0.439
+| 18.62
+| 0.461
+| 0.415
+| 19.05
+| 0.490
+| 0.417
+| Mip-Splatting (Yu et al., 2024a)
+| 16.95
+| 0.381
+| 0.450
+| 18.39
+| 0.457
+| 0.424
+| 18.94
+| 0.486
+| 0.427
+| Ours
+| 16.59
+| 0.417
+| 0.422
+| 18.72
+| 0.479
+| 0.370
+| 19.57
+| 0.508
+| 0.356
+Failure Case.
+Although AnySplat performs well on most scenes, we still observe some failure cases (Fig. 10). For example, AnySplat can struggle with (a) variable illumination and transient occlusions, (b) specular highlights, (c) dynamic scenes, and (d) fine-grained geometry. The first three issues arise because these factors are not explicitly modeled; incorporating appropriate modeling strategies and richer training data could mitigate them. The last issue likely requires a more powerful geometry encoder. We leave these directions to future work.
+More Comparisons.
+We present more visualization results in Fig. 11 and Fig. 12. For sparse-view inputs, AnySplat delivers higher visual quality, with reliable geometry and finer details, than NoPoSplat (Ye et al., 2024) and Flare (Zhang et al., 2025). For dense-view inputs, 3D-GS (Kerbl et al., 2023) and Mip-Splatting (Yu et al., 2024a) tend to overfit in the training views, leading to unavoidable artifacts. In contrast, AnySplat consistently produces cleaner renderings with fewer artifacts.
+Figure 11. Example visualization results on the Mip-NeRF360 (Barron et al., 2022) dataset (bonsai, kitchen, room).
+Figure 12. Example visualization results on the VR-NeRF (Xu et al., 2023) dataset (apartment, raf_furnishedroom, kitchen).
+Experimental support, please
+view the build logs
+for errors. Generated by
+L
+A
+T
+E
+xml
+.
+Instructions for reporting errors
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+methods listed below:
+Click the "Report Issue" (
+) button, located in the page header.
+Tip: You can select the relevant text first, to include it in your report.
+Our team has already identified the following issues. We appreciate your time reviewing and reporting rendering errors we
+may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+all.
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion, and welcome developer contributions.
+We gratefully acknowledge support from
+our major funders,
+member institutions, ,
+and all contributors.
+About
+·
+Help
+·
+Contact
+·
+Subscribe
+·
+Copyright
+·
+Privacy
+·
+Accessibility
+·
+Operational Status (opens in new tab)
+Major funding support from

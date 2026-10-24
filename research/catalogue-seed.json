@@ -1,0 +1,666 @@
+[
+  {
+    "id": "A01",
+    "priority": "P0",
+    "name": "DUSt3R",
+    "url": "https://arxiv.org/abs/2312.14132",
+    "arxiv": "2312.14132",
+    "original_meta": "**[DUSt3R](https://arxiv.org/abs/2312.14132)** · 2023-12 / CVPR 2024 · 已有",
+    "original_idea": "将两图几何问题改写为同一参考系中的稠密 pointmap 回归，把深度、匹配、相机恢复连接起来。",
+    "original_boundary": "学会 pointmap 与尺度歧义；两图预测是前馈，多图系统需要全局对齐。"
+  },
+  {
+    "id": "A02",
+    "priority": "P0",
+    "name": "MASt3R",
+    "url": "https://arxiv.org/abs/2406.09756",
+    "arxiv": "2406.09756",
+    "original_meta": "**[MASt3R](https://arxiv.org/abs/2406.09756)** · 2024-06 / ECCV 2024 · 已有",
+    "original_idea": "在 DUSt3R 上增加受匹配监督的局部特征头，并用 reciprocal matching 高效获得精确对应。",
+    "original_boundary": "重点是 3D 先验如何帮助 matching；后续 SLAM 的重要前端。"
+  },
+  {
+    "id": "A03",
+    "priority": "P1",
+    "name": "MV-DUSt3R+",
+    "url": "https://arxiv.org/abs/2412.06974",
+    "arxiv": "2412.06974",
+    "original_meta": "**[MV-DUSt3R+](https://arxiv.org/abs/2412.06974)** · 2024-12 / CVPR 2025 · 已有",
+    "original_idea": "多视 decoder 一次融合多图；“+”以跨参考视图模块融合不同参考选择，另可增加 Gaussian 头。",
+    "original_boundary": "与 π³ 比较：融合多个参考选择，与从结构上取消参考特权有何区别？"
+  },
+  {
+    "id": "A04",
+    "priority": "P1",
+    "name": "Fast3R",
+    "url": "https://arxiv.org/abs/2501.13928",
+    "arxiv": "2501.13928",
+    "original_meta": "**[Fast3R](https://arxiv.org/abs/2501.13928)** · 2025-01 / CVPR 2025 · 已有",
+    "original_idea": "多图共同前向，直接预测一致几何，替代两两重建后迭代对齐。",
+    "original_boundary": "解决多视图推理组织问题；“1000+”不等于在任意分辨率、硬件上都廉价。"
+  },
+  {
+    "id": "A05",
+    "priority": "P1",
+    "name": "MUSt3R",
+    "url": "https://arxiv.org/abs/2503.01661",
+    "arxiv": "2503.01661",
+    "original_meta": "**[MUSt3R](https://arxiv.org/abs/2503.01661)** · 2025-03 / CVPR 2025 · **新增**",
+    "original_idea": "对称化并扩展 DUSt3R，使多视图直接进入共同参考系；多层 memory 支持较大集合和在线模式。",
+    "original_boundary": "连接 batch multi-view 与 memory-based reconstruction；不能与 MV-DUSt3R+ 混为一篇。"
+  },
+  {
+    "id": "A06",
+    "priority": "P0",
+    "name": "VGGT",
+    "url": "https://arxiv.org/abs/2503.11651",
+    "arxiv": "2503.11651",
+    "original_meta": "**[VGGT](https://arxiv.org/abs/2503.11651)** · 2025-03 / CVPR 2025 · 已有",
+    "original_idea": "用共享几何 Transformer 联合预测相机、深度、点图与 tracks，形成多任务视觉几何骨干。",
+    "original_boundary": "重点读 frame/global attention、相机与几何的一致性，以及参考视图的作用。"
+  },
+  {
+    "id": "A07",
+    "priority": "P1",
+    "name": "Pow3R",
+    "url": "https://arxiv.org/abs/2503.17316",
+    "arxiv": "2503.17316",
+    "original_meta": "**[Pow3R](https://arxiv.org/abs/2503.17316)** · 2025-03 / CVPR 2025 · 已有",
+    "original_idea": "将内参、相对位姿、稀疏或稠密深度作为可选条件；训练时随机提供不同模态子集。",
+    "original_boundary": "思路由“全未知也能做”转向“已知信息也能用”；与 MapAnything 的输入接口对照。"
+  },
+  {
+    "id": "A08",
+    "priority": "P0",
+    "name": "π³",
+    "url": "https://arxiv.org/abs/2507.13347",
+    "arxiv": "2507.13347",
+    "original_meta": "**[π³](https://arxiv.org/abs/2507.13347)** · 2025-07 / ICLR 2026 · 已有",
+    "original_idea": "置换等变地处理图像集合，预测局部几何与无固定参考视图的相机关系，减少参考选择的敏感性。",
+    "original_boundary": "将 gauge、输入置换和尺度归一化分开理解；最终模型使用 VGGT 初始化。"
+  },
+  {
+    "id": "A09",
+    "priority": "P0",
+    "name": "MapAnything",
+    "url": "https://arxiv.org/abs/2509.13414",
+    "arxiv": "2509.13414",
+    "original_meta": "**[MapAnything](https://arxiv.org/abs/2509.13414)** · 2025-09 · 已有",
+    "original_idea": "以 depth、local rays、poses、metric scale 的分解表示，统一不同先验输入和多种三维任务。",
+    "original_boundary": "为什么要分解输出？哪些任务共享监督？metric scale 如何获得？"
+  },
+  {
+    "id": "A10",
+    "priority": "P0",
+    "name": "Depth Anything 3",
+    "url": "https://arxiv.org/abs/2511.10647",
+    "arxiv": "2511.10647",
+    "original_meta": "**[Depth Anything 3](https://arxiv.org/abs/2511.10647)** · 2025-11 · **新增**",
+    "original_idea": "使用普通 Transformer 与统一的 depth-ray 预测目标，通过 teacher-student 训练学习任意视图的空间一致几何。",
+    "original_boundary": "与 VGGT 多头多任务、MapAnything 分解输出做三方比较；支持已知或未知相机位姿。"
+  },
+  {
+    "id": "A11",
+    "priority": "P1",
+    "name": "Pi3X",
+    "url": "https://github.com/yyfz/Pi3",
+    "arxiv": null,
+    "original_meta": "**[Pi3X](https://github.com/yyfz/Pi3)** · 2025-12-28 官方工程升级 · **新增版本**",
+    "original_idea": "卷积输出头减轻格状伪影；改进连续置信度，支持内参／位姿／深度条件及近似 metric scale。",
+    "original_boundary": "放在 π³ 版本记录中；不要把工程升级、原论文主实验和后续 checkpoint 混用。"
+  },
+  {
+    "id": "A12",
+    "priority": "P0",
+    "name": "VGGT-Ω",
+    "url": "https://arxiv.org/abs/2605.15195",
+    "arxiv": "2605.15195",
+    "original_meta": "**[VGGT-Ω](https://arxiv.org/abs/2605.15195)** · 2026-05 / CVPR 2026 · **新增**",
+    "original_idea": "简化 dense head，以 registers 承担部分跨帧交流，降低训练开销，再扩大监督数据与无标注视频训练，覆盖静态和动态场景。",
+    "original_boundary": "核心是架构效率与数据 scaling 如何相互促成；部分 register attention 不等于所有计算都线性。"
+  },
+  {
+    "id": "B01",
+    "priority": "P1",
+    "name": "Spann3R / 3D Reconstruction with Spatial Memory",
+    "url": "https://arxiv.org/abs/2408.16061",
+    "arxiv": "2408.16061",
+    "original_meta": "**[Spann3R / 3D Reconstruction with Spatial Memory](https://arxiv.org/abs/2408.16061)** · 2024-08 · **新增**",
+    "original_idea": "用外部 spatial memory 保存已见场景信息，下一帧查询记忆后直接输出全局 pointmap，省去 DUSt3R 式全局对齐。",
+    "original_boundary": "在线分支的概念起点：记忆存什么、怎样检索和更新？"
+  },
+  {
+    "id": "B02",
+    "priority": "P0",
+    "name": "CUT3R / Continuous 3D Perception Model with Persistent State",
+    "url": "https://arxiv.org/abs/2501.12387",
+    "arxiv": "2501.12387",
+    "original_meta": "**[CUT3R / Continuous 3D Perception Model with Persistent State](https://arxiv.org/abs/2501.12387)** · 2025-01 · **新增**",
+    "original_idea": "持续更新隐状态，从输入流产生同一参考系中的 metric pointmap，还可用虚拟视角查询未直接观察区域。",
+    "original_boundary": "理解“场景状态可查询”；它是递归推理，不是整段视频一次 batch，也不保证无限长度无漂移。"
+  },
+  {
+    "id": "B03",
+    "priority": "P1",
+    "name": "SLAM3R",
+    "url": "https://arxiv.org/abs/2412.09401",
+    "arxiv": "2412.09401",
+    "original_meta": "**[SLAM3R](https://arxiv.org/abs/2412.09401)** · 2024-12 · **新增**",
+    "original_idea": "滑窗恢复局部点图，再由学习式 local-to-world 模块逐步对齐和形变，直接建立全局几何。",
+    "original_boundary": "与 MASt3R-SLAM 对照：学习式注册与显式相机／图优化的分工不同。"
+  },
+  {
+    "id": "B04",
+    "priority": "P1",
+    "name": "STream3R",
+    "url": "https://arxiv.org/abs/2508.10893",
+    "arxiv": "2508.10893",
+    "original_meta": "**[STream3R](https://arxiv.org/abs/2508.10893)** · 2025-08 · **新增**",
+    "original_idea": "将顺序 pointmap 预测写成 decoder-only causal Transformer，使用因果注意力组织历史观测。",
+    "original_boundary": "从递归固定状态转向序列 Transformer；仔细记录 cache 是否随序列增长及其管理方式。"
+  },
+  {
+    "id": "B05",
+    "priority": "P1",
+    "name": "LongStream",
+    "url": "https://arxiv.org/abs/2602.13172",
+    "arxiv": "2602.13172",
+    "original_meta": "**[LongStream](https://arxiv.org/abs/2602.13172)** · 2026-02 · **新增**",
+    "original_idea": "以关键帧相对位姿代替首帧锚定；分离尺度学习，并用 cache-consistent training 与周期刷新减轻长程退化。",
+    "original_boundary": "把长程难题拆成参考系外推、尺度漂移和缓存污染；适合作为读 LingBot-Map 前的对照。"
+  },
+  {
+    "id": "B06",
+    "priority": "P0",
+    "name": "LingBot-Map",
+    "url": "https://arxiv.org/abs/2604.14141",
+    "arxiv": "2604.14141",
+    "original_meta": "**[LingBot-Map](https://arxiv.org/abs/2604.14141)** · 2026-04，v3 为 2026-09 · **新增**",
+    "original_idea": "Geometric Context Transformer 分设 anchor context、pose-reference window、trajectory memory，分别处理坐标锚定、局部几何和长程漂移。",
+    "original_boundary": "重点分析三种 context 的必要性和存储成本，区分紧凑记忆与无限时长一致性保证。"
+  },
+  {
+    "id": "B07",
+    "priority": "P1",
+    "name": "ABot-Recon / Revisiting Local Context for Long-Horizon Streaming 3D Reconstruction",
+    "url": "https://arxiv.org/abs/2608.27529",
+    "arxiv": "2608.27529",
+    "original_meta": "**[ABot-Recon / Revisiting Local Context for Long-Horizon Streaming 3D Reconstruction](https://arxiv.org/abs/2608.27529)** · 2026-08 · **新增**",
+    "original_idea": "仅缓存前 11 帧，预测当前相机系点图和相邻相对位姿；用时序旋转精化与多步组合监督减轻漂移。",
+    "original_boundary": "很有价值的反向对照：长视频性能是否必须依赖长期记忆，还是预测目标与训练方式更重要？"
+  },
+  {
+    "id": "C01",
+    "priority": "P1",
+    "name": "Speed3R",
+    "url": "https://arxiv.org/abs/2603.08055",
+    "arxiv": "2603.08055",
+    "original_meta": "**[Speed3R](https://arxiv.org/abs/2603.08055)** · 2026-03 · **新增**",
+    "original_idea": "双分支 attention：压缩分支形成粗上下文，选择分支只对最有信息的 token 做精细交互；可用于 VGGT 和 π³。",
+    "original_boundary": "信息选择的速度—精度取舍；区分减少常数、降低有效 token 数与改变渐近复杂度。"
+  },
+  {
+    "id": "C02",
+    "priority": "P1",
+    "name": "VGG-T³",
+    "url": "https://arxiv.org/abs/2602.23361",
+    "arxiv": "2602.23361",
+    "original_meta": "**[VGG-T³](https://arxiv.org/abs/2602.23361)** · 2026-02 / CVPR 2026 · **新增**",
+    "original_idea": "将不断增长的 KV 场景表示经 TTT 压入固定大小 MLP，使离线多视图聚合实现对视图数的线性扩展。",
+    "original_boundary": "是 offline 全局聚合路线；为什么固定容量状态还能保留几何？与 online 因果限制分开讨论。"
+  },
+  {
+    "id": "C03",
+    "priority": "P0",
+    "name": "ZipMap",
+    "url": "https://arxiv.org/abs/2603.04385",
+    "arxiv": "2603.04385",
+    "original_meta": "**[ZipMap](https://arxiv.org/abs/2603.04385)** · 2026-03 / CVPR 2026 · **新增**",
+    "original_idea": "用 TTT 层将图像集合写入紧凑场景状态，支持线性时间、双向重建及状态查询，并提供 streaming 扩展。",
+    "original_boundary": "同时看“写入”和“查询”成本；主模型的双向处理与专门 streaming 版本不应混用。"
+  },
+  {
+    "id": "C04",
+    "priority": "P1",
+    "name": "Scal3R — Scalable Test-Time Training for Large-Scale 3D Reconstruction",
+    "url": "https://arxiv.org/abs/2604.08542",
+    "arxiv": "2604.08542",
+    "original_meta": "**[Scal3R — Scalable Test-Time Training for Large-Scale 3D Reconstruction](https://arxiv.org/abs/2604.08542)** · 2026-04 / CVPR 2026 · **新增**",
+    "original_idea": "在分块 VGGT 中加入可测试时更新的 Global Context Memory，并同步各块的上下文更新，使局部预测获得远程场景信息。",
+    "original_boundary": "不是只换一个 attention 层；要把分块、全局上下文同步和对齐成本一起计入系统。[方法页](https://zju3dv.github.io/scal3r/)"
+  },
+  {
+    "id": "D01",
+    "priority": "P1",
+    "name": "VGGSfM",
+    "url": "https://vggsfm.github.io/",
+    "arxiv": "2312.04563",
+    "original_meta": "**[VGGSfM](https://vggsfm.github.io/)** · CVPR 2024 · 已有",
+    "original_idea": "从多视图 tracks 同时初始化相机，再三角化并以可微 BA 精化，构成可端到端训练的 SfM。",
+    "original_boundary": "“可微经典结构”与“直接 pointmap 回归”的代表性对照。"
+  },
+  {
+    "id": "D02",
+    "priority": "P0",
+    "name": "MASt3R-SLAM",
+    "url": "https://arxiv.org/abs/2412.12392",
+    "arxiv": "2412.12392",
+    "original_meta": "**[MASt3R-SLAM](https://arxiv.org/abs/2412.12392)** · 2024-12 · **新增**",
+    "original_idea": "把 MASt3R 几何和匹配先验放入跟踪、局部融合、回环与二阶全局优化系统。",
+    "original_boundary": "保留显式优化能带来什么？也是判断纯前馈模型能力边界的重要基线。"
+  },
+  {
+    "id": "D03",
+    "priority": "P2",
+    "name": "S-MUSt3R",
+    "url": "https://arxiv.org/abs/2602.04517",
+    "arxiv": "2602.04517",
+    "original_meta": "**[S-MUSt3R](https://arxiv.org/abs/2602.04517)** · 2026-02 · **新增**",
+    "original_idea": "不重新训练 MUSt3R，通过序列分段、段间对齐和轻量回环优化扩展长视频重建。",
+    "original_boundary": "体现“强基础模型 + 简洁后端”；不是 MUSt3R 自身已解决全部长程问题。"
+  },
+  {
+    "id": "D04",
+    "priority": "P1",
+    "name": "Scal3R — Learning Efficient Multi-Relative Pose Query for Scalable Online 3D Reconstruction",
+    "url": "https://arxiv.org/abs/2609.04201",
+    "arxiv": "2609.04201",
+    "original_meta": "**[Scal3R — Learning Efficient Multi-Relative Pose Query for Scalable Online 3D Reconstruction](https://arxiv.org/abs/2609.04201)** · 2026-09 / ECCV 2026 · **新增**",
+    "original_idea": "冻结 backbone，用轻量 token 查询相对多个历史关键帧的位姿，再用在线 pose graph 与回环抑制漂移。",
+    "original_boundary": "与 C04 同名但不同论文！其观察是局部深度仍可靠、全局位姿先崩溃；明确含优化后端。"
+  },
+  {
+    "id": "D05",
+    "priority": "P2",
+    "name": "GRF-Recon",
+    "url": "https://arxiv.org/abs/2609.20012",
+    "arxiv": "2609.20012",
+    "original_meta": "**[GRF-Recon](https://arxiv.org/abs/2609.20012)** · 2026-09 / ECCV 2026 · **新增**",
+    "original_idea": "单目先验通过 LoRA 改善局部细节；全局 ray-field 约束和轨迹拼接优化加强跨帧一致性。",
+    "original_boundary": "面向长程精度的系统路线；不能把含 ray-error 优化的总流程标成“一次前向”。"
+  },
+  {
+    "id": "E01",
+    "priority": "P0",
+    "name": "MonST3R",
+    "url": "https://arxiv.org/abs/2410.03825",
+    "arxiv": "2410.03825",
+    "original_meta": "**[MonST3R](https://arxiv.org/abs/2410.03825)** · 2024-10 · **新增**",
+    "original_idea": "将 DUSt3R 微调为逐时间点预测 pointmap，以较少动态数据学习运动场景几何，再设计视频任务的全局优化。",
+    "original_boundary": "动态分支起点；没有显式运动表示也能处理运动，但逐帧几何不自动给出同一物理点的长程轨迹。"
+  },
+  {
+    "id": "E02",
+    "priority": "P1",
+    "name": "Easi3R",
+    "url": "https://arxiv.org/abs/2503.24391",
+    "arxiv": "2503.24391",
+    "original_meta": "**[Easi3R](https://arxiv.org/abs/2503.24391)** · 2025-03 · **新增**",
+    "original_idea": "利用 DUSt3R attention 中已有的相机／物体运动信息，在推理时做 attention adaptation，分离动态区域与运动。",
+    "original_boundary": "“无需重新训练”的路线；记录其完整推理步骤，不能把 training-free 直接等同 optimization-free。"
+  },
+  {
+    "id": "E03",
+    "priority": "P1",
+    "name": "4DGT",
+    "url": "https://arxiv.org/abs/2506.08015",
+    "arxiv": "2506.08015",
+    "original_meta": "**[4DGT](https://arxiv.org/abs/2506.08015)** · 2025-06 · **新增**",
+    "original_idea": "从真实单目 posed videos 学习 4D Gaussian Transformer，以统一时空 Gaussian 建模静态和动态内容，并通过密度控制与滚动窗口扩展。",
+    "original_boundary": "可渲染的动态表示；输入为有相机位姿的视频，与直接从 unposed RGB 恢复相机的任务不同。"
+  },
+  {
+    "id": "E04",
+    "priority": "P0",
+    "name": "Any4D — Unified Feed-Forward Metric 4D Reconstruction",
+    "url": "https://arxiv.org/abs/2512.10935",
+    "arxiv": "2512.10935",
+    "original_meta": "**[Any4D — Unified Feed-Forward Metric 4D Reconstruction](https://arxiv.org/abs/2512.10935)** · 2025-12 · **新增**",
+    "original_idea": "把局部 depth / intrinsics 与全局 extrinsics / scene flow 分解建模，联合恢复多帧稠密 metric 几何与运动，可接入深度、IMU 位姿及 Radar Doppler 等条件。",
+    "original_boundary": "连接 MapAnything 的统一输入思路与 4D；核对各传感器条件下的结果，勿将条件增强结果当 RGB-only 结果。"
+  },
+  {
+    "id": "E05",
+    "priority": "P0",
+    "name": "4RC",
+    "url": "https://arxiv.org/abs/2602.10094",
+    "arxiv": "2602.10094",
+    "original_meta": "**[4RC](https://arxiv.org/abs/2602.10094)** · 2026-02 · **新增**",
+    "original_idea": "视频只编码一次；条件 decoder 可按查询帧和目标时刻读出几何与运动，用基础几何加时间相关相对运动构成表示。",
+    "original_boundary": "关注 encode-once / query-anywhere-anytime，以及查询成本；主干编码整段视频不等于在线因果推理。"
+  },
+  {
+    "id": "E06",
+    "priority": "P1",
+    "name": "UFO-4D",
+    "url": "https://arxiv.org/abs/2602.24290",
+    "arxiv": "2602.24290",
+    "original_meta": "**[UFO-4D](https://arxiv.org/abs/2602.24290)** · 2026-02 / ICLR 2026 · **新增**",
+    "original_idea": "从两张 unposed 图像预测动态 3D Gaussians 与相机；在同一组 primitives 上渲染外观、深度和运动，使多种监督相互约束。",
+    "original_boundary": "几何—运动—外观统一表示的代表；两时刻插值能力与长视频轨迹能力分开评估。"
+  },
+  {
+    "id": "E07",
+    "priority": "P1",
+    "name": "Point4D",
+    "url": "https://arxiv.org/abs/2609.09145",
+    "arxiv": "2609.09145",
+    "original_meta": "**[Point4D](https://arxiv.org/abs/2609.09145)** · 2026-09 · **新增**",
+    "original_idea": "用三维坐标查询 motion decoder，将一个视频块的预测轨迹终点直接作为下一块查询，并复用可见时刻的视觉描述子。",
+    "original_boundary": "从短窗口 4D 走向长程运动：遮挡、跨块误差传播、重查询机制值得精读；新预印本。"
+  },
+  {
+    "id": "F01",
+    "priority": "P1",
+    "name": "pixelSplat",
+    "url": "https://arxiv.org/abs/2312.12337",
+    "arxiv": "2312.12337",
+    "original_meta": "**[pixelSplat](https://arxiv.org/abs/2312.12337)** · 2023-12 · **新增**",
+    "original_idea": "从图像对预测 Gaussian radiance field；预测三维位置概率分布并可微采样 Gaussian 均值，缓解稀疏 primitive 的优化困难。",
+    "original_boundary": "以已知相机的图像对进行泛化 NVS；适合建立“前馈预测显式辐射场”的概念。"
+  },
+  {
+    "id": "F02",
+    "priority": "P0",
+    "name": "MVSplat",
+    "url": "https://arxiv.org/abs/2403.14627",
+    "arxiv": "2403.14627",
+    "original_meta": "**[MVSplat](https://arxiv.org/abs/2403.14627)** · 2024-03 · **新增**",
+    "original_idea": "plane-sweeping cost volume 提供跨视图几何证据来预测 Gaussian 中心，联合预测其余属性，仅用 photometric supervision 训练。",
+    "original_boundary": "有相机几何的多视输入；读清 cost volume 这个显式几何先验如何改善 Gaussian 学习。"
+  },
+  {
+    "id": "F03",
+    "priority": "P1",
+    "name": "Splatt3R",
+    "url": "https://arxiv.org/abs/2408.13912",
+    "arxiv": "2408.13912",
+    "original_meta": "**[Splatt3R](https://arxiv.org/abs/2408.13912)** · 2024-08 · **新增**",
+    "original_idea": "在 MASt3R 的点图几何上预测额外 Gaussian 属性；通过几何学习再接 NVS 训练，将几何基础模型变为可渲染模型。",
+    "original_boundary": "uncalibrated 图像对；理解先稳住几何再学外观，以及用于外推视角的 loss masking。"
+  },
+  {
+    "id": "F04",
+    "priority": "P0",
+    "name": "NoPoSplat",
+    "url": "https://arxiv.org/abs/2410.24207",
+    "arxiv": "2410.24207",
+    "original_meta": "**[NoPoSplat](https://arxiv.org/abs/2410.24207)** · 2024-10 · **新增**",
+    "original_idea": "直接把各输入视图的 Gaussians 预测到一个 canonical camera space，避免先逐视图预测再靠外参变换；以内参 token 提供条件。",
+    "original_boundary": "无输入外参，但使用内参；重建与其另设的 coarse-to-fine pose estimation 流程要分别记录。"
+  },
+  {
+    "id": "F05",
+    "priority": "P1",
+    "name": "FLARE",
+    "url": "https://arxiv.org/abs/2502.12138",
+    "arxiv": "2502.12138",
+    "original_meta": "**[FLARE](https://arxiv.org/abs/2502.12138)** · 2025-02 · 已有",
+    "original_idea": "以相机估计为桥梁，级联条件化几何与外观学习，同时使用 geometry 与 novel-view objectives。",
+    "original_boundary": "与 NoPoSplat 对照“先相机后几何”和“直接 canonical Gaussians”；2–8 张未标定稀疏视图。"
+  },
+  {
+    "id": "F06",
+    "priority": "P0",
+    "name": "AnySplat",
+    "url": "https://arxiv.org/abs/2505.23716",
+    "arxiv": "2505.23716",
+    "original_meta": "**[AnySplat](https://arxiv.org/abs/2505.23716)** · 2025-05 · **新增**",
+    "original_idea": "从未标定图像集合共同预测 3D Gaussians 与每幅图的内外参，统一几何、外观和相机输出。",
+    "original_boundary": "为通用几何主线补上可直接 rendering 的出口；比较稀疏／稠密视图与相机误差的影响。"
+  },
+  {
+    "id": "F07",
+    "priority": "P1",
+    "name": "tttLRM",
+    "url": "https://arxiv.org/abs/2602.20160",
+    "arxiv": "2602.20160",
+    "original_meta": "**[tttLRM](https://arxiv.org/abs/2602.20160)** · 2026-02 · **新增**",
+    "original_idea": "将多视观测写入 TTT fast weights，形成可解码到 GS 的隐式场景状态；NVS 预训练可迁移到显式三维重建，并支持逐步更新。",
+    "original_boundary": "与 ZipMap 对照相同记忆思想在 geometry 与 renderable reconstruction 中的使用；核对相机条件，不因名称推断 pose-free。"
+  },
+  {
+    "id": "G01",
+    "priority": "P0",
+    "name": "On Geometric Understanding and Learned Priors in Feed-forward 3D Reconstruction Models",
+    "url": "https://arxiv.org/abs/2512.11508",
+    "arxiv": "2512.11508",
+    "original_meta": "**[On Geometric Understanding and Learned Priors in Feed-forward 3D Reconstruction Models](https://arxiv.org/abs/2512.11508)** · 2025-12，v2 为 2026-03 · **新增**",
+    "original_idea": "对 DUSt3R、VGGT、DA3 做特征 probe、attention 分析和干预，发现中间层的极线几何及其与对应关系的因果联系，并测试遮挡等输入扰动。",
+    "original_boundary": "用实验回答“几何推理与数据先验各起什么作用”，避免只凭可视化判断理解能力。"
+  },
+  {
+    "id": "G02",
+    "priority": "P1",
+    "name": "NAS3R / From None to All: Self-Supervised 3D Reconstruction via Novel View Synthesis",
+    "url": "https://arxiv.org/abs/2603.27455",
+    "arxiv": "2603.27455",
+    "original_meta": "**[NAS3R / From None to All: Self-Supervised 3D Reconstruction via Novel View Synthesis](https://arxiv.org/abs/2603.27455)** · 2026-03 · **新增**",
+    "original_idea": "在无 GT 几何／相机标注、无预训练先验的基本设置下，共享网络预测 Gaussian 和相机，用预测相机渲染目标视图；mask attention 与 depth-based Gaussians 帮助稳定训练。",
+    "original_boundary": "研究不用昂贵三维标签能否学出相机与几何；需同时检查精度上限和稳定收敛的条件。"
+  },
+  {
+    "id": "G03",
+    "priority": "P1",
+    "name": "Reliev3R",
+    "url": "https://arxiv.org/abs/2604.00548",
+    "arxiv": "2604.00548",
+    "original_meta": "**[Reliev3R](https://arxiv.org/abs/2604.00548)** · 2026-04 / CVPR 2026 · **新增**",
+    "original_idea": "用预训练模型给出的单目相对深度与稀疏对应作为弱监督，结合歧义感知深度损失和三角几何重投影损失学习多视一致性。",
+    "original_boundary": "不依赖多视几何标注，但依赖预训练教师；与 NAS3R 的“无先验”设定清楚区分。"
+  },
+  {
+    "id": "G04",
+    "priority": "P1",
+    "name": "GeoCond",
+    "url": "https://arxiv.org/abs/2609.18465",
+    "arxiv": "2609.18465",
+    "original_meta": "**[GeoCond](https://arxiv.org/abs/2609.18465)** · 2026-09 · **新增**",
+    "original_idea": "冻结重建 backbone，在预测几何上训练轻量可靠性 adapter，输出位姿不确定性及 refinement gate，用于选择何时精化。",
+    "original_boundary": "低视差、低重叠和大旋转下，原生 confidence 未必能反映几何病态；新预印本，适合方法和评估设计精读。"
+  },
+  {
+    "id": "G05",
+    "priority": "P2",
+    "name": "Motion- and Gravity-Aware Feedforward 3D Reconstruction",
+    "url": "https://arxiv.org/abs/2610.22177",
+    "arxiv": "2610.22177",
+    "original_meta": "**[Motion- and Gravity-Aware Feedforward 3D Reconstruction](https://arxiv.org/abs/2610.22177)** · 2026-10-15 · **新增**",
+    "original_idea": "训练时用残差光流、重力方向作为 privileged information 引导几何表征；推理时只需要视觉输入。",
+    "original_boundary": "最新观察项：训练时物理先验能否补足歧义？本次仅做摘要级纳入，暂不据此更换主线基线。"
+  },
+  {
+    "id": "H01",
+    "priority": "P2",
+    "name": "Depth Anything",
+    "url": "https://arxiv.org/abs/2401.10891",
+    "arxiv": "2401.10891",
+    "original_meta": "**[Depth Anything](https://arxiv.org/abs/2401.10891)** · 2024-01 · 已有",
+    "original_idea": "利用大规模无标注数据的伪标签与语义先验提升单目深度泛化。",
+    "original_boundary": "回顾数据 scaling；原版单目深度与 A10 的 DA3 任意视图几何是不同阶段。"
+  },
+  {
+    "id": "H02",
+    "priority": "P1",
+    "name": "MoGe",
+    "url": "https://arxiv.org/abs/2410.19115",
+    "arxiv": "2410.19115",
+    "original_meta": "**[MoGe](https://arxiv.org/abs/2410.19115)** · 2024-10 · 已有",
+    "original_idea": "单图预测对全局尺度、偏移不敏感的点图，配合全局对齐及多尺度局部几何监督。",
+    "original_boundary": "理解单目歧义、表示和损失设计；与多视图中可由对应关系约束的几何区分。"
+  },
+  {
+    "id": "H03",
+    "priority": "P1",
+    "name": "MoGe-2",
+    "url": "https://arxiv.org/abs/2507.02546",
+    "arxiv": "2507.02546",
+    "original_meta": "**[MoGe-2](https://arxiv.org/abs/2507.02546)** · 2025-07 · **新增**",
+    "original_idea": "在保留相对几何质量的同时学习 metric scale，并用合成清晰标签辅助精炼真实数据，改善细节。",
+    "original_boundary": "补齐从 affine-invariant 到 metric monocular geometry 的路径。"
+  },
+  {
+    "id": "H04",
+    "priority": "P1",
+    "name": "MetricAnything",
+    "url": "https://arxiv.org/abs/2601.22054",
+    "arxiv": "2601.22054",
+    "original_meta": "**[MetricAnything](https://arxiv.org/abs/2601.22054)** · 2026-01 · **新增**",
+    "original_idea": "用随机稀疏深度构造 Sparse Metric Prompt，统一异质传感器和相机来源的预训练，再蒸馏无需 prompt 的学生。",
+    "original_boundary": "数据与尺度支线；不要与 MapAnything 混名，关键是 metric depth pretraining。"
+  },
+  {
+    "id": "H05",
+    "priority": "P2",
+    "name": "RayDiffusion / Cameras as Rays",
+    "url": "https://arxiv.org/abs/2402.14817",
+    "arxiv": "2402.14817",
+    "original_meta": "**[RayDiffusion / Cameras as Rays](https://arxiv.org/abs/2402.14817)** · 2024-02 · 已有",
+    "original_idea": "以局部 ray bundle 表示相机，连接图像 patch 特征与相机几何，并比较直接回归与扩散去噪。",
+    "original_boundary": "回答“相机怎样参数化”；扩散推理分支不是单次确定性回归。"
+  },
+  {
+    "id": "H06",
+    "priority": "P2",
+    "name": "Reloc3R",
+    "url": "https://arxiv.org/abs/2412.08376",
+    "arxiv": "2412.08376",
+    "original_meta": "**[Reloc3R](https://arxiv.org/abs/2412.08376)** · 2024-12 · 已有",
+    "original_idea": "大规模成对相对位姿回归，加轻量 motion averaging 实现定位。",
+    "original_boundary": "位姿头与定位支线；不把它当作完整稠密三维场景恢复。"
+  },
+  {
+    "id": "H07",
+    "priority": "P2",
+    "name": "LRM",
+    "url": "https://arxiv.org/abs/2311.04400",
+    "arxiv": "2311.04400",
+    "original_meta": "**[LRM](https://arxiv.org/abs/2311.04400)** · 2023-11 · 已有",
+    "original_idea": "大模型从单图直接预测物体 NeRF，通过大量物体多视图训练获得类别泛化。",
+    "original_boundary": "物体级补全／生成路线；单图不可见部分主要依赖学习先验。"
+  },
+  {
+    "id": "H08",
+    "priority": "P2",
+    "name": "PF-LRM",
+    "url": "https://arxiv.org/abs/2311.12024",
+    "arxiv": "2311.12024",
+    "original_meta": "**[PF-LRM](https://arxiv.org/abs/2311.12024)** · 2023-11 · 已有",
+    "original_idea": "从少量 unposed 物体图像共同恢复形状与相机，先预测粗点云，再以可微 PnP 恢复相机。",
+    "original_boundary": "几何 solver 如何嵌入网络的早期对照；原笔记 PR-LRM 应更正为此名称。"
+  },
+  {
+    "id": "H09",
+    "priority": "P2",
+    "name": "LGM",
+    "url": "https://arxiv.org/abs/2402.05054",
+    "arxiv": "2402.05054",
+    "original_meta": "**[LGM](https://arxiv.org/abs/2402.05054)** · 2024-02 · **新增**",
+    "original_idea": "用多视 Gaussian 特征与高吞吐 U-Net 重建物体，可接多视扩散模型生成的输入。",
+    "original_boundary": "理解图像／文本到 3D 的生成—重建接口；整个生成流程与纯前馈重建阶段分开计时。"
+  },
+  {
+    "id": "N01",
+    "name": "MVSNet",
+    "arxiv": "1804.02505",
+    "url": "https://arxiv.org/abs/1804.02505",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N02",
+    "name": "CroCo",
+    "arxiv": "2210.10716",
+    "url": "https://arxiv.org/abs/2210.10716",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N03",
+    "name": "CroCo v2",
+    "arxiv": "2211.10408",
+    "url": "https://arxiv.org/abs/2211.10408",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N04",
+    "name": "Light3R-SfM",
+    "arxiv": "2501.14914",
+    "url": "https://arxiv.org/abs/2501.14914",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N05",
+    "name": "TTT3R",
+    "arxiv": "2509.26645",
+    "url": "https://arxiv.org/abs/2509.26645",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N06",
+    "name": "Gekko",
+    "arxiv": "2609.01530",
+    "url": "https://arxiv.org/abs/2609.01530",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "S01",
+    "name": "Feed-Forward 3D Scene Modeling: A Problem-Driven Perspective",
+    "arxiv": "2604.14025",
+    "url": "https://arxiv.org/abs/2604.14025",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N07",
+    "name": "StreamVGGT",
+    "arxiv": "2507.11539",
+    "url": "https://arxiv.org/abs/2507.11539",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N08",
+    "name": "VGGT-Long",
+    "arxiv": "2507.16443",
+    "url": "https://arxiv.org/abs/2507.16443",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N09",
+    "name": "D4RT",
+    "arxiv": "2512.08924",
+    "url": "https://arxiv.org/abs/2512.08924",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N10",
+    "name": "Depth Anything V2",
+    "arxiv": "2406.09414",
+    "url": "https://arxiv.org/abs/2406.09414",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N11",
+    "name": "TripoSR",
+    "arxiv": "2403.02151",
+    "url": "https://arxiv.org/abs/2403.02151",
+    "priority": "P1",
+    "addition_candidate": true
+  },
+  {
+    "id": "N12",
+    "name": "InstantMesh",
+    "arxiv": "2404.07191",
+    "url": "https://arxiv.org/abs/2404.07191",
+    "priority": "P1",
+    "addition_candidate": true
+  }
+]
