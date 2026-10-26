@@ -39,6 +39,7 @@ REG.extend(build_moge_series(atlas))
 (R/'papers/registry.json').write_text(json.dumps(REG,ensure_ascii=False,indent=2),encoding='utf-8')
 SR={e['id']:e for e in REG}
 QUESTIONS=json.loads((R/'research/method-questions.json').read_text(encoding='utf-8'))
+ANSWERS=json.loads((R/'research/method-answers.json').read_text(encoding='utf-8'))
 COMPANIONS={'02':['H02','H03','N13','A07','A09','A10'],'03':['B02','N07'],'04':['C02','C03','A12'],'05':['A02','F02'],'06':['E01','N09','B02'],'07':['F01','F02','G02'],'08':['N03','G02','A10'],'09':['G01','G04','A06'],'10':['H07','N12']}
 STEPS={
  '02':[('观测约束','图像 / 相机 / 稀疏测量'),('学习先验','相对形状与深度'),('尺度来源','预测 / 条件恢复')],
@@ -61,11 +62,11 @@ def tiles(ids):
   cards.append(f'<a class="paper-tile" href="../{s["path"]}"><div class="tile-art"><img src="../{f["image"]}" alt="{esc(s["title"])} 原文方法图" loading="lazy"></div><div class="tile-body"><span class="eyebrow">{pid} / COMPANION STUDY</span><h3>{s["title"]}</h3><p>{esc(E[pid]["idea"])}</p><span class="tile-link">动机 · 方法 · 原图 · 实验 ↗</span></div></a>')
  return '<div class="reading-map">'+''.join(cards)+'</div>'
 def card(e):
- pid=e['id'];links=''
+ pid=e['id'];links='';a=ANSWERS[pid]
  if pid in SR:
   path='../'+SR[pid]['path'];links='<div class="study-links">'+''.join(f'<a href="{path}{anchor}">{label}</a>' for anchor,label in [('', '独立论文精读 ↗'),('#method','Method'),('#experiment','Experiment'),('#discussion','Discussion')])+'</div>'
  cross=' · '.join(f'<a href="{atlas.TOPIC_PATHS[t]}.html">{t} · {atlas.TN[t]}</a>' for t in e['cross_topics'])
- return f'''<article class="method" id="method-{pid}"><div class="method-kicker">{pid} / {e['date']} / {e['priority']}</div><h3>{esc(e['name'])}</h3>{links}<div class="tags"><span class="badge">{e['scope']}</span><span class="tag">{e['type']}</span></div><p class="method-idea">{esc(e['idea'])}</p><div class="method-detail-grid"><div><h4>输入与运行</h4><p>{esc(e['inputs'])}</p><p class="small muted">{esc(e['execution'])}</p></div><div><h4>证据与阅读边界</h4><p>{esc(e['evidence'])}</p><p class="small muted">{esc(e['boundary'])}</p></div></div><div class="method-question"><b>带着问题读：</b>{esc(QUESTIONS[pid])}</div><p class="source-ref">{atlas.sources(pid,'../')} · <a href="../index.html#paper-{pid}">总览记录</a></p>{'<p class="small cross-ref">交叉阅读：'+cross+'</p>' if cross else ''}</article>'''
+ return f'''<article class="method" id="method-{pid}"><div class="method-kicker">{pid} / {e['date']} / {e['priority']}</div><h3>{esc(e['name'])}</h3>{links}<div class="tags"><span class="badge">{e['scope']}</span><span class="tag">{e['type']}</span></div><div class="method-answer"><h4>对本专题的回答</h4><p class="method-idea">{esc(a['answer'])}</p><p><b>设计取舍。</b>{esc(a['tradeoff'])}</p></div><div class="method-detail-grid"><div><h4>机制、输入与运行</h4><p>{esc(e['idea'])}</p><p>{esc(e['inputs'])}</p><p class="small muted">{esc(e['execution'])}</p></div><div><h4>原文证据与适用边界</h4><p>{esc(e['evidence'])}</p><p class="small muted">{esc(e['boundary'])}</p><a href="#evidence">本专题的证据归纳 ↑</a></div></div><details class="method-question"><summary>进一步阅读的问题</summary><p>{esc(QUESTIONS[pid])}</p></details><p class="source-ref">{atlas.sources(pid,'../')} · <a href="../index.html#paper-{pid}">总览记录</a></p>{'<p class="small cross-ref">交叉阅读：'+cross+'</p>' if cross else ''}</article>'''
 def ledger(tid):
  entries=[e for e in E.values() if e['topic']==tid or tid in e['cross_topics']]
  return '<section id="sources"><h2><span class="section-number">SOURCE LEDGER</span>本专题的原文入口</h2><p>表格与方法讨论按固定来源核对；本页统一记号、比较框架及研究假设属于阅读分析。跨论文分数保留各自协议，未进行模型复现。</p><details class="source-ledger"><summary>展开 '+str(len(entries))+' 项主线与交叉来源</summary><div class="source-grid">'+''.join(f'<div><strong>{e["id"]} · {esc(e["name"])}</strong><p>{atlas.sources(e["id"],"../")}</p><p class="small muted">{esc(e["evidence"])}</p></div>' for e in entries)+'</div></details></section>'
@@ -78,15 +79,15 @@ for tid,title,question,route in atlas.TOPICS[1:]:
  hero=f'''<div class="breadcrumb"><a href="../index.html">研究地图</a><span>/</span><a href="../index.html#topics">研究专题</a><span>/</span><span>专题 {tid}</span></div><header class="hero" data-number="{tid}"><div class="eyebrow">TOPIC {tid} / METHOD STUDY</div><h1>{title}</h1><p class="lead">{question}</p><div class="meta"><span class="badge">几何为中心 · 方法比较</span><span class="badge">{len(entries)} 项主归属</span><span class="badge warm">{len(COMPANIONS[tid])} 个精读入口</span></div>{diagram}<div class="reading-rail"><span>专题主线 + 论文方法卡 · 推导可展开</span><button data-reading-size aria-pressed="false">加大字号</button></div></header>'''
  prev=atlas.TOPICS[int(tid)-2];nxt=atlas.TOPICS[int(tid)%10]
  end=f'<nav class="paper-endnav" aria-label="专题导航"><a href="{atlas.TOPIC_PATHS[prev[0]]}.html"><small>PREVIOUS TOPIC</small>{prev[0]} · {prev[1]}</a><a href="{atlas.TOPIC_PATHS[nxt[0]]}.html"><small>NEXT TOPIC</small>{nxt[0]} · {nxt[1]}</a></nav>'
- toc=[('question','研究问题'),('notation','统一记号与推导'),('comparison','设计空间与精读'),('methods','逐篇方法卡'),('evidence','实验与比较条件'),('discussion','讨论与失败边界'),('hypotheses','可证伪研究假设'),('reading','建议阅读路径'),('sources','原文与版本')]
+ toc=[('question','研究问题与答案'),('notation','统一记号与推导'),('comparison','设计选择与取舍'),('evidence','实验观察与结论'),('methods','逐篇方法卡'),('discussion','讨论与失败边界'),('hypotheses','研究延伸：待验证'),('reading','建议阅读路径'),('sources','原文与版本')]
  (R/'topics'/(path+'.html')).write_text(atlas.shell(title,hero+content+ledger(tid)+end,active='chapter',prefix='../',toc=toc),encoding='utf-8')
 # Extend the approved sample without replacing its in-depth comparisons.
 p=R/'topics/01-geometry.html';s=p.read_text(encoding='utf-8')
 extra='<section id="extensions"><h2><span class="section-number">EXTENSIONS</span>多参考融合、集合推理与工程扩展</h2><p>六篇骨干建立了表示比较的主线；另外三项主归属分别补充多参考融合、大规模集合推理和工程功能边界。</p>'+''.join(card(E[pid]) for pid in ['A03','A04','A11'])+'</section>'
-s=s.replace('<section id="evidence">',extra+'<section id="evidence">',1)
+s=s.replace('<details id="paper-studies"',extra+'<details id="paper-studies"',1)
 s=s.replace('<footer class="footer">',ledger('01')+'<footer class="footer">',1)
 s=s.replace('<header class="hero">','<header class="hero" data-number="01">',1)
-s=s.replace('<a href="#evidence">实验能支持什么</a>','<a href="#extensions">补充方法与工程版本</a><a href="#evidence">实验能支持什么</a>')
+s=s.replace('<a href="#paper-studies">独立论文精读</a>','<a href="#extensions">补充方法与工程版本</a><a href="#paper-studies">独立论文精读</a>')
 s=s.replace('后续专题可直接引用各页的','其他专题可直接引用各页的')
 p.write_text(s,encoding='utf-8')
 # A compact directory links every independent study from the overview.

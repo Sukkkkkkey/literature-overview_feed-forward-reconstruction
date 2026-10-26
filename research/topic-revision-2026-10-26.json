@@ -1,0 +1,238 @@
+{
+  "scope": "Ten topic arguments and 69 method answers; no model experiments performed",
+  "topics": [
+    {
+      "topic": "01",
+      "source": "research/chapter-body.html",
+      "question_answer": "一致性有三个层次：同一模型的输出能否互相重建、单幅图的点是否服从一个共享相机、不同视图对应点是否落到同一表面。深度与共享相机反投影能在结构上满足前两项；跨视对应与真实几何仍需学习或求解。自由 XYZ 减少相机参数化的前置假设，也把更多一致性留给监督。参考系、尺度与训练辅助头是另外三个设计轴，不能由输出名称一并推断。",
+      "comparison_anchor": "methods",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2503.11651v1",
+        "2507.13347v3",
+        "2605.15195v1"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    },
+    {
+      "topic": "02",
+      "source": "research/topic-bodies/02-priors.html",
+      "question_answer": "尺度来源决定误差能否被新观测纠正。单图 RGB 的 metric 输出依赖学习先验；已知 K 约束射线但不固定物理尺度；可靠的米制深度或基线才增加尺度证据。MoGe 系列分别改善相对形状的学习、尺度与细节的分工、以及局部几何细化，三者收益应拆开评价。",
+      "comparison_anchor": "comparison",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2503.17316v1",
+        "2507.02546v1",
+        "2607.17967v2"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    },
+    {
+      "topic": "03",
+      "source": "research/topic-bodies/03-streaming.html",
+      "question_answer": "历史利用包含三个独立选择：保存哪些信息、何时读写、怎样把当前结果锚定到已有地图。显式缓存便于重用具体观测，固定状态以有限容量换取稳定的状态规模；检索、写入控制和回环修正可以叠加在这些表示之上。新帧改善当前预测，不等于已输出的历史地图自动得到修正。",
+      "comparison_anchor": "comparison",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2501.12387v1",
+        "2507.11539v2"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    },
+    {
+      "topic": "04",
+      "source": "research/topic-bodies/04-scaling.html",
+      "question_answer": "扩展计算主要通过三种交换：少算一部分交互、把历史关联压进有限容量的权重、或把大场景拆成局部问题。它们分别承担漏选对应、压缩干扰和跨块对齐误差。效率判断必须同时固定可见信息、质量目标与完整流程；“随图数线性”只是固定其他变量时的复杂度描述。",
+      "comparison_anchor": "comparison",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2602.23361v1",
+        "2603.04385v3",
+        "2605.15195v1"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    },
+    {
+      "topic": "05",
+      "source": "research/topic-bodies/05-backends.html",
+      "question_answer": "前端给出可用的对应、几何或初始化，后端在明确变量上重新满足多观测约束。能否修正错误取决于观测是否足以辨识这些变量，以及初值和匹配是否可信。BA、点图对齐与姿态图分别修改不同层面的误差；低残差并不排除共同偏差、错误对应或错误尺度。",
+      "comparison_anchor": "comparison",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2410.03825v2",
+        "2503.11651v1",
+        "2609.18465v1"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    },
+    {
+      "topic": "06",
+      "source": "research/topic-bodies/06-dynamics.html",
+      "question_answer": "动态重建有两项独立难题：从图像变化中分离相机自运动与真实场景运动，以及让不同时刻的输出保持同一物理点身份。静态区域／光流约束为相机提供锚点；学习式联合预测和时空查询则把分解与身份建模融入网络。共享坐标、逐帧点云或轨迹平滑都不能单独证明这两项已被解决。",
+      "comparison_anchor": "comparison",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2410.03825v2",
+        "2512.08924v2"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    },
+    {
+      "topic": "07",
+      "source": "research/topic-bodies/07-rendering.html",
+      "question_answer": "渲染误差同时由几何、相机与外观参数解释，因而较低 RGB 误差不能唯一确定正确表面。沿射线放置中心、显式跨视匹配和几何骨干分别提供不同约束；Gaussian 的大小、透明度与颜色仍能补偿部分位置错误。比较先固定相机输入，再分别检验表面与渲染收益。",
+      "comparison_anchor": "comparison",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2312.12337v4",
+        "2403.14627v2",
+        "2603.27455v2"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    },
+    {
+      "topic": "08",
+      "source": "research/topic-bodies/08-supervision.html",
+      "question_answer": "监督路线不只按“有没有标签”区分，而要追踪目标究竟约束什么自由度。跨视补全学习可迁移关系，几何标签直接约束形状但会传递噪声，对齐损失选择忽略哪些歧义，渲染闭环以图像解释间接学习几何。它们的收益、捷径与成本各不相同；初始化、标签质量和目标函数必须分别归因。",
+      "comparison_anchor": "comparison",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2211.10408v3",
+        "2507.02546v1",
+        "2603.27455v2",
+        "2607.17967v2"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    },
+    {
+      "topic": "09",
+      "source": "research/topic-bodies/09-reliability.html",
+      "question_answer": "机制证据与可靠性证据服务不同结论。probe 说明特征可解码，定向干预说明特定交互参与输出，但都不保证当前预测正确；风险排序帮助筛选，也不等于失败概率校准或优化收益预测。是否采用 BA，必须看优化前后误差与计算成本，而非仅凭“高不确定性”。",
+      "comparison_anchor": "comparison",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2512.11508v2",
+        "2609.18465v1"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    },
+    {
+      "topic": "10",
+      "source": "research/topic-bodies/10-objects.html",
+      "question_answer": "单图完整物体的不可见表面由跨物体先验补全。直接重建把先验放在确定性映射中，生成后重建先选择一组可能视图，再整合为三维；两者都没有增加真实观测。输出用 NeRF、Gaussian 还是 mesh 是另一个轴，它影响表面质量与使用成本，而不能独立决定背面是否真实。",
+      "comparison_anchor": "comparison",
+      "evidence_anchor": "evidence",
+      "evidence_source_ids": [
+        "2311.04400v2",
+        "2404.07191v2"
+      ],
+      "status": "Revised; argument readback completed; desktop/mobile/offline validation passed"
+    }
+  ],
+  "changed": [
+    "10 topic question answers and design comparisons",
+    "69 topic-specific method answers and trade-offs",
+    "10 original evidence figures reused with source captions",
+    "Evidence before per-paper catalogue; optional study directory",
+    "Separated ABot local context, Reliev3R supervision and joint 4D interfaces"
+  ],
+  "source_verification": [
+    {
+      "source": "research/sources/2503.11651v1-pages.txt",
+      "location": "Tables 3, 6",
+      "checked": "Deployment readout versus auxiliary supervision; 0.709 / 0.834 / 0.790"
+    },
+    {
+      "source": "research/sources/2507.13347v3-pages.txt",
+      "location": "Table 6; Appendix A.4 Table 8",
+      "checked": "Permutation variance and matched cold-start conditions, including pretrained DINOv2"
+    },
+    {
+      "source": "research/sources/2507.02546v1-pages.txt",
+      "location": "Table 4",
+      "checked": "Scale heads and real-label improvement; detail gains versus metric-depth regression"
+    },
+    {
+      "source": "research/sources/2607.17967v2-pages.txt",
+      "location": "Tables 2–3; Figure 4; Appendix C.4",
+      "checked": "Frozen-base 2D/SSR comparison versus joint training and separate deployment timing"
+    },
+    {
+      "source": "research/sources/2501.12387.txt",
+      "location": "Section 4.4, Table 5",
+      "checked": "Online versus final-state revisit; future context and explicit rereading"
+    },
+    {
+      "source": "research/sources/2602.23361.txt",
+      "location": "Table 6; Appendix C",
+      "checked": "CD 0.061 / 0.074 / 0.066; update steps and quality trade-off"
+    },
+    {
+      "source": "research/sources/2605.15195v1-pages.txt",
+      "location": "Section 4.3",
+      "checked": "Register replacement and loss removal; 0.071 / 0.073 / 0.078"
+    },
+    {
+      "source": "research/sources/2410.03825.txt",
+      "location": "Section 3.3–3.4, Table 5",
+      "checked": "Static flow evidence and unequal pose/depth benefits"
+    },
+    {
+      "source": "research/sources/2312.12337.txt",
+      "location": "Table 2",
+      "checked": "PSNR 24.62 versus 26.09; derived 1.47 dB difference"
+    },
+    {
+      "source": "research/sources/2403.14627.txt",
+      "location": "Table 3",
+      "checked": "Cost volume 22.83 versus base 26.12, both without refinement"
+    },
+    {
+      "source": "research/sources/2211.10408.txt",
+      "location": "Appendix H.1, Table 9",
+      "checked": "Pretraining versus random initialization, downstream supervised tasks"
+    },
+    {
+      "source": "research/sources/2512.11508.txt",
+      "location": "Section 4.3, Figure 3",
+      "checked": "Intervention metric is pose-derived fundamental-matrix Sampson error; 72% invalid DUSt3R predictions"
+    },
+    {
+      "source": "research/sources/2609.18465.txt",
+      "location": "Table 3",
+      "checked": "Indoor and OOD gating, negative result relative to FF-only"
+    }
+  ],
+  "validation_scope": "Manual argument review and selected primary-source numerical/condition checks; linked independent studies retained for remaining method evidence. No model reproduction or new benchmark.",
+  "limitations": [
+    "Cross-paper scores are not normalized into a leaderboard.",
+    "Mechanism-derived trade-offs are separated from reported ablation results.",
+    "Research hypotheses remain untested extensions.",
+    "The read-only Obsidian source note is not written by this revision."
+  ],
+  "validation": {
+    "html_pages_link_checked": 38,
+    "topic_pages_browser_checked": 10,
+    "method_cards_with_answers_and_tradeoffs": 69,
+    "topic_original_figures": 10,
+    "desktop_width": 1460,
+    "mobile_width": 390,
+    "broken_local_links": 0,
+    "broken_images": 0,
+    "page_overflow": 0,
+    "script_errors": 0,
+    "external_requests": 0,
+    "javascript_disabled_readable": true,
+    "old_topic_anchors_preserved": true,
+    "browser_report": "research/qa/topic-revision/browser.json",
+    "manual_screenshot_review": [
+      "01 comparison desktop",
+      "02 question mobile",
+      "04 evidence desktop",
+      "06 comparison desktop/mobile",
+      "08 comparison desktop/mobile",
+      "09 evidence mobile"
+    ],
+    "models_reproduced": false
+  }
+}
