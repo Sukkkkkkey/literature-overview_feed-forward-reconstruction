@@ -134,26 +134,6 @@
     ]
   },
   {
-    "id": "H02",
-    "slug": "moge",
-    "title": "MoGe",
-    "path": "papers/moge.html",
-    "version": "2410.19115v3",
-    "sections": [
-      "motivation",
-      "method",
-      "training",
-      "experiment",
-      "discussion",
-      "reading",
-      "sources"
-    ],
-    "figures": 3,
-    "topics": [
-      "02"
-    ]
-  },
-  {
     "id": "A07",
     "slug": "pow3r",
     "title": "Pow3R",
@@ -483,6 +463,69 @@
     "figures": 2,
     "topics": [
       "10"
+    ]
+  },
+  {
+    "id": "H02",
+    "slug": "moge-1",
+    "title": "MoGe",
+    "path": "papers/moge-1.html",
+    "version": "2410.19115v3",
+    "sections": [
+      "abstract",
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 2,
+    "topics": [
+      "02"
+    ]
+  },
+  {
+    "id": "H03",
+    "slug": "moge-2",
+    "title": "MoGe-2",
+    "path": "papers/moge-2.html",
+    "version": "2507.02546v1",
+    "sections": [
+      "abstract",
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3,
+    "topics": [
+      "02"
+    ]
+  },
+  {
+    "id": "N13",
+    "slug": "moge-3",
+    "title": "MoGe-3",
+    "path": "papers/moge-3.html",
+    "version": "2607.17967v2",
+    "sections": [
+      "abstract",
+      "motivation",
+      "method",
+      "training",
+      "experiment",
+      "discussion",
+      "reading",
+      "sources"
+    ],
+    "figures": 3,
+    "topics": [
+      "02"
     ]
   }
 ]

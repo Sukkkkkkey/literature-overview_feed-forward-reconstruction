@@ -1,0 +1,333 @@
+{
+  "checked": "2026-10-26",
+  "target_base": "papers/",
+  "scope": "正文与关键技术附录；网页保留贡献主线，非逐参数复现。原文页码为固定 PDF 物理页。",
+  "papers": [
+    {
+      "page": "moge-1.html",
+      "source_version": "2410.19115v3",
+      "items": [
+        {
+          "source": "Abstract / PDF p.2",
+          "target": "abstract",
+          "note": "逐字复用英文摘要，修复断行；CC BY 4.0。",
+          "priority": "core",
+          "status": "verbatim",
+          "kind": "abstract"
+        },
+        {
+          "source": "§1–2 / pp.2–3",
+          "target": "motivation",
+          "note": "合并历史背景，保留焦距/物距导致的监督歧义。",
+          "priority": "core",
+          "status": "summarized",
+          "kind": "section"
+        },
+        {
+          "source": "§3.1, Eq.2; App.A.1 / pp.4,14",
+          "target": "method",
+          "note": "保留 affine 自由度、居中主点假设、投影求焦距与 z-shift；不展开迭代求解每步代数。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "section"
+        },
+        {
+          "source": "§3.2, Eqs.3–8; App.A.2 / pp.5,14–17",
+          "target": "method",
+          "note": "解释 ROE 的分段线性候选、逆深度权重、截断与局部独立对齐。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "section"
+        },
+        {
+          "source": "App.A.2, Algorithms 2–5 / pp.14–16",
+          "target": null,
+          "note": "完整断点排序与证明不改变本页主线；保留原文定位供实现时查阅。",
+          "priority": "optional",
+          "status": "reference-only",
+          "kind": "appendix"
+        },
+        {
+          "source": "§3.3; App.B.1, Table 5 / pp.6,16–17",
+          "target": "training",
+          "note": "混合数据及按标签质量配置损失。",
+          "priority": "core",
+          "status": "summarized",
+          "kind": "section"
+        },
+        {
+          "source": "§4.1–4.3; Tables 1–4 / pp.6–8",
+          "target": "experiment",
+          "note": "覆盖点图、深度、FoV 与小模型消融；保留非单调指标。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "experiment"
+        },
+        {
+          "source": "App.B.2–B.3 / pp.17–18",
+          "target": "experiment",
+          "note": "解释评测清理、各类对齐、训练域重叠。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "appendix"
+        },
+        {
+          "source": "App.C / pp.18–23",
+          "target": null,
+          "note": "重复定性图和逐数据集深度表保留原文；主实验族已在正文概述。",
+          "priority": "optional",
+          "status": "reference-only",
+          "kind": "appendix"
+        },
+        {
+          "source": "App.D, Figure 9 / p.18",
+          "target": "discussion",
+          "note": "细结构与时序一致性限制；连接局部对齐不能保证全局布局的分析。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "limitation"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "局部点 Rel 8.59→7.62→7.16",
+          "evidence": "Table 4: ROE scale-inv., ROE affine-inv., Full",
+          "target": "experiment",
+          "conditions": "ViT-B 消融，不同表示/损失配置",
+          "type": "author-reported"
+        },
+        {
+          "claim": "形状对齐成绩不能解释为米制精度",
+          "evidence": "§3.1 and App.B.3 freedoms",
+          "target": "discussion",
+          "conditions": "单张图无尺度观测",
+          "type": "analysis"
+        }
+      ]
+    },
+    {
+      "page": "moge-2.html",
+      "source_version": "2507.02546v1",
+      "items": [
+        {
+          "source": "Abstract / p.1",
+          "target": "abstract",
+          "note": "固定 v1 原文，包括参考编号 [61]；CC BY 4.0。",
+          "priority": "core",
+          "status": "verbatim",
+          "kind": "abstract"
+        },
+        {
+          "source": "§1–2 / pp.1–3",
+          "target": "motivation",
+          "note": "合并相关工作，聚焦 metric scale 与标签噪声的两个瓶颈。",
+          "priority": "core",
+          "status": "summarized",
+          "kind": "section"
+        },
+        {
+          "source": "§3.1–3.2, Eq.3, Figures 2–3 / pp.3–4",
+          "target": "method",
+          "note": "解释继承点图/ROE、解耦尺度、CLS-MLP 和 stopgrad 标签。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "section"
+        },
+        {
+          "source": "§3.3, Eqs.4–7, Figures 4–5 / pp.5–6",
+          "target": "training",
+          "note": "局部对齐筛错、教师梯度与真实边界约束的 log-Poisson 补全；区分训练与推理。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "section"
+        },
+        {
+          "source": "§4.1–4.3, Tables 1–4, Figures 6–7 / pp.6–9",
+          "target": "experiment",
+          "note": "分相对/米制/边界实验；重点保留同骨干消融与 metric depth 退步。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "experiment"
+        },
+        {
+          "source": "App.A.1–A.2 / pp.15–16",
+          "target": "method",
+          "note": "轻量解码器、可变分辨率与混合数据合并；不罗列通道数/采样权重。",
+          "priority": "core",
+          "status": "summarized",
+          "kind": "appendix"
+        },
+        {
+          "source": "App.A.3 / pp.16–17",
+          "target": "experiment",
+          "note": "metric point 允许平移，metric depth 不对齐；影响结论，必须明示。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "appendix"
+        },
+        {
+          "source": "App.B.1–B.2, Table B.3 / pp.17–18",
+          "target": "experiment",
+          "note": "分辨率/延迟的条件和代表数值；不混用最快与最清晰配置。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "appendix"
+        },
+        {
+          "source": "App.B.3–B.4 / pp.19–22",
+          "target": null,
+          "note": "重复视觉案例与完整逐数据集表留原文；主实验族和可比性已概述。",
+          "priority": "optional",
+          "status": "reference-only",
+          "kind": "appendix"
+        },
+        {
+          "source": "§5 Limitations / p.9",
+          "target": "discussion",
+          "note": "细线、头发、前后景尺度差与域外尺度偏移。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "limitation"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "标签改良使 F1 10.3→12.5，但 metric depth Rel 15.8→16.5",
+          "evidence": "Table 4, raw/improved real data",
+          "target": "experiment",
+          "conditions": "ViT-B; identical ablation family",
+          "type": "author-reported"
+        },
+        {
+          "claim": "教师偏差仍可能造成误过滤",
+          "evidence": "§3.3 relies on synthetic teacher local geometry",
+          "target": "discussion",
+          "conditions": "教师在真实域的局部结构错误",
+          "type": "mechanistic inference"
+        }
+      ]
+    },
+    {
+      "page": "moge-3.html",
+      "source_version": "2607.17967v2",
+      "items": [
+        {
+          "source": "Abstract / pp.1–2",
+          "target": "abstract",
+          "note": "仅展示首句 11 词节选，明确标注并链接全文；非开放复用许可。",
+          "priority": "core",
+          "status": "verbatim",
+          "kind": "abstract"
+        },
+        {
+          "source": "§1–2 / pp.2–3",
+          "target": "motivation",
+          "note": "合并历史背景；突出 2D 邻域与深度不连续的冲突，作为作者假说而非唯一成因。",
+          "priority": "core",
+          "status": "summarized",
+          "kind": "section"
+        },
+        {
+          "source": "§3.1–3.2.3, Eqs.1–5, Figure 2 / pp.3–5",
+          "target": "method",
+          "note": "区分体素坐标与特征，解释 log-depth/固定射线/重新体素化/DINO 注入。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "section"
+        },
+        {
+          "source": "§3.3; App.A.1–A.3 / pp.5,15–16",
+          "target": "training",
+          "note": "明确 synthetic-only refiner gradients、预热/联合训练、共享尺度的局部损失变更。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "appendix"
+        },
+        {
+          "source": "App.A.2 optimizer and full loss hyperparameters / p.16",
+          "target": null,
+          "note": "逐超参数不影响方法主线；训练阶段和数据路由已在正文解释。",
+          "priority": "optional",
+          "status": "reference-only",
+          "kind": "appendix"
+        },
+        {
+          "source": "§4.1–4.4, Tables 1–2 / pp.6–8",
+          "target": "experiment",
+          "note": "全局/局部/边界三个实验族；F1 非最优；主表 K=3 的延迟条件。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "experiment"
+        },
+        {
+          "source": "§4.5, Table 3, Figure 4 / pp.7–10",
+          "target": "experiment",
+          "note": "冻结基座、参数匹配 2D、DINO 注入、体素分辨率、迭代次数；区分联合基座 K=0。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "ablation"
+        },
+        {
+          "source": "App.B.1–B.2 / pp.16–17",
+          "target": "experiment",
+          "note": "SAM2+视差结构筛细节；全局尺度+逐区平移；0.01 阈值与按区域平均，不能跨代混比。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "appendix"
+        },
+        {
+          "source": "App.C, Tables C.1–C.4 / pp.17–19",
+          "target": "experiment",
+          "note": "逐数据集结果用于定位协议；延迟 FP16/A100/batch1/200 inputs。",
+          "priority": "core",
+          "status": "summarized",
+          "kind": "appendix"
+        },
+        {
+          "source": "App.D / pp.20–22",
+          "target": null,
+          "note": "更多重复定性比较留原文；页面用 Figure 4 同场景迭代图说明可见变化。",
+          "priority": "optional",
+          "status": "reference-only",
+          "kind": "appendix"
+        },
+        {
+          "source": "§5 Limitations / p.10",
+          "target": "discussion",
+          "note": "回归边界歧义与飞点；固定射线限制和真实域局部验证缺口明确为本页分析。",
+          "priority": "core",
+          "status": "explained",
+          "kind": "limitation"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "局部点 δ 46.6%→47.0% (2D) vs 55.1% (SSR)",
+          "evidence": "Table 3, Base/2D Conv./D=200",
+          "target": "experiment",
+          "conditions": "Frozen MoGe-2 ViT-L; K train3/test5",
+          "type": "author-reported"
+        },
+        {
+          "claim": "39→121 ms",
+          "evidence": "Table 2/C.4 MoGe-2 versus ViT-L 3-step",
+          "target": "experiment",
+          "conditions": "A100 FP16 700² batch1",
+          "type": "author-reported"
+        },
+        {
+          "claim": "固定射线可能限制相机方向错误的纠正",
+          "evidence": "§3.2 u,v fixed; Eq.4–5",
+          "target": "discussion",
+          "conditions": "初始射线错误；未声称已有专项验证",
+          "type": "mechanistic inference"
+        }
+      ]
+    }
+  ],
+  "gaps": [
+    "MoGe-3 官方会议接收记录未核实；只报告作者项目页声明。",
+    "未运行模型、未复现训练或表格数值。",
+    "未检查官方实现 revision；不以当前默认代码替代论文协议。"
+  ]
+}

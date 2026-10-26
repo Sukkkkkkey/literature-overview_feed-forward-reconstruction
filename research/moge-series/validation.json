@@ -1,0 +1,195 @@
+{
+  "checked": "2026-10-26",
+  "pages": 4,
+  "coverage_items": 31,
+  "coverage_targets": "passed",
+  "structure_and_reading": [
+    {
+      "file": "moge.html",
+      "passed": true,
+      "reading": {
+        "scope": "Editorial estimate, including closed details; not measured human reading time",
+        "cjk_characters": 1424,
+        "latin_words_and_numbers": 152,
+        "figures": 3,
+        "tables": 1,
+        "equation_blocks": 0,
+        "rates": {
+          "cjk_characters_per_minute": 350,
+          "latin_words_per_minute": 160,
+          "minutes_per_visual": 0.5,
+          "minutes_per_equation": 0.25
+        },
+        "budget_minutes": 10.0,
+        "extra_minutes": 0.0,
+        "override_reason": "",
+        "extra_reason": "原表含多种对齐协议；额外预留辨读时间",
+        "text_minutes": 5.02,
+        "visual_minutes": 2.0,
+        "equation_minutes": 0.0,
+        "estimated_minutes": 7.02,
+        "display_minutes": 8,
+        "passed": true
+      }
+    },
+    {
+      "file": "moge-1.html",
+      "passed": true,
+      "reading": {
+        "scope": "Editorial estimate, including closed details; not measured human reading time",
+        "cjk_characters": 1293,
+        "latin_words_and_numbers": 401,
+        "figures": 2,
+        "tables": 0,
+        "equation_blocks": 2,
+        "rates": {
+          "cjk_characters_per_minute": 350,
+          "latin_words_per_minute": 160,
+          "minutes_per_visual": 0.5,
+          "minutes_per_equation": 0.25
+        },
+        "budget_minutes": 10.0,
+        "extra_minutes": 0.5,
+        "override_reason": "",
+        "extra_reason": "原表含多种对齐协议；额外预留辨读时间",
+        "text_minutes": 6.2,
+        "visual_minutes": 1.0,
+        "equation_minutes": 0.5,
+        "estimated_minutes": 8.2,
+        "display_minutes": 9,
+        "passed": true
+      }
+    },
+    {
+      "file": "moge-2.html",
+      "passed": true,
+      "reading": {
+        "scope": "Editorial estimate, including closed details; not measured human reading time",
+        "cjk_characters": 1324,
+        "latin_words_and_numbers": 426,
+        "figures": 3,
+        "tables": 0,
+        "equation_blocks": 2,
+        "rates": {
+          "cjk_characters_per_minute": 350,
+          "latin_words_per_minute": 160,
+          "minutes_per_visual": 0.5,
+          "minutes_per_equation": 0.25
+        },
+        "budget_minutes": 10.0,
+        "extra_minutes": 0.5,
+        "override_reason": "",
+        "extra_reason": "原表含多种对齐协议；额外预留辨读时间",
+        "text_minutes": 6.45,
+        "visual_minutes": 1.5,
+        "equation_minutes": 0.5,
+        "estimated_minutes": 8.95,
+        "display_minutes": 9,
+        "passed": true
+      }
+    },
+    {
+      "file": "moge-3.html",
+      "passed": true,
+      "reading": {
+        "scope": "Editorial estimate, including closed details; not measured human reading time",
+        "cjk_characters": 1395,
+        "latin_words_and_numbers": 320,
+        "figures": 3,
+        "tables": 0,
+        "equation_blocks": 2,
+        "rates": {
+          "cjk_characters_per_minute": 350,
+          "latin_words_per_minute": 160,
+          "minutes_per_visual": 0.5,
+          "minutes_per_equation": 0.25
+        },
+        "budget_minutes": 10.0,
+        "extra_minutes": 0.5,
+        "override_reason": "",
+        "extra_reason": "原表含多种对齐协议；额外预留辨读时间",
+        "text_minutes": 5.99,
+        "visual_minutes": 1.5,
+        "equation_minutes": 0.5,
+        "estimated_minutes": 8.49,
+        "display_minutes": 9,
+        "passed": true
+      }
+    }
+  ],
+  "coverage_warning_resolution": "Skill validator expects adjacent coverage.json; project uses research/moge-series/coverage.json. All per-paper targets and omissions validated separately here.",
+  "browser": {
+    "pages": [
+      {
+        "slug": "moge",
+        "desktopOverflow": false,
+        "desktopBrokenImages": [],
+        "mobileOverflow": false,
+        "mobileBrokenImages": [],
+        "mobileToc": true,
+        "mobileAnchor": true
+      },
+      {
+        "slug": "moge-1",
+        "desktopOverflow": false,
+        "desktopBrokenImages": [],
+        "desktopLightbox": true,
+        "desktopZoom": true,
+        "desktopEscape": true,
+        "desktopFontToggle": true,
+        "mobileOverflow": false,
+        "mobileBrokenImages": [],
+        "mobileLightbox": true,
+        "mobileZoom": true,
+        "mobileEscape": true,
+        "mobileFontToggle": true,
+        "mobileToc": true,
+        "mobileAnchor": true
+      },
+      {
+        "slug": "moge-2",
+        "desktopOverflow": false,
+        "desktopBrokenImages": [],
+        "desktopLightbox": true,
+        "desktopZoom": true,
+        "desktopEscape": true,
+        "desktopFontToggle": true,
+        "mobileOverflow": false,
+        "mobileBrokenImages": [],
+        "mobileLightbox": true,
+        "mobileZoom": true,
+        "mobileEscape": true,
+        "mobileFontToggle": true,
+        "mobileToc": true,
+        "mobileAnchor": true
+      },
+      {
+        "slug": "moge-3",
+        "desktopOverflow": false,
+        "desktopBrokenImages": [],
+        "desktopLightbox": true,
+        "desktopZoom": true,
+        "desktopEscape": true,
+        "desktopFontToggle": true,
+        "mobileOverflow": false,
+        "mobileBrokenImages": [],
+        "mobileLightbox": true,
+        "mobileZoom": true,
+        "mobileEscape": true,
+        "mobileFontToggle": true,
+        "mobileToc": true,
+        "mobileAnchor": true
+      }
+    ],
+    "errors": [],
+    "external": [],
+    "legacyAnchors": true,
+    "jsOff": true
+  },
+  "source_figure_hashes": "passed",
+  "visual_review": "Inspected desktop/mobile screenshots and all six new original crops; no clipped captions or missing table rows.",
+  "readonly_note_sha256": "61a5b3affd67c99d4b9977522981b46c8d93975407e100d19d667f8e44533849",
+  "readonly_note_stable_since_first_observation": true,
+  "readonly_note_matches_historical_snapshot": false,
+  "models_executed": false
+}

@@ -22,6 +22,7 @@ OUTPUTS={
  'N12':'NeRF / Mesh 物体资产（分变体）'}
 TOC=[('motivation','01 · 动机与问题'),('method','02 · 方法与表示'),('training','03 · 训练与协议'),('experiment','04 · 实验与证据'),('discussion','05 · 讨论与边界'),('reading','06 · 阅读核对'),('sources','原文与版本记录')]
 for idx,m in enumerate(META,7):
+ if m['id']=='H02':continue # MoGe is built together with its two sequels below.
  pid=m['id'];slug=m['slug'];e=E[pid];name=m['name'];tid=m['topics'][0];topic=atlas.TOPIC_PATHS[tid]
  content=(R/'research/paper-bodies'/(slug+'.html')).read_text(encoding='utf-8')
  content=re.sub(r'\{\{fig:([^}]+)\}\}',lambda x:studies.figure(slug,x[1]),content)
@@ -33,10 +34,12 @@ for idx,m in enumerate(META,7):
  end=f'<nav class="paper-endnav" aria-label="论文阅读导航"><a href="../topics/{topic}.html#method-{pid}"><small>BACK TO TOPIC</small>返回专题中的方法比较 ↗</a><a href="../index.html#studies"><small>CONTINUE READING</small>选择下一篇论文精读 →</a></nav>'
  (R/'papers'/(slug+'.html')).write_text(atlas.shell(name+' · 论文精读',hero+content+sources+end,active='study',prefix='../',toc=TOC),encoding='utf-8')
  REG.append(dict(id=pid,slug=slug,title=name,path='papers/'+slug+'.html',version=e['version'],sections=[t[0] for t in TOC],figures=nfig,topics=m['topics']))
+from build_moge_series import build as build_moge_series
+REG.extend(build_moge_series(atlas))
 (R/'papers/registry.json').write_text(json.dumps(REG,ensure_ascii=False,indent=2),encoding='utf-8')
 SR={e['id']:e for e in REG}
 QUESTIONS=json.loads((R/'research/method-questions.json').read_text(encoding='utf-8'))
-COMPANIONS={'02':['H02','A07','A09','A10'],'03':['B02','N07'],'04':['C02','C03','A12'],'05':['A02','F02'],'06':['E01','N09','B02'],'07':['F01','F02','G02'],'08':['N03','G02','A10'],'09':['G01','G04','A06'],'10':['H07','N12']}
+COMPANIONS={'02':['H02','H03','N13','A07','A09','A10'],'03':['B02','N07'],'04':['C02','C03','A12'],'05':['A02','F02'],'06':['E01','N09','B02'],'07':['F01','F02','G02'],'08':['N03','G02','A10'],'09':['G01','G04','A06'],'10':['H07','N12']}
 STEPS={
  '02':[('观测约束','图像 / 相机 / 稀疏测量'),('学习先验','相对形状与深度'),('尺度来源','预测 / 条件恢复')],
  '03':[('当前图像','局部可见证据'),('历史状态','读写 / 检索 / 遗忘'),('输出与轨迹','局部误差 → 长程漂移')],
@@ -54,7 +57,7 @@ def table(match):
 def tiles(ids):
  cards=[]
  for pid in ids:
-  s=SR[pid];f=studies.FIG[(s['slug'],'architecture')]
+  s=SR[pid];f=studies.FIG[('moge' if s['slug']=='moge-1' else s['slug'],'architecture')]
   cards.append(f'<a class="paper-tile" href="../{s["path"]}"><div class="tile-art"><img src="../{f["image"]}" alt="{esc(s["title"])} 原文方法图" loading="lazy"></div><div class="tile-body"><span class="eyebrow">{pid} / COMPANION STUDY</span><h3>{s["title"]}</h3><p>{esc(E[pid]["idea"])}</p><span class="tile-link">动机 · 方法 · 原图 · 实验 ↗</span></div></a>')
  return '<div class="reading-map">'+''.join(cards)+'</div>'
 def card(e):
@@ -87,7 +90,7 @@ s=s.replace('<a href="#evidence">实验能支持什么</a>','<a href="#extension
 s=s.replace('后续专题可直接引用各页的','其他专题可直接引用各页的')
 p.write_text(s,encoding='utf-8')
 # A compact directory links every independent study from the overview.
-directory='<section id="studies"><h2><span class="section-number">PAPER COMPANIONS</span>23 篇可复用的独立论文精读</h2><p>专题建立比较框架，精读页补足论文独有的动机、推导、训练与实验。原论文关键图表可放大，并附版本、图号和 PDF 页码。</p><div class="study-directory">'
+directory=f'<section id="studies"><h2><span class="section-number">PAPER COMPANIONS</span>{len(REG)} 篇可复用的独立论文精读</h2><p>专题建立比较框架，精读页补足论文独有的动机、推导、训练与实验。原论文关键图表可放大，并附版本、图号和 PDF 页码。<a href="papers/moge.html">新增：MoGe 三篇系列比较 →</a></p><div class="study-directory">'
 for tid,title,_,_ in atlas.TOPICS:
  ss=[e for e in REG if e['topics'][0]==tid]
  if ss:directory+=f'<div><span class="eyebrow">TOPIC {tid}</span><h3>{title.split("：")[0]}</h3>'+''.join(f'<a href="{e["path"]}"><span>{e["title"]}</span><small>{e["figures"]} 处原图表 ↗</small></a>' for e in ss)+'</div>'
@@ -98,4 +101,4 @@ for e in REG[:6]:
  p=R/e['path'];s=p.read_text(encoding='utf-8')
  related='<div class="study-context">继续比较：'+' · '.join(f'<a href="../topics/{atlas.TOPIC_PATHS[t]}.html">{t} · {atlas.TN[t]}</a>' for t in e['topics'])+'</div>'
  s=s.replace('<nav class="paper-endnav"',related+'<nav class="paper-endnav"',1);p.write_text(s,encoding='utf-8')
-print(f'Built 10 topics, {len(REG)} independent studies, overview and audit (35 HTML pages).')
+print(f'Built 10 topics, {len(REG)} independent studies, MoGe series comparison, overview and audit ({len(list((R/"papers").glob("*.html")))+12} HTML pages).')

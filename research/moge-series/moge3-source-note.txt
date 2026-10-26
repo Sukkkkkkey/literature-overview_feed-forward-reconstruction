@@ -1,0 +1,12 @@
+MoGe-3 source review / checked 2026-10-26
+Fixed source: https://arxiv.org/pdf/2607.17967v2 (22 physical pages)
+Full paper and technical appendices A-D were inspected. The local PDF is a reading cache, excluded from publication.
+Official code: https://github.com/microsoft/MoGe
+Author project: https://qft-333.github.io/moge3page/
+Publication: author page reports NeurIPS 2026 acceptance; official proceedings record was not verified.
+Study: papers/moge-3.html; series: papers/moge.html.
+Core mechanism: MoGe-2-initialized base, image/log-depth sparse voxel shell, DINO feature injection, iterative depth residuals with fixed rays.
+Training: refiner receives synthetic gradients only; staged joint training; shared-scale local loss differs from the earlier MoGe losses.
+Evidence: Table 3 frozen-base 2D/3D ablation; Figure 4 joint-base K=0 versus iterative SSR; Table 2 and C.4 latency.
+Limitations: local evaluation uses Spring/Synth4K, metric and boundary scores are not uniformly improved, fly-points remain.
+See coverage.json for section-level evidence and exclusions. This note is an original summary, not a copy of the source paper.

@@ -1918,5 +1918,31 @@
     "checked": "2026-10-24",
     "source_sha256": "5d266bbbd78dc2155cae0e8df1dfeb63707d40b70415243b4a11a3108ca346a9",
     "cross_topics": []
+  },
+  {
+    "id": "N13",
+    "name": "MoGe-3",
+    "arxiv": "2607.17967",
+    "url": "https://arxiv.org/abs/2607.17967",
+    "priority": "P1",
+    "addition_candidate": true,
+    "topic": "02",
+    "scope": "通用几何",
+    "execution": "单图基础预测＋固定步数稀疏几何细化",
+    "inputs": "单张 RGB；无需给定相机或真实尺度",
+    "idea": "MoGe-2 初始化后，在像素/log-depth 稀疏体素壳上迭代预测深度残差，用几何邻域减轻前后景特征混合。",
+    "boundary": "refiner 仅接受合成数据梯度；细化固定射线，边界飞点仍存在；局部精度、米制误差与延迟需分开评价。",
+    "evidence": "§3；Table 3 参数匹配 2D 对照；Figure 4 迭代；附录 A–C 的训练、局部指标与延迟。",
+    "version": "2607.17967v2",
+    "source_local": "research/moge-series/moge3-source-note.txt",
+    "source_url": "https://arxiv.org/html/2607.17967v2",
+    "source_note": true,
+    "review_level": "固定 PDF 正文与技术附录核查",
+    "type": "论文",
+    "date": "2026-07",
+    "added": true,
+    "checked": "2026-10-26",
+    "source_sha256": "2fc3cbe4a5f7e9bcacdc0b6ef505aa1b7f306a16c218d4157e9d4109036463a4",
+    "cross_topics": []
   }
 ]

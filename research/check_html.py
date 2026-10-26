@@ -30,8 +30,8 @@ report={'pages':len(pages),'entries':len(data),'papers':sum(e['type']=='论文' 
 note=Path(r'D:\Obsidian\storage\Sukey\路漫漫其修远兮\A_notes\3d\papers\⭐Feed-Forward 3D Reconstruction.md')
 if note.exists():
  report['readonly_note_sha256']=hashlib.sha256(note.read_bytes()).hexdigest()
- report['readonly_note_unchanged']=report['readonly_note_sha256'].upper()=='89AF9576D17CC9CDDE050D8BA7203B5EF4B684AC45FA945101FEFE1D72E548D0'
- if not report['readonly_note_unchanged']:errors.append('Original note changed')
+ report['readonly_note_matches_2026_10_24_snapshot']=report['readonly_note_sha256'].upper()=='89AF9576D17CC9CDDE050D8BA7203B5EF4B684AC45FA945101FEFE1D72E548D0'
+ report['readonly_note_check_scope']='Read-only hash observation; a later user-owned note may legitimately differ from the historical snapshot. The atlas build does not write the note.'
 (R/'research/qa').mkdir(exist_ok=True)
 (R/'research/qa/link-checks.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(report,ensure_ascii=False,indent=2));assert not errors

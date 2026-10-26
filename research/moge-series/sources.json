@@ -1,0 +1,26 @@
+[
+  {
+    "version": "2410.19115v3",
+    "url": "https://arxiv.org/pdf/2410.19115v3",
+    "pdf": "research/sources/2410.19115v3.pdf",
+    "sha256": "5663f90c36e00ae26823be95117ff7e87bb6cdd3c0b1ff2a5ba278c3c2ddb61f",
+    "pages": 23,
+    "checked": "2026-10-26"
+  },
+  {
+    "version": "2507.02546v1",
+    "url": "https://arxiv.org/pdf/2507.02546v1",
+    "pdf": "research/sources/2507.02546v1.pdf",
+    "sha256": "346b3028857dff55f50b25d625d99a2afe0fb9ad6e1de5d08889fcd1ddadd13a",
+    "pages": 22,
+    "checked": "2026-10-26"
+  },
+  {
+    "version": "2607.17967v2",
+    "url": "https://arxiv.org/pdf/2607.17967v2",
+    "pdf": "research/sources/2607.17967v2.pdf",
+    "sha256": "85beceed1e2ffc91db541f21f5ec07c6d596d7e90c62458ce8462bc20b4741c1",
+    "pages": 22,
+    "checked": "2026-10-26"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "cjk_characters": 1324,
+  "latin_words_and_numbers": 426,
+  "figures_and_tables": 3,
+  "equation_blocks": 2,
+  "extra_minutes": 0.5,
+  "extra_reason": "原表含多种对齐协议；额外预留辨读时间",
+  "estimated_minutes": 8.95,
+  "budget_minutes": 10,
+  "passed": true
+}

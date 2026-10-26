@@ -8,12 +8,12 @@ const url=f=>'file:///'+path.join(root,f).replace(/\\/g,'/');
  const ctx=await browser.newContext({viewport:{width:1460,height:1050},deviceScaleFactor:1});const page=await ctx.newPage();const errors=[],external=[];const report={pages:[],errors,external};
  page.on('pageerror',e=>errors.push(String(e)));await ctx.route(/^https?:/,r=>{external.push(r.request().url());r.abort();});
  const papers=JSON.parse(fs.readFileSync(path.join(root,'papers','registry.json'),'utf8'));
- const files=[...fs.readdirSync(path.join(root,'topics')).filter(f=>f.endsWith('.html')).map(f=>'topics/'+f),...papers.map(p=>p.path),'index.html','review.html'];
+ const files=[...fs.readdirSync(path.join(root,'topics')).filter(f=>f.endsWith('.html')).map(f=>'topics/'+f),...papers.map(p=>p.path),'papers/moge.html','index.html','review.html'];
  for(const f of files){
   await page.goto(url(f));await page.locator('img').evaluateAll(es=>es.forEach(e=>e.loading='eager'));
   await page.evaluate(async()=>{await Promise.all([...document.images].map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;})));});
   const data={file:f,desktopOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),images:await page.locator('img[src]').count(),brokenImages:await page.locator('img[src]').evaluateAll(es=>es.filter(e=>!e.naturalWidth).map(e=>e.src))};
-  if(f.startsWith('papers/')){
+  if(f.startsWith('papers/')&&f!=='papers/moge.html'){
    data.sections=await page.locator('section').count();data.figures=await page.locator('.figure-plate').count();
    await page.locator('.figure-open').first().click();data.zoomOpens=await page.locator('dialog').evaluate(e=>e.open);await page.keyboard.press('Escape');data.escapeCloses=await page.locator('dialog').evaluate(e=>!e.open);
    const target=papers.find(p=>p.path===f);await page.goto(url(f)+'#discussion');await page.waitForFunction(()=>Math.abs(document.querySelector('#discussion').getBoundingClientRect().top)<200);data.anchorWorks=true;
